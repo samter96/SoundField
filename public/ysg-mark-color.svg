@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" aria-label="YSG Audio Tools">
+  <defs>
+    <linearGradient id="ysgc-down" gradientUnits="userSpaceOnUse" x1="12.00" y1="9.78" x2="12.00" y2="19.68"><stop offset="0" stop-color="#34E0E8"/><stop offset="1" stop-color="#2C6BE0"/></linearGradient>
+    <linearGradient id="ysgc-upleft" gradientUnits="userSpaceOnUse" x1="12.00" y1="9.78" x2="3.43" y2="4.83"><stop offset="0" stop-color="#2C6BE0"/><stop offset="1" stop-color="#1B2A6B"/></linearGradient>
+    <linearGradient id="ysgc-upright" gradientUnits="userSpaceOnUse" x1="12.00" y1="9.78" x2="20.57" y2="4.83"><stop offset="0" stop-color="#34E0E8"/><stop offset="1" stop-color="#2C6BE0"/></linearGradient>
+    <radialGradient id="ysgc-core" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#34E0E8" stop-opacity="0.95"/><stop offset="0.55" stop-color="#34E0E8" stop-opacity="0.35"/><stop offset="1" stop-color="#34E0E8" stop-opacity="0"/></radialGradient>
+  </defs>
+    <circle cx="12.000" cy="9.785" r="7.4" fill="url(#ysgc-core)"/>
+    <path d="M 9.400 9.785 L 11.400 19.685 L 12.600 19.685 L 14.600 9.785 Z" fill="url(#ysgc-down)" stroke="#34E0E8" stroke-opacity="0.42" stroke-width="0.38" stroke-linejoin="round"/>
+    <path d="M 13.300 7.533 L 3.726 4.315 L 3.126 5.354 L 10.700 12.036 Z" fill="url(#ysgc-upleft)" stroke="#34E0E8" stroke-opacity="0.42" stroke-width="0.38" stroke-linejoin="round"/>
+    <path d="M 13.300 12.036 L 20.874 5.354 L 20.274 4.315 L 10.700 7.533 Z" fill="url(#ysgc-upright)" stroke="#34E0E8" stroke-opacity="0.42" stroke-width="0.38" stroke-linejoin="round"/>
+    <path d="M 13.300 12.036 L 20.874 5.354 L 20.274 4.315 L 10.700 7.533 Z" fill="none" stroke="#ffffff" stroke-opacity="0.20" stroke-width="0.4" stroke-linejoin="round"/>
+    <line x1="11.28" y1="20.40" x2="12.72" y2="20.40" stroke="#34E0E8" stroke-opacity="0.55" stroke-width="0.42" stroke-linecap="round"/>
+    <line x1="3.16" y1="3.85" x2="2.44" y2="5.10" stroke="#34E0E8" stroke-opacity="0.55" stroke-width="0.42" stroke-linecap="round"/>
+    <line x1="21.56" y1="5.10" x2="20.84" y2="3.85" stroke="#34E0E8" stroke-opacity="0.55" stroke-width="0.42" stroke-linecap="round"/>
+    <circle cx="12.000" cy="9.785" r="0.72" fill="#FFB454"/>
+</svg>

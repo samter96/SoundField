@@ -1,0 +1,81 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Backups / temp
+*.bak
+*.bak_v2
+*.tmp
+*.zip
+*~
+
+# Logs
+*.log
+logs/
+
+# Local secrets
+.env
+*.key
+
+# PyInstaller / Inno Setup 빌드 산출물
+build/
+dist/
+*.spec.bak
+__pycache__/
+# 컴파일된 설치 파일(49MB+) — build_exe.bat 로 재생성. 백업 저장소 비대화 방지.
+installer/
+
+# 2026-05-29 player_widget.py 복구 작업 임시 파일들 (PYZ 디스어셈블 / 추출본)
+recovery_analysis/
+recovered_pyz/
+recovered/
+app/ui/player_widget_recovered.py
+
+# v1.0.0 백업 폴더 (회귀 진단용 — reference_v1_backup 메모리 참고)
+Sound_Search_program_v1_backup/
+
+# 루트의 사용자 작업 스크린샷 / 샘플 오디오 (저장소 포함 X)
+# app/assets/ 등 하위 폴더의 png/wav 는 영향 없음
+/*.png
+/*.wav
+
+# Tauri / 프런트엔드 빌드 산출물 (백업 저장소 비대화 방지 — 위 dist/·installer/ 와 같은 이유)
+node_modules/
+src-tauri/target/
+src-tauri/bridge-dist/
+src-tauri/bridge-build/
+app/soundfield.exe
+app/bridge/
+
+# 작업 임시 산출물 / 재생성 가능한 테스트 오디오 (2026-09-10)
+tmp/
+test_audio_channel_layout/
+
+# 2026-09-15 폴더 분리 후 추가 — 빌드 산출물
+py/**/__pycache__/
+app/soundfield.exe
+app/bridge/
+
+# 동료 툴(SCSearch)에서 온 바이노럴 모니터 실행 파일.
+# 라이선스·배포 허락이 확인되지 않아 **공개 저장소에 올리지 않는다** (사용자 결정 2026-09-15).
+# 로컬에는 그대로 두고, 설치본(릴리스)에는 들어간다.
+# 없으면 build_bridge.ps1 이 "사이드카를 찾을 수 없습니다" 로 멈춘다.
+py/sidecar/
+
+# run_dev.bat 이 만드는 실행기 사본 (파이썬 수정을 빌드 없이 들어보기용)
+devrun/

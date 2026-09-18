@@ -1,0 +1,61 @@
+[package]
+name = "soundfield"
+version = "2.1.1"
+description = "SoundField"
+edition = "2021"
+
+[lib]
+name = "soundfield_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# ⚠ devtools 기능을 켜지 말 것 (사용자 지시 2026-09-14). 켜 두면 **배포본에도**
+#   개발자 도구가 들어가, 앱이 죽어 자체 우클릭 메뉴가 사라진 순간 WebView2
+#   기본 메뉴의 "검사"가 노출돼 사용자 화면에 DevTools 창이 뜬다.
+#   개발 중에는 `npm run tauri dev` 가 디버그 빌드라 도구가 그대로 열린다.
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.32", features = ["bundled", "backup"] }
+tauri-plugin-drag = "2.1.1"
+tauri-plugin-single-instance = "2.4.4"
+# 드래그 그림(sf_drag_image) — 프런트가 캔버스로 그린 PNG 를 base64 로 받아 임시
+# 파일에 쓴다. startDrag 가 이미지를 **파일 경로**로만 받기 때문이다.
+# 잠금파일에 이미 0.22.1 이 간접 의존으로 들어와 있어 새로 내려받지 않는다.
+base64 = "0.22"
+
+
+# 탐색기에서 파일을 **선택된 상태로** 열기 위한 셸 API (SHOpenFolderAndSelectItems).
+# `explorer /select,"경로"` 는 폴더만 열고 선택이 안 되는 경우가 잦다 (실측: 161자
+# 짧은 경로 · 파일 존재 확인 상태에서도 선택 실패). 파일 관리자들이 쓰는 정식 API 다.
+[target.'cfg(windows)'.dependencies.windows]
+version = "0.61"
+features = ["Win32_UI_Shell", "Win32_UI_Shell_Common", "Win32_System_Com", "Win32_System_Ole", "Win32_System_Threading", "Win32_UI_WindowsAndMessaging", "Win32_System_Diagnostics_ToolHelp", "Win32_Foundation", "Win32_System_LibraryLoader"]
+
+# ── drag 크레이트 사본 사용 (필수) ───────────────────────────────────────────
+# ⚠ 이 patch 를 지우면 **NAS 파일을 DAW 로 드래그할 때 앱이 즉사한다.**
+# 원본 drag 2.1.1 은 드래그 직전에 경로를 dunce::canonicalize 로 바꾼다
+# (windows/mod.rs:235). 그러면 네트워크 드라이브 경로가 verbatim UNC 형태로 남고,
+# ILCreateFromPathW 가 그 형태를 받지 않아 null 을 돌려주는데 크레이트가 그걸
+# unwrap 해서 패닉한다. 패닉이 COM 드래그 경로를 거슬러 올라가므로 프로세스가 죽는다.
+# 실측: Y:(=\\victor\DATA_SOUND_INTERNAL) 파일은 원래 경로로 40/40 성공,
+#       정규화하면 전부 실패. 로컬 C:/D: 는 dunce 가 접두사를 떼주므로 무사했다.
+# 사본에서 정규화를 없애고 unwrap 3곳을 오류 반환으로 바꿨다 (vendor/drag 안 주석 참고).
+# 제작자가 이 문제를 고치면 이 patch 를 지우고 정식 버전으로 돌아가면 된다.
+[patch.crates-io]
+drag = { path = "vendor/drag" }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+# ⚠ 예전에는 `panic = "abort"` 였다. 그러면 Rust 쪽 패닉 하나에 **프로세스가 메시지 없이
+# 즉사**한다 — 사용자가 겪은 "아무 말도 없이 꺼짐"(드래그앤드롭 중 반복 크래시)의 조건이다.
+# 기본값(unwind)으로 되돌리면 패닉이 그 작업만 죽이고 Tauri 가 오류로 돌려준다.
+# 바이너리가 조금 커지는 대신 앱이 살아남는다.
+strip = true

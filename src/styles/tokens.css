@@ -1,0 +1,299 @@
+/* SoundField 디자인 토큰 — grey / dark / light 3종.
+   기존 app/ui/theme.py 의 키 이름을 그대로 유지해 이식이 1:1 로 대응되게 한다.
+   Tauri 로 오면서 추가된 것: 표면 계층 분리, hairline, 그림자, 포커스 링, 모션. */
+
+:root {
+  /* ── 타이포 ───────────────────────────────────────── */
+  /* ⚠ 맨 앞은 **앱에 내장한 글꼴**이다 (src/styles/fonts.css). 이걸 빼면 PC 마다
+     설치된 글꼴에 따라 글자 폭이 달라져 칸/줄바꿈이 어긋난다.
+     실측 2026-09-08: 개발 PC 에도 Inter 가 없어서 실제로는 Pretendard 로 그려지고
+     있었고, Pretendard 도 없는 PC 에서는 Malgun Gothic 으로 내려간다.
+     뒤쪽은 내장 글꼴을 못 읽었을 때를 위한 대비다. */
+  --font-ui: "Pretendard Bundled", "Inter Variable", Inter, "Pretendard Variable",
+             Pretendard, "Malgun Gothic", "Segoe UI Variable", "Segoe UI", sans-serif;
+  --font-num: "Pretendard Bundled", "Inter Variable", Inter,
+              "Segoe UI Variable", "Segoe UI", sans-serif;
+
+  --fs-title: 12px;
+  --fs-body: 12.5px;
+  --fs-row: 12.5px;
+  --fs-label: 10px;
+  --fs-caps: 9.5px;
+  --fs-tiny: 10.5px;
+  --fs-metric: 15px;
+
+  /* ── 간격/모양 ────────────────────────────────────── */
+  --r-sm: 4px;
+  --r-md: 6px;
+  --r-lg: 9px;
+  --r-pill: 999px;
+
+  --h-chrome: 34px;
+  --h-header: 46px;
+  --h-control: 30px;
+  --h-row: 30px;
+
+  /* ── 모션 ─────────────────────────────────────────────
+     값은 원본 app/ui/anim.py 그대로.
+       FRAME_MS 8 (120fps) / FAST_MS 120 / BASE_MS 180
+       WINDOW_FADE_MS 240 / DRAWER_MS 168, easing 은 전부 OutCubic.
+     --ease-emph 는 원본에 대응이 없는 신규 요소(모달 등장)에만 쓴다. */
+  --ease: cubic-bezier(.215, .61, .355, 1);   /* OutCubic */
+  --ease-emph: cubic-bezier(.16, 1, .3, 1);
+  --t-hover: 120ms;    /* FAST_MS */
+  --t-btn: 140ms;      /* GlowButton hover */
+  --t-control: 180ms;  /* BASE_MS */
+  --t-panel: 168ms;    /* DRAWER_MS */
+  --t-view: 240ms;     /* WINDOW_FADE_MS */
+}
+
+/* ══════════════════════════════════════════════════════
+   GREY — 기본 테마 (무채색). 기존 COLORS_GREY 를 계승하되
+   표면 단계를 4단으로 늘리고 hairline 을 알파로 바꿔
+   고배율에서 선이 두꺼워 보이지 않게 한다.
+   ══════════════════════════════════════════════════════ */
+:root,
+[data-theme="grey"] {
+  --bg:            #1a1a1a;
+  --bg-panel:      #1e1e1e;
+  --bg-elev:       #242424;
+  --bg-header:     #151515;
+  --bg-sidebar:    #1c1c1c;
+  --bg-control:    #202020;
+  --bg-control-hi: #2b2b2b;
+  --bg-overlay:    rgba(0, 0, 0, .55);
+
+  --line:          rgba(255, 255, 255, .075);
+  --line-strong:   rgba(255, 255, 255, .13);
+  --line-soft:     rgba(255, 255, 255, .04);
+
+  --text:           #d2d2d2;
+  --sc-logo-ink:  #c9cdd3;   /* 무채색 테마 — 밝은 회색 잉크 */
+  --text-secondary: #8a8a8a;
+  --text-muted:     #5c5c5c;
+  --text-caps:      #6a6a6a;
+
+  --accent:         #9a9a9a;
+  --accent-hover:   #b0b0b0;
+  --accent-pressed: #808080;
+  --accent-dim:     rgba(154, 154, 154, .14);
+  /* 원본 COLORS_GREY: accent_teal = accent(무채색 유지), accent_warm #b0b0b0 */
+  --accent-teal:    #888888;
+  --accent-warm:    #b0b0b0;
+  --accent-glow:    rgba(154, 154, 154, .30);
+  --on-accent:      #141414;
+
+  --hover:        rgba(255, 255, 255, .045);
+  --row-alt:      rgba(255, 255, 255, .012);
+  --row-hover:    rgba(255, 255, 255, .05);
+  --row-selected: rgba(255, 255, 255, .10);
+  --row-playing:  rgba(255, 255, 255, .145);
+
+  /* 원본 COLORS_GREY 는 warn 을 무채색으로 둔다 ("무채색 톤 유지") — 그대로 지킨다.
+     danger 만 빨강(#c44848). 상태 램프(정상/대기/실패)는 테마 무관 상수라 별개다. */
+  --warn:   #b0b0b0;
+  --danger: #c44848;
+  --ok:     #6fbf73;
+  --loop:   #8B3FE6;
+  --segment-on: #3ec870;
+  --active-green: #55df8a;
+  --status-warn: #f0a43c;
+  --status-error: #e45b64;
+  --speed-warn: #f28c28;
+
+  --wave:      #b8b8b8;
+  --wave-back: #4a4a4a;
+  --wave-head: #e8e8e8;
+  --wave-bg-top: #262626;
+  --wave-bg-mid: #1c1c1c;
+  --wave-bg-bottom: #161616;
+  --wave-sel:  rgba(93, 226, 199, .23);
+  --wave-sel-border: rgba(151, 235, 230, .86);
+  --wave-sel-loop: rgba(180, 130, 230, .24);
+  --wave-sel-loop-border: rgba(210, 170, 250, .86);
+
+  /* 파형 렌더 토큰 — 원본 PyQt _ensure_grads/_build_static_pixmap 정책 */
+  --wave-fill:        rgb(240,240,240);
+  --wave-grad-edge:   rgb(58,61,68);
+  --wave-grad-mid:    rgb(120,124,132);
+  --wave-grad-center: rgb(249,250,252);
+  --wave-env-edge:    rgba(226,234,255,.22);
+  --wave-grid:        rgba(255,255,255,.051);
+  --wave-guide:       rgba(255,255,255,.055);
+  --wave-guide-soft:  rgba(255,255,255,.04);
+  --wave-divider:     rgba(255,255,255,.125);
+  --wave-label:       rgba(213,221,235,.48);
+  /* 시간 눈금자 (원본 _paint_ruler) */
+  --ruler-bg:    rgba(0,0,0,.141);
+  --ruler-sep:   rgba(255,255,255,.094);
+  --ruler-tick:  rgba(180,190,205,.55);
+  --ruler-label: rgba(190,200,215,.86);
+
+  --shadow-panel: 0 18px 45px rgba(0, 0, 0, .38);
+  --shadow-modal: 0 30px 90px rgba(0, 0, 0, .62);
+  --inset-top: inset 0 1px rgba(255, 255, 255, .02);
+}
+
+/* ══════════════════════════════════════════════════════
+   DARK — 기존 COLORS_DARK (푸른 계열) 계승
+   ══════════════════════════════════════════════════════ */
+[data-theme="dark"] {
+  --bg:            #0b0e15;
+  --bg-panel:      #0f1219;
+  --bg-elev:       #151a23;
+  --bg-header:     #080b11;
+  --bg-sidebar:    #0f1219;
+  --bg-control:    #12161d;
+  --bg-control-hi: #1a2029;
+  --bg-overlay:    rgba(2, 4, 9, .62);
+
+  --line:          rgba(140, 170, 220, .11);
+  --line-strong:   rgba(140, 170, 220, .19);
+  --line-soft:     rgba(140, 170, 220, .06);
+
+  --text:           #ccd6e2;
+  --sc-logo-ink:  #cfd9e6;   /* 다크 테마 — 살짝 푸른 밝은 잉크 */
+  --text-secondary: #7d8b9f;
+  --text-muted:     #4c5666;
+  --text-caps:      #5a6576;
+
+  --accent:         #5089d4;
+  --accent-hover:   #629de8;
+  --accent-pressed: #3d6fb2;
+  --accent-dim:     rgba(80, 137, 212, .16);
+  /* 원본 COLORS_DARK: accent_teal #5a8cc4, accent_warm #c89840 */
+  --accent-teal:    #5a8cc4;
+  --accent-warm:    #c89840;
+  --accent-glow:    rgba(80, 137, 212, .34);
+  --on-accent:      #08101c;
+
+  --hover:        rgba(120, 160, 220, .06);
+  --row-alt:      rgba(120, 160, 220, .018);
+  --row-hover:    rgba(120, 160, 220, .07);
+  --row-selected: rgba(80, 137, 212, .18);
+  --row-playing:  rgba(80, 137, 212, .27);
+
+  --warn:   #c89840;
+  --danger: #c44848;
+  --ok:     #5fb37a;
+  --loop:   #8B3FE6;
+  --segment-on: #3ec870;
+  --active-green: #55df8a;
+  --status-warn: #f0a43c;
+  --status-error: #e45b64;
+  --speed-warn: #f28c28;
+
+  --wave:      #7fa8dc;
+  --wave-back: #2c4160;
+  --wave-head: #e4edf9;
+  --wave-bg-top: #11161f;
+  --wave-bg-mid: #0a0d13;
+  --wave-bg-bottom: #060810;
+  --wave-sel:  rgba(93, 226, 199, .23);
+  --wave-sel-border: rgba(151, 235, 230, .86);
+  --wave-sel-loop: rgba(180, 130, 230, .24);
+  --wave-sel-loop-border: rgba(210, 170, 250, .86);
+
+  /* 파형 렌더 토큰 — 원본 PyQt _ensure_grads/_build_static_pixmap 정책 */
+  --wave-fill:        rgb(120,175,245);
+  --wave-grad-edge:   rgba(120,175,245,.37);
+  --wave-grad-mid:    rgba(120,175,245,.72);
+  --wave-grad-center: rgb(120,175,245);
+  --wave-env-edge:    rgba(226,234,255,.22);
+  --wave-grid:        rgba(255,255,255,.051);
+  --wave-guide:       rgba(255,255,255,.055);
+  --wave-guide-soft:  rgba(255,255,255,.04);
+  --wave-divider:     rgba(255,255,255,.125);
+  --wave-label:       rgba(213,221,235,.48);
+  /* 시간 눈금자 (원본 _paint_ruler) */
+  --ruler-bg:    rgba(0,0,0,.141);
+  --ruler-sep:   rgba(255,255,255,.094);
+  --ruler-tick:  rgba(180,190,205,.55);
+  --ruler-label: rgba(190,200,215,.86);
+
+  --shadow-panel: 0 18px 45px rgba(0, 0, 0, .5);
+  --shadow-modal: 0 30px 90px rgba(0, 0, 0, .7);
+  --inset-top: inset 0 1px rgba(160, 195, 245, .04);
+}
+
+/* ══════════════════════════════════════════════════════
+   LIGHT — 기존 COLORS_LIGHT (따뜻한 베이지) 계승
+   ══════════════════════════════════════════════════════ */
+[data-theme="light"] {
+  --bg:            #ece7d9;
+  --bg-panel:      #e3ddce;
+  --bg-elev:       #f5f0e3;
+  --bg-header:     #ded7c5;
+  --bg-sidebar:    #e3ddce;
+  --bg-control:    #f5f0e3;
+  --bg-control-hi: #ece7d9;
+  --bg-overlay:    rgba(60, 54, 40, .34);
+
+  --line:          rgba(70, 60, 38, .16);
+  --line-strong:   rgba(70, 60, 38, .30);
+  --line-soft:     rgba(70, 60, 38, .09);
+
+  --text:           #2b2820;
+  --sc-logo-ink:  #3b372c;   /* 라이트 테마 — 어두운 잉크 */
+  --text-secondary: #6b6554;
+  --text-muted:     #9a947f;
+  --text-caps:      #837e6c;
+
+  --accent:         #332e22;
+  --accent-hover:   #47412f;
+  --accent-pressed: #1f1c14;
+  --accent-dim:     rgba(51, 46, 34, .12);
+  /* 원본 COLORS_LIGHT: accent_teal = accent(#332e22 통일), accent_warm #a07820 */
+  --accent-teal:    #332e22;
+  --accent-warm:    #a07820;
+  --accent-glow:    rgba(51, 46, 34, .22);
+  --on-accent:      #f7f3e8;
+
+  --hover:        rgba(70, 60, 38, .06);
+  --row-alt:      rgba(70, 60, 38, .022);
+  --row-hover:    rgba(70, 60, 38, .07);
+  --row-selected: rgba(70, 60, 38, .15);
+  --row-playing:  rgba(70, 60, 38, .22);
+
+  --warn:   #a07820;
+  --danger: #9c3535;
+  --ok:     #4a7c48;
+  --loop:   #8B3FE6;
+  --segment-on: #3ec870;
+  --active-green: #55df8a;
+  --status-warn: #f0a43c;
+  --status-error: #e45b64;
+  --speed-warn: #f28c28;
+
+  --wave:      #4a4436;
+  --wave-back: #b4ac95;
+  --wave-head: #1c1a14;
+  --wave-bg-top: #f3eee0;
+  --wave-bg-mid: #ebe6d8;
+  --wave-bg-bottom: #ddd6c4;
+  --wave-sel:  rgba(93, 226, 199, .23);
+  --wave-sel-border: rgba(151, 235, 230, .86);
+  --wave-sel-loop: rgba(180, 130, 230, .24);
+  --wave-sel-loop-border: rgba(210, 170, 250, .86);
+
+  /* 파형 렌더 토큰 — 원본 PyQt _ensure_grads/_build_static_pixmap 정책 */
+  --wave-fill:        rgb(70,64,47);
+  --wave-grad-edge:   rgba(70,64,47,.37);
+  --wave-grad-mid:    rgba(70,64,47,.72);
+  --wave-grad-center: rgb(70,64,47);
+  --wave-env-edge:    rgba(43,40,32,.26);
+  --wave-grid:        rgba(43,40,32,.085);
+  --wave-guide:       rgba(43,40,32,.13);
+  --wave-guide-soft:  rgba(43,40,32,.07);
+  --wave-divider:     rgba(43,40,32,.16);
+  --wave-label:       rgba(43,40,32,.55);
+  /* 시간 눈금자 (원본 _paint_ruler) */
+  --ruler-bg:    rgba(43,40,32,.086);
+  --ruler-sep:   rgba(43,40,32,.235);
+  --ruler-tick:  rgba(43,40,32,.55);
+  --ruler-label: rgba(43,40,32,.86);
+
+  --shadow-panel: 0 16px 40px rgba(80, 70, 45, .16);
+  --shadow-modal: 0 28px 80px rgba(80, 70, 45, .28);
+  --inset-top: inset 0 1px rgba(255, 255, 255, .5);
+}

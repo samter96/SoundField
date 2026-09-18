@@ -1,0 +1,4179 @@
+/* 내장 글꼴 선언이 먼저 와야 한다 — fonts.css 주석 참고 (지우지 말 것) */
+@import "./fonts.css";
+@import "./tokens.css";
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root { height: 100%; margin: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: var(--fs-body);
+  font-synthesis: none;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  user-select: none;
+  cursor: default;
+}
+
+button, input, select { font: inherit; color: inherit; }
+button { background: none; border: 0; padding: 0; cursor: pointer; }
+
+:focus { outline: none; }
+:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+  border-radius: var(--r-sm);
+}
+
+.num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.caps {
+  font-size: var(--fs-caps);
+  font-weight: 650;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text-caps);
+}
+.caps-ko { letter-spacing: 0; }
+
+/* ── 스크롤바 ─────────────────────────────────────────── */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: var(--r-pill);
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); background-clip: content-box; }
+::-webkit-scrollbar-corner { background: transparent; }
+
+@keyframes app-fade { from { opacity: 0; } }
+
+/* ══ 앱 셸 ═══════════════════════════════════════════════ */
+.app {
+  /* 원본 WindowFadeIn: windowOpacity 0→1, 240ms OutCubic */
+  animation: app-fade var(--t-view) var(--ease) both;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: var(--h-chrome) var(--h-header) minmax(0, 1fr) 26px;
+  background:
+    radial-gradient(circle at 62% 0%, var(--accent-dim), transparent 42%),
+    var(--bg);
+  /* decorations:false 라 OS 창 테두리가 없다 — 배경이 거의 검정이라 어디까지가
+     창인지 구분이 안 됐다 (사용자 보고). 안쪽 1px 테두리로 경계를 만든다.
+     (라운드 코너는 window transparent 가 아니라서 모서리에 사각 배경이 남아 안 쓴다) */
+  outline: 1px solid color-mix(in srgb, var(--line-strong) 85%, transparent);
+  outline-offset: -1px;
+}
+
+/* ── 타이틀바 ─────────────────────────────────────────── */
+/* 이 줄은 OS 타이틀바를 대신하는 창 크롬이다 (decorations:false).
+   원본은 OS 타이틀바(아이콘 + "SoundField") + 앱 내부 브랜드가 따로 있는데,
+   PoC 는 둘이 같은 색·같은 크기라 로고/이름이 두 번 반복되는 것처럼 보였다.
+   → 크롬은 한 톤 더 어둡게 + 글자를 작고 흐리게 해서 "창 테두리" 위계로 내린다. */
+.chrome {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-left: 10px;
+  /* ⚠ 최상단 행(ㅡ ㅁ ✕ + 소속 표기)은 **지금 색을 그대로 유지**한다.
+     사용자가 명시적으로 이 행은 건드리지 말라고 했다 (2026-09-03). 아래 SoundField 행
+     하나만 검색 영역과 잇는다. */
+  background: color-mix(in srgb, var(--bg-header) 78%, #000);
+  border-bottom: 1px solid color-mix(in srgb, var(--line-strong) 55%, transparent);
+}
+/* 크롬의 브랜드 마크는 창 아이콘 역할 — 작게, 채도 낮게 */
+.chrome > svg { opacity: .55; }
+/* 타이틀바 로고 — YSG Audio Labs 매듭 마크 (YsgMark, src/icons.tsx, 2026-09-15 리뉴얼).
+   PNG 마스크를 쓰던 방식은 26px 에서 원본의 얇은 아치·곡선 글자가 뭉개졌다
+   → 같은 구성을 SVG 로 다시 그려 배율과 무관하게 선명하다.
+   색은 테마별 잉크(`--sc-logo-ink`) — 어두운 UI 에서는 흰 선으로 반전된다. */
+.chrome-logo {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  color: var(--sc-logo-ink);
+}
+.chrome-title {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--text-caps);
+}
+.chrome-spacer { flex: 1; height: 100%; }
+.chrome-actions { display: flex; align-items: center; height: 100%; }
+.chrome-btn {
+  width: 44px;
+  height: var(--h-chrome);
+  display: grid;
+  place-items: center;
+  color: var(--text-secondary);
+  transition: background var(--t-hover) var(--ease), color var(--t-hover) var(--ease);
+}
+/* ── 허브 바로가기 (사용자 지시 2026-09-15) ────────────────────────────────
+   언어 토글 왼쪽에 있다. 누르면 OS 기본 브라우저로 허브를 연다.
+   컬러 엠블럼 + "HUB" 글자 조합이고, **타이틀바에서 유일하게 색이 있는 자리**다.
+   ⚠ 높이는 언어 토글과 같은 20px 로 묶는다. 키우면 타이틀바(34px) 안에서 창
+     버튼과 세로 중심이 어긋난다. */
+.chrome-hub {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  margin: 0 4px 0 2px;
+  padding: 0 9px 0 4px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-elev);
+  color: var(--text-secondary);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .13em;
+  cursor: pointer;
+  transition: border-color var(--t-hover) var(--ease),
+              color var(--t-hover) var(--ease);
+}
+.chrome-hub:hover { border-color: var(--accent); color: var(--text); }
+/* 엠블럼은 발광 그림이라 너무 줄이면 뭉갠다 — 20px 높이 안에서 최대인 16px */
+.chrome-hub-mark {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  flex: 0 0 16px;
+}
+
+/* ── 표시 언어 슬라이드 토글 (사용자 지시 2026-09-08) ──────────────────────
+   창 버튼(ㅡ ㅁ ✕) 왼쪽에 놓인다. 손잡이가 좌우로 미끄러지며 켜진 쪽을 덮고,
+   덮인 쪽 글자만 밝아진다. 타이틀바 높이(34px) 안에 들어가야 하므로 20px 이다.
+   ⚠ 폭·글자 크기를 키우면 창 버튼과 높이가 어긋난다. */
+.lang-toggle {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  width: 56px;
+  height: 20px;
+  margin: 0 8px 0 2px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-elev);
+  cursor: pointer;
+  transition: border-color var(--t-hover) var(--ease);
+}
+.lang-toggle:hover { border-color: var(--accent); }
+.lang-knob {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 26px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: transform 180ms var(--ease);
+}
+.lang-toggle.en .lang-knob { transform: translateX(26px); }
+.lang-side {
+  position: relative;
+  z-index: 1;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  color: var(--text-secondary);
+  transition: color var(--t-hover) var(--ease);
+}
+/* 손잡이가 덮은 쪽 글자를 강조 — 첫 칸이 KR, 둘째 칸이 EN */
+.lang-toggle:not(.en) .lang-side:nth-of-type(2),
+.lang-toggle.en .lang-side:last-of-type { color: var(--on-accent, #08170d); }
+
+.chrome-btn:hover { background: var(--hover); color: var(--text); }
+.chrome-btn.close:hover { background: #c4362f; color: #fff; }
+
+/* ── 헤더 ─────────────────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* 힌트글을 검색 필터 열에 맞춰 절대 위치로 두므로 기준이 필요하다 */
+  position: relative;
+  /* 원본 top 행은 BTN_H 24 버튼 + 상하 여백뿐이다 (margins 8,0,4,0 / v margin 6).
+     46px 는 과했다 — 결과 영역을 그만큼 잡아먹는다. */
+  height: 36px;
+  flex: 0 0 36px;
+  padding: 0 10px 0 14px;
+  /* SoundField 로고 행은 아래 검색 영역과 **하나의 면**이어야 한다 (사용자 지시).
+     `var(--bg)` 로 칠하면 `.app` 상단의 액센트 글로우 그라데이션을 이 밴드만 덮어서,
+     그라데이션이 있는 검색 영역과 없는 이 행이 분리선까지 겹쳐 어색했다.
+     배경을 비워 그라데이션이 그대로 흐르게 하고 분리선도 없앤다.
+     (최상단 크롬 행은 위 규칙대로 자기 색을 유지한다) */
+  background: transparent;
+  min-width: 0;
+  overflow: hidden;
+}
+.header .btn { flex: 0 0 auto; }
+.brand { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; }
+.brand-mark { align-self: center; flex: 0 0 auto; }
+.brand-name {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  line-height: 16px;
+  color: var(--text);
+}
+.brand-sub {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  line-height: 16px;
+  text-transform: uppercase;
+  color: var(--text-caps);
+}
+.brand-ver {
+  font-size: 8.5px;
+  font-weight: 500;
+  letter-spacing: .08em;
+  line-height: 16px;
+  color: var(--text-secondary);
+}
+.settings-btn {
+  flex: 0 0 34px;
+  width: 34px;
+  height: 24px;
+  margin-left: 8px;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  color: var(--text-secondary);
+  transition: background var(--t-hover) var(--ease), border-color var(--t-hover) var(--ease), color var(--t-hover) var(--ease);
+}
+.settings-btn:hover { background: var(--hover); border-color: var(--line); color: var(--text); }
+/* 원본 _GlobalLoader (main_window.py:836) — 헤더의 붉은 점(●, 60ms 마다 α1.0↔0.6
+   왕복) + 진행 문구. ref-count 로 여러 작업이 겹쳐도 마지막 메시지를 보여준다.
+   원본에서 이걸 쓰는 곳은 **라이브러리 제거 대기**뿐이고 (global_loader.start
+   "백그라운드 분석 종료 대기 중"), 그 경로는 PoC 에서 막혀 있다 →
+   내용이 없으면 자리도 차지하지 않게 둔다 (원본도 setVisible(False) 로 접힌다). */
+.global-loader:empty { display: none; }
+.global-loader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  height: 18px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: var(--text);
+}
+.global-loader::before {
+  content: "●";
+  color: #ff5a5a;
+  font-size: 13px;
+  animation: global-loader-dot 600ms linear infinite alternate;
+}
+@keyframes global-loader-dot { from { opacity: 1; } to { opacity: .6; } }
+.header-action { flex: 0 0 auto; }
+/* ── AnimButton (원본 app/ui/anim_button.py) ─────────────────
+   원본이 실제로 쓰는 액션 버튼. 투명 배경 + accent 외곽선 + accent 글자이고,
+   호버는 140ms OutCubic 으로 배경 alpha 42, 외곽선 alpha 55→125, 글자를
+   흰쪽으로 12% 보간한다. 비활성은 text_muted 쪽으로 55% 죽이고 alpha 150.
+   수치: PAD_L 11 / PAD_R 12 / GLYPH 13 / GAP 6 / radius 7 / 8.5pt DemiBold.
+   (glow_button.py 의 GlowButton 은 원본에서 아무도 쓰지 않는 죽은 코드라
+    이식하지 않는다.) */
+.abtn {
+  --ab: var(--accent);
+  height: 24px;
+  padding: 0 12px 0 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 7px;
+  border: 1px solid color-mix(in srgb, var(--ab) 22%, transparent);
+  background: transparent;
+  color: var(--ab);
+  font-size: 11.3px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--t-btn) var(--ease),
+              border-color var(--t-btn) var(--ease),
+              color var(--t-btn) var(--ease);
+}
+.abtn svg { display: block; }
+.abtn:hover:enabled {
+  background: color-mix(in srgb, var(--ab) 16%, transparent);
+  border-color: color-mix(in srgb, var(--ab) 49%, transparent);
+  color: color-mix(in srgb, var(--ab) 88%, #fff);
+}
+.abtn:active:enabled { background: color-mix(in srgb, var(--ab) 22%, transparent); }
+.abtn:disabled {
+  color: color-mix(in srgb, var(--ab) 45%, var(--text-muted));
+  border-color: color-mix(in srgb, var(--ab) 18%, transparent);
+  opacity: .59;
+  cursor: default;
+}
+/* 취소 버튼만 accent 가 #c44848 (원본 그대로) */
+.abtn.danger { --ab: #c44848; }
+/* 아이콘 전용 (원본 detail_btn "..") — 좌우 패딩 동일, 정사각 */
+.abtn.icon-only { padding: 0; width: 24px; justify-content: center; }
+
+.quick-update svg { color: #48a870; }
+.full-update svg { color: #c05050; }
+.header-spacer { flex: 1; }
+
+/* ── 버튼 ─────────────────────────────────────────────── */
+.btn {
+  height: var(--h-control);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--bg-control);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background var(--t-control) var(--ease),
+              border-color var(--t-control) var(--ease),
+              color var(--t-control) var(--ease),
+              transform var(--t-hover) var(--ease);
+}
+.btn:hover { background: var(--bg-control-hi); border-color: var(--line-strong); color: var(--text); }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+.btn-primary {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--on-accent);
+  font-weight: 600;
+}
+.btn-primary:hover { background: var(--accent-hover); color: var(--on-accent); }
+.btn-ghost { background: transparent; border-color: transparent; }
+.btn-ghost:hover { background: var(--hover); border-color: var(--line); }
+.btn-danger { color: var(--danger); }
+.btn-danger:hover { background: color-mix(in srgb, var(--danger) 14%, transparent); border-color: color-mix(in srgb, var(--danger) 40%, transparent); color: var(--danger); }
+.btn-icon { width: var(--h-control); padding: 0; }
+.btn-sm { height: 24px; padding: 0 9px; font-size: 11.5px; }
+
+/* ── 본문 3분할 ───────────────────────────────────────── */
+.body {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+/* ⚠ .center 는 셀 가운데 정렬 유틸 클래스로도 쓰인다 (.th.center 등).
+   레이아웃 규칙은 반드시 .body > .center 로 한정할 것. */
+.center {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 원본 right.setMinimumWidth(600) — 결과 영역 최소 너비 */
+.body > .center { min-width: 600px; }
+
+/* ── 리사이저 ─────────────────────────────────────────── */
+/* ── 스플리터 손잡이 (원본 _GripSplitterHandle, main_window.py:76) ──
+   원본 handle_width 를 그대로 쓴다: main_splitter 16 / right_splitter 20 / side 6.
+   구성: 배경 bg_control_hi + accent wash(a16→a52) → 양쪽 2px 엣지
+        → 밴드(bg_elev a230, 두께 62%, inset 6, radius 3)
+        → 가이드(line_strong, 두께 32%, inset 12)
+        → 알약 그립(line_strong→accent_hover, 두께 48%,
+          길이 = 폭/높이의 18~20% 를 [96,220]/[80,180] 로 클램프, 호버 시 +34/+30)
+        → 호버 점 3개(on_accent, ±8). 애니메이션 34/255 per 8ms ≈ 60ms. */
+.resizer-v {
+  /* 사용자 지시: 두께를 기존의 70% 로 (원본 handle_width 16 → 11) */
+  flex: 0 0 11px;
+  cursor: col-resize;
+  position: relative;
+  z-index: 2;
+  /* 원본은 bg_control_hi 위에 border_strong α105(=41%) 엣지를 그린다.
+     PoC 가 2px 로 강하게 그려 실제보다 두꺼운 바로 읽혔다 → 1px + 더 낮은 대비. */
+  background: color-mix(in srgb, var(--bg-control-hi) 55%, var(--bg));
+  border-left: 1px solid color-mix(in srgb, var(--line-strong) 26%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--line-strong) 26%, transparent);
+  box-sizing: border-box;
+  transition: background 60ms var(--ease), border-color 60ms var(--ease);
+}
+.resizer-h {
+  /* 사용자 지시: 두께를 기존의 70% 로 (원본 handle_width 20 → 14) */
+  flex: 0 0 14px;
+  cursor: row-resize;
+  position: relative;
+  z-index: 2;
+  background: color-mix(in srgb, var(--bg-control-hi) 55%, var(--bg));
+  border-top: 1px solid color-mix(in srgb, var(--line-strong) 26%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--line-strong) 26%, transparent);
+  box-sizing: border-box;
+  transition: background 60ms var(--ease), border-color 60ms var(--ease);
+}
+/* 사용자 지시: 호버 강조는 **바(알약)에만**. 배경/외곽선까지 같이 밝아지면
+   손잡이 전체가 번쩍여 이상하다 → 배경·엣지는 고정, 알약/가이드만 반응한다. */
+
+.grip-band {
+  position: absolute;
+  background: color-mix(in srgb, var(--bg-elev) 62%, transparent);
+  border-radius: 3px;
+  display: grid;
+  place-items: center;
+}
+/* 두께는 원본과 동일한 절대값: 16px 손잡이 → 밴드 9.9 / 가이드 5.1 / 그립 7.7 */
+.resizer-v .grip-band { left: 50%; transform: translateX(-50%); width: 6.8px; top: 6px; bottom: 6px; }
+/* 20px 손잡이 → 밴드 12.4 / 가이드 6.4 / 그립 9.6 */
+.resizer-h .grip-band { top: 50%; transform: translateY(-50%); height: 8.7px; left: 6px; right: 6px; }
+
+.grip-guide {
+  position: absolute;
+  background: color-mix(in srgb, var(--line-strong) 34%, transparent);
+  border-radius: 3px;
+  transition: background 60ms var(--ease);
+}
+.resizer-v .grip-guide { left: 50%; transform: translateX(-50%); width: 3.5px; top: 12px; bottom: 12px; }
+.resizer-h .grip-guide { top: 50%; transform: translateY(-50%); height: 4.5px; left: 12px; right: 12px; }
+.resizer-v:hover .grip-guide, .resizer-h:hover .grip-guide {
+  background: color-mix(in srgb, var(--line-strong) 80%, transparent);
+}
+
+.grip-pill {
+  position: absolute;
+  background: color-mix(in srgb, var(--line-strong) 72%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6.5px;
+  transition: background 60ms var(--ease), height 60ms var(--ease), width 60ms var(--ease);
+}
+.resizer-v .grip-pill {
+  width: 5.4px;
+  height: clamp(80px, 20%, 180px);
+  border-radius: 4px;
+  flex-direction: column;
+}
+.resizer-h .grip-pill {
+  height: 6.7px;
+  width: clamp(96px, 18%, 220px);
+  border-radius: 5px;
+}
+.resizer-v:hover .grip-pill { height: clamp(110px, calc(20% + 30px), 210px); }
+.resizer-h:hover .grip-pill { width: clamp(130px, calc(18% + 34px), 254px); }
+.resizer-v:hover .grip-pill, .resizer-h:hover .grip-pill,
+.resizer-v.dragging .grip-pill, .resizer-h.dragging .grip-pill {
+  background: var(--accent-hover);
+}
+.resizer-v.dragging .grip-pill, .resizer-h.dragging .grip-pill {
+  background: color-mix(in srgb, var(--accent-hover) 50%, var(--accent-pressed));
+}
+
+/* 호버 시에만 나타나는 점 3개 */
+.grip-pill i {
+  width: 2.6px;
+  height: 2.6px;
+  border-radius: 50%;
+  background: var(--on-accent);
+  opacity: 0;
+  transition: opacity 60ms var(--ease);
+}
+.resizer-v:hover .grip-pill i, .resizer-h:hover .grip-pill i,
+.resizer-v.dragging .grip-pill i, .resizer-h.dragging .grip-pill i { opacity: .82; }
+
+/* ── 패널 공통 ────────────────────────────────────────── */
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--inset-top);
+}
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+/* ══ 사이드바 (파일 브라우저) ═════════════════════════════ */
+.sidebar {
+  flex: 0 0 auto;
+  /* 원본 side.setMinimumWidth(200) — 트리 영역 최소 너비 */
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-sidebar);
+  /* 원본 sv.setContentsMargins(0, 0, 7, 0) — 트리와 스플리터 사이 7px 여백.
+     이 여백이 없으면 손잡이가 내용에 바로 붙어 실제보다 두꺼운 띠로 보인다.
+     원본에는 border-right 가 없다 (구분은 손잡이가 담당) → 제거. */
+  padding-right: 7px;
+  box-sizing: border-box;
+}
+.sidebar-tree-area {
+  flex: 1 1 auto;
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.sidebar-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px 6px;
+}
+.sidebar-title { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.sidebar-meta { font-size: 11.5px; color: var(--text-muted); margin-left: auto; }
+
+.tabbar {
+  /* 원본 FlowLayout: h/v 간격 4px, 최대 3줄. 코너 버튼(+/검색)은 우상단에 겹쳐 두고
+     첫 줄만 그 폭 + 4px 을 비운다 → float 로 같은 결과를 얻는다. */
+  display: block;
+  padding: 0 8px;
+  max-height: 90px;      /* 26px 탭 3줄 + 간격 */
+  overflow: hidden;
+}
+.tabbar > .tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 4px 4px 0;
+  vertical-align: top;
+  /* 원본 _calc_max_width: '★ 즐겨찾기' 폭 + 44 */
+  max-width: 118px;
+}
+.tab-corner {
+  float: right;
+  display: flex;
+  gap: 4px;
+  margin-left: 4px;
+}
+.tab {
+  height: 26px;
+  padding: 0 11px;
+  border-radius: var(--r-md) var(--r-md) 0 0;
+  border: 1px solid transparent;
+  border-bottom: none;
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  transition: background var(--t-hover) var(--ease), color var(--t-hover) var(--ease);
+}
+.tab:hover { background: var(--hover); color: var(--text); }
+.tab.active {
+  background: var(--bg-elev);
+  border-color: var(--line);
+  color: var(--text);
+  font-weight: 600;
+}
+.tab-add {
+  width: 26px; height: 26px;
+  border-radius: var(--r-md);
+  border: 1px dashed var(--line-strong);
+  color: var(--text-muted);
+  display: grid; place-items: center;
+  transition: background var(--t-btn) var(--ease), border-color var(--t-btn) var(--ease),
+              color var(--t-btn) var(--ease);
+}
+.tab-add:hover { color: var(--text); border-color: var(--accent); }
+.tab-add.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--bg-control-hi);
+}
+.library-search-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 8px 0;
+}
+.library-search-input {
+  height: 24px;
+  font-size: 11.5px;
+}
+.search-dropdown {
+  width: 22px;
+  height: 24px;
+  flex: 0 0 22px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-sm);
+  color: var(--text-muted);
+  border: 1px solid var(--line);
+  background: var(--bg-control);
+}
+.search-dropdown:hover { color: var(--text); border-color: var(--line-strong); }
+.library-search-nav {
+  height: 22px;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 10.5px;
+}
+.search-count {
+  min-width: 42px;
+  text-align: center;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+}
+.search-seq { color: var(--text-muted); }
+.search-nav-btn {
+  width: 22px;
+  height: 20px;
+  border-radius: var(--r-sm);
+  color: var(--text-secondary);
+}
+.search-nav-btn:hover:not(:disabled) { background: var(--hover); color: var(--text); }
+.search-nav-btn:disabled { opacity: .35; cursor: default; }
+/* 원본 _show_dropdown 은 화면 좌표 팝업이다 — 파일 브라우저 폭에 갇히지 않고
+   긴 폴더 이름이 안 잘리게 콘텐츠 폭까지 늘어난다 (상한 = 화면 오른쪽 -8px).
+   높이 상한은 원본과 같은 14행(rh 22 * 14 + 4). */
+.library-search-dropdown {
+  position: fixed;
+  z-index: 90;
+  width: max-content;
+  max-height: 314px;
+  overflow: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--bg-elev);
+  box-shadow: var(--shadow-panel);
+}
+/* 팝업이 콘텐츠 폭을 쓰므로 행은 줄바꿈 없이 한 줄로 둔다 (원본 fm.horizontalAdvance 계산과 같은 결) */
+.library-search-dropdown .library-search-hit { width: 100%; white-space: nowrap; }
+/* ── 라이브러리 검색 드롭다운 (원본 _SearchHitDelegate, library_tabs.py:300) ──
+   매치 행 + 조상 문맥 행을 트리로 보여준다.
+     들여쓰기 14px/단계(_DROPDOWN_INDENT_PX), 연결선 뒤 글자 간격 7px(_DROPDOWN_TEXT_GAP)
+     연결선 색 rgba(122,133,148,.51)(_DROPDOWN_GUIDE_COLOR, 130/255)
+     개수 색 rgba(78,144,232,.78)(_DROPDOWN_COUNT_COLOR, 200/255)
+     조상(비매치) 글자색 #5b636f, 클릭 불가
+     행 높이 = 글자높이+8, 호버는 130ms OutCubic 페이드 */
+.library-search-hit {
+  position: relative;
+  width: 100%;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 8px;
+  color: var(--text);
+  font-size: 11.5px;
+  text-align: left;
+  transition: background 130ms var(--ease), color 130ms var(--ease);
+}
+.library-search-hit .hit-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 조상 문맥 행 — dim + 동작 없음 (원본 is_match=False) */
+.library-search-hit.context { color: #5b636f; cursor: default; }
+.library-search-hit:enabled:hover,
+.library-search-hit.current { background: var(--row-hover); color: var(--text); }
+.library-search-hit.context:hover { background: transparent; color: #5b636f; }
+.hit-count {
+  margin-left: auto;
+  color: rgba(78, 144, 232, .78);
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+}
+.library-search-hit.context .hit-count { color: rgba(78, 144, 232, .45); }
+
+/* ── 검색 드롭다운 연결선 ─────────────────────────────────────────────────
+   이전 구현은 border-left/border-bottom + border-radius 로 그려서
+     · 1px 보더가 소수점 위치에 걸려 흐릿하고
+     · 세로선을 행마다 반쪽(50%)씩만 그려 행 사이가 끊겼다.
+   행마다 크리스프 SVG 로 다시 그린다 — 정수 좌표 rect + shapeRendering=crispEdges,
+   통과 세로선은 행 높이를 꽉 채워(0→22) 위아래 행과 이어진다.
+   구조는 원본 _paint_guides 와 같다 (│ 통과선 + ├/└ elbow). */
+/* 트리 연결선 — 구조를 읽는 보조선이라 **행 상태와 무관하게 한 가지 색**으로 둔다.
+   예전에는 현재 행만 밝아져서 선의 밝기가 들쭉날쭉했다 (사용자 신고).
+   선이 러프해 보인 것은 밝기가 낮은 탓도 있어 대비를 조금 올렸다. */
+.hit-guides {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  display: block;
+  color: rgba(132, 143, 158, .62);
+}
+
+.library-search-empty {
+  height: 26px;
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+/* ── 트리 ─────────────────────────────────────────────── */
+.tree-wrap { flex: 1; min-height: 0; position: relative; display: flex; }
+.tree { flex: 1; overflow: auto; padding: 6px 4px 12px; outline: none; }
+/* 키보드 포커스 — Qt 위젯처럼 방향키로 접기/펴기가 되는 상태임을 은근히 표시 */
+.tree:focus-visible { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); }
+
+/* 상시 헤더 (원본 _StickyAncestorHeader) — 뷰포트 위에 겹쳐 그린다.
+   원본은 카운트 영역까지 덮어 고정 행의 카운트를 직접 그린다 → 같은 행 마크업 재사용. */
+/* 원본 _compute_pinned 주석: "전체 행은 트리 맨 위라 **본문과 정확히 겹쳐**
+   중복이 안 보인다" — 정확히 겹치는 게 전제다. 본문(.tree)에는 위쪽 여백 6px 이
+   있으므로 고정 헤더도 같은 6px 을 두어야 첫 행이 어긋나지 않는다
+   (이게 "전체 행이 하나 겹친 것처럼" 보인 원인). height 는 JSX 가 행 수로 주므로
+   content-box 로 두어 여백이 그 위에 더해지게 한다. */
+.tree-sticky {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  box-sizing: content-box;
+  /* ⚠ 뷰포트처럼 **내용을 잘라내야** 한다. 고정 헤더는 스크롤 컨테이너가 아니라
+     그냥 겹쳐 그린 층이라, 자르지 않으면 행 폭(width:max-content)이 그대로 뻗어
+     사이드바 여백과 분할바 위까지 이름이 삐져나온다 (실측: 행 오른쪽 끝 371,
+     뷰포트 282). 이름이 긴 라이브러리에서만, 스크롤/너비조절 중에 보였던 이유다. */
+  overflow: hidden;
+  padding: 6px 4px 0;
+  background: var(--bg-sidebar);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .28);
+  z-index: 3;
+}
+.tree-sticky .tree-row { cursor: pointer; }
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding-right: 8px;
+  border-radius: var(--r-sm);
+  position: relative;
+  transition: background var(--t-hover) var(--ease);
+  /* 원본 트리는 column 0 이 ResizeToContents 라 긴 폴더명이 있으면 가로
+     스크롤바가 생기고 Shift+휠로 읽을 수 있다. 이름을 잘라 버리면 그 동작
+     자체가 사라지므로 행이 내용 폭만큼 늘어나게 둔다. */
+  width: max-content;
+  min-width: 100%;
+}
+.tree-row:hover { background: var(--row-hover); }
+.tree-row.selected { background: var(--row-selected); }
+.tree-row.selected::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 3px; bottom: 3px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+.tree-caret {
+  width: 16px; height: 16px;
+  display: grid; place-items: center;
+  color: var(--text-muted);
+  flex: 0 0 16px;
+  transition: transform var(--t-control) var(--ease), color var(--t-hover) var(--ease);
+}
+.tree-caret.open { transform: rotate(90deg); }
+
+/* 블랙리스트: 파일 브라우저 하단 고정, 펼친 상태에서만 분할 조절 */
+/* 사이드바 세로 스플리터 — 원본 side_splitter 는 handle_width 6.
+   접힘 상태에서는 handle 이 disabled (원본 4536) → PoC 는 펼침일 때만 렌더한다. */
+.blacklist-resizer {
+  flex: 0 0 4px;
+  cursor: row-resize;
+  position: relative;
+  background: var(--bg-control-hi);
+  border-top: 1px solid color-mix(in srgb, var(--line-strong) 41%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--line-strong) 41%, transparent);
+  box-sizing: border-box;
+  transition: background 60ms var(--ease);
+}
+.blacklist-resizer::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  height: 3px;
+  width: clamp(60px, 18%, 160px);
+  border-radius: 2px;
+  background: var(--line-strong);
+  transition: background 60ms var(--ease), width 60ms var(--ease);
+}
+.blacklist-resizer:hover {
+  background: color-mix(in srgb, var(--accent) 20%, var(--bg-control-hi));
+}
+.blacklist-resizer:hover::after {
+  background: var(--accent-hover);
+  width: clamp(94px, calc(18% + 34px), 194px);
+}
+.blacklist-panel {
+  flex: 0 0 40px;
+  min-height: 40px;
+  overflow: hidden;
+  border-top: 1px solid var(--line);
+  background: var(--bg-sidebar);
+}
+.blacklist-panel.open { min-height: 80px; }
+.blacklist-head {
+  height: 39px;
+  padding: 0 6px 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.blacklist-toggle {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-align: left;
+}
+.blacklist-toggle:hover { color: var(--text); }
+.blacklist-toggle svg { flex: 0 0 auto; transition: transform var(--t-control) var(--ease); }
+.blacklist-toggle svg.open { transform: rotate(90deg); }
+.blacklist-detail {
+  width: 24px; height: 22px;
+  flex: 0 0 24px;
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+}
+.blacklist-detail:hover { color: var(--text); border-color: var(--line); background: var(--hover); }
+.blacklist-body { height: calc(100% - 39px); overflow-y: auto; overflow-x: hidden; padding: 2px 0; }
+.blacklist-row {
+  min-height: 34px;
+  padding: 4px 6px 4px 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+.blacklist-row:hover { background: var(--row-hover); }
+.blacklist-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  user-select: text;
+}
+.blacklist-row button {
+  width: 22px; height: 22px;
+  flex: 0 0 22px;
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  border-radius: var(--r-sm);
+}
+.blacklist-row button:hover { color: var(--danger); background: var(--hover); }
+.blacklist-empty { padding: 12px 8px; color: var(--text-muted); font-size: 11px; text-align: center; }
+.tree-caret:hover { color: var(--text); }
+.tree-label {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--text);
+  /* 카운트가 우측에 고정되므로 라벨과 겹치지 않도록 최소 간격 확보 */
+  padding-right: 12px;
+}
+.tree-row.dim .tree-label { color: var(--text-secondary); }
+/* ⚠ 라이브러리 **이름에는 색을 칠하지 않는다** (사용자 지시 2026-09-03).
+   예전에는 `.tree-label { color: #cf7676; font-weight: 700 }` 였다. 그래서 검색어를
+   남긴 채 돋보기 버튼으로 검색창을 닫으면, 파일 브라우저의 라이브러리 이름이 계속
+   빨갛게 보였다 (사용자 신고). 이름 색은 "이 라이브러리에 문제가 있다"처럼 읽혀서
+   검색 상태를 알리는 수단으로 적절하지 않다.
+   지금 찾은 항목은 **행 테두리**로만 알린다 — 이름은 평소와 똑같이 보인다.
+   (선택 표시는 왼쪽 액센트 바라서 서로 구분된다.) */
+.tree-row.search-hit-row {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.tree-count {
+  font-size: 8.8px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.tree-row.selected .tree-count { color: var(--text-secondary); }
+
+/* ══ 검색 패널 ═══════════════════════════════════════════ */
+.search {
+  padding: 6px 4px 4px 10px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+.search-top {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(210px, 1fr);
+  gap: 8px;
+  align-items: stretch;
+  min-width: 0;
+}
+.search-main {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+/* 힌트글은 앱 헤더 줄로 올렸다 (사용자 지시 2026-09-08) — Header.tsx header-hint.
+   여기(.search-hint)에 다시 한 줄을 만들지 말 것: 그 한 줄(29px + 여백 4px) 때문에
+   첫 필터 행이 밀려 사이드바의 [파일 브라우저] 헤더와 줄이 어긋난다. */
+/* 위치는 JSX 가 left(px) 로 준다 — 검색 필터 열에 맞추기 위해 사이드바 폭을
+   따라간다 (Header.tsx header-hint 주석). 흐름에서 빼야 헤더 버튼들과 겹치지
+   않고, 사이드바를 끌어도 버튼 배치가 흔들리지 않는다. */
+.header-hint {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  pointer-events: auto;
+}
+.hint-key {
+  padding: 1px 5px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+/* 검색 도움말 — 원형 19px (원본 QSS 의 24px 라운드 사각으로 바꿨던 것을 되돌림) */
+.help-dot {
+  width: 19px; height: 19px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line-strong);
+  color: var(--text-secondary);
+  display: grid; place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  transition: all var(--t-hover) var(--ease);
+}
+.help-dot:hover { color: var(--text); border-color: var(--accent); }
+.search-help { width: 24px; height: 24px; margin-left: 0; }
+/* .root-glow-gap (힌트글과 첫 필터 사이 4px)도 함께 없앴다 — 위 주석 참고 */
+
+.filter-row { display: flex; align-items: center; gap: 4px; height: 28px; }
+.filter-row.child { padding-left: 56px; }
+.select {
+  height: 28px;
+  min-width: 88px;
+  padding: 0 26px 0 10px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--bg-control);
+  color: var(--text);
+  font-size: 12px;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+                    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 14px) 13px, calc(100% - 10px) 13px;
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+  transition: border-color var(--t-control) var(--ease), background-color var(--t-control) var(--ease);
+}
+.select:hover { border-color: var(--line-strong); background-color: var(--bg-control-hi); }
+.select:focus-visible { border-color: var(--accent); }
+.field-select { width: 120px; min-width: 120px; flex: 0 0 120px; }
+.op-select { width: 64px; min-width: 64px; flex: 0 0 64px; }
+
+.input {
+  height: 28px;
+  flex: 1;
+  min-width: 0;
+  padding: 0 11px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--bg-control);
+  color: var(--text);
+  font-size: 12.5px;
+  transition: border-color var(--t-control) var(--ease), box-shadow var(--t-control) var(--ease);
+}
+.input::placeholder { color: var(--text-muted); }
+.input:hover { border-color: var(--line-strong); }
+.input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+/* ⚠ 활성 필터 배경을 **반투명**으로 두면 안 된다.
+   Chromium 은 native <select> 의 목록(popup)을 그릴 때 select 의 background-color 를
+   쓰는데, 알파가 섞이면 흰 바탕에 합성되어 목록이 크림색으로 뜨고 글자는 다크 테마
+   색이 남아 읽을 수 없다 (실측: 필터를 고른 뒤 다시 펼치면 항상 라이트 목록).
+   같은 결과 색을 **불투명**으로 계산해 둔다. */
+.input.active-filter,
+.select.active-filter {
+  border-color: rgba(255, 166, 77, .65);
+  background-color: color-mix(in srgb, #ffa64d 9%, var(--bg-control));
+}
+.input.active-filter:hover,
+.select.active-filter:hover {
+  border-color: rgba(255, 166, 77, .85);
+  background-color: color-mix(in srgb, #ffa64d 26%, var(--bg-control-hi));
+}
+/* 목록 항목도 테마 색을 명시한다 (배경이 불투명해도 option 색은 상속이 흔들린다) */
+.select option {
+  background-color: var(--bg-control);
+  color: var(--text);
+}
+.input.active-filter:focus,
+.select.active-filter:focus {
+  border-color: rgba(255, 166, 77, .90);
+}
+.input-sm { width: 84px; flex: none; text-align: center; }
+
+.icon-x {
+  width: 28px; height: 28px;
+  border-radius: var(--r-md);
+  color: var(--text-muted);
+  display: grid; place-items: center;
+  transition: all var(--t-hover) var(--ease);
+}
+.icon-x:hover { background: var(--hover); color: var(--danger); }
+
+.logic-row { display: flex; align-items: center; gap: 6px; height: 28px; }
+.logic-gap { width: 4px; flex: 0 0 4px; }
+/* 원본 _PreciseToggle (multi_search.py:16) — paintEvent 가 전부 그린다: 테두리 없음.
+   OFF: 아이콘 text_secondary, 호버 시 흰색 α18 배경(radius 5)
+   ON : 아이콘 #e05252, accent α40 배경(radius 5) */
+.target-toggle {
+  width: 28px; height: 28px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  display: grid; place-items: center;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--t-control) var(--ease), color var(--t-control) var(--ease);
+}
+.target-toggle:hover { background: rgba(255, 255, 255, .07); }
+.target-toggle.on {
+  color: #e05252;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.target-toggle.on:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+
+.meta-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+.meta-sep { color: var(--text-muted); font-size: 11px; }
+/* 원본 _control_label 은 QLabel — 줄바꿈하지 않는다 (setWordWrap 미사용).
+   좁은 폭에서 "SAMPLE RATE" 가 두 줄로 접히면 행 높이/정렬이 어긋난다. */
+.meta-row .caps { white-space: nowrap; flex: 0 0 auto; }
+.meta-label-gap { margin-left: 6px; }
+.meta-select { min-width: 110px; }
+.channels-select { min-width: 110px; }
+/* 원본 _FilterResetButton.paintEvent (main_window.py:310) 기준.
+   코드가 진실: docstring 은 "active=빨강"이라 적혀 있지만 paintEvent 는
+   _GREEN(#3ec870) 만 쓴다 (_RED 는 미사용).
+   - 필터 걸림: 외곽선 초록 full + fill a55 -> 호버 a81 + 아이콘 초록
+   - 필터 없음: 외곽선 border_strong a170 -> 호버 accent_hover a240,
+               아이콘 text_secondary -> accent_hover, fill accent a24 (호버에서만)
+   - radius 2, 정사각형(옆 콤보와 동일 높이), 140ms OutCubic */
+.filter-reset {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 2px;
+  color: var(--text-secondary);
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  transition: background 140ms var(--ease), border-color 140ms var(--ease),
+              color 140ms var(--ease);
+}
+.filter-reset:hover {
+  color: var(--accent-hover);
+  border-color: color-mix(in srgb, var(--accent-hover) 94%, transparent);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+.filter-reset.active {
+  color: var(--segment-on);
+  border-color: var(--segment-on);
+  background: color-mix(in srgb, var(--segment-on) 22%, transparent);
+}
+.filter-reset.active:hover {
+  border-color: var(--segment-on);
+  background: color-mix(in srgb, var(--segment-on) 32%, transparent);
+}
+.history-toggle { height: 28px; flex: 0 0 auto; }
+/* 원본 AnimButton 은 checkable 이지만 paintEvent 가 checked 를 쓰지 않는다
+   — 열림 상태에서 색이 바뀌지 않고 텍스트만 "▶ 히스토리"로 바뀐다. */
+
+.lib-inline {
+  min-width: 0;
+  padding: 0 4px 0 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+.lib-inline-head {
+  height: 24px;
+  flex: 0 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.section-title { color: var(--text-secondary); font-size: 11px; font-weight: 600; white-space: nowrap; }
+.lib-detail { width: 26px; height: 22px; padding: 0; flex: 0 0 26px; }
+.legend { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+.lib-inline-head .help-dot { width: 20px; height: 20px; margin-left: auto; flex: 0 0 20px; }
+.lib-inline-list { max-height: 70px; overflow-y: auto; padding-right: 4px; display: flex; flex-direction: column; gap: 2px; }
+.lib-drive { display: flex; flex-direction: column; gap: 2px; }
+.lib-drive-head {
+  height: 21px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 4px 1px 0;
+  color: var(--text-caps);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-align: left;
+}
+.lib-drive-head:hover { color: var(--text); }
+.lib-drive-head svg { transition: transform var(--t-control) var(--ease); }
+.lib-drive-head svg.open { transform: rotate(90deg); }
+
+/* ══ 결과 표 ═════════════════════════════════════════════ */
+.results {
+  flex: 1;
+  min-width: 0;
+  /* 원본 results.setMinimumHeight(200) — 결과창 최소 높이 */
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  overflow: hidden;
+}
+.thead {
+  display: flex;
+  height: 30px;
+  align-items: stretch;
+  background: var(--bg-header);
+  border-bottom: 1px solid var(--line);
+  position: relative;
+  z-index: 1;
+}
+.th {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+  border-right: 1px solid var(--line-soft);
+  font-size: var(--fs-caps);
+  font-weight: 650;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--text-caps);
+  white-space: nowrap;
+  overflow: hidden;
+  position: relative;
+  /* 원본은 setDefaultAlignment 를 호출하지 않아 Qt 기본값(가운데)이 적용된다. */
+  justify-content: center;
+  transition: background var(--t-hover) var(--ease), color var(--t-hover) var(--ease);
+}
+.th:hover { background: var(--hover); color: var(--text-secondary); }
+.th.center { justify-content: center; }
+.th.sorted { color: var(--text); }
+.th-sort {
+  /* 원본은 정렬 화살표를 X 박스와 같은 가로 중심에 둔다 (라벨과 겹치지 않음) */
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  opacity: .85;
+  color: rgb(140,152,168);
+}
+/* 오름차순 = 위쪽 삼각형 (원본 paintSection) */
+.th-sort.asc { transform: translateY(-50%) rotate(180deg); }
+/* 끌고 있는 헤더 — 반투명 + 살짝 밝아져 "들린" 느낌. 다른 헤더들은
+   FLIP 애니메이션(140ms OutCubic)으로 자리를 비켜 준다. */
+.th.dragging { opacity: .72; z-index: 2; }
+.th[draggable="true"] { cursor: grab; }
+.th[draggable="true"]:active { cursor: grabbing; }
+.th-close {
+  /* 원본: 12x12, right-2, top+3, 내부 선은 3px 안쪽 → 글리프 y 6~12.
+     원본 헤더는 30px 라 세로 중앙(15)의 삼각형(13~17)과 1px 뜬다.
+     여기 헤더는 29px 이라 그대로 두면 삼각형(12.5~16.5)과 맞닿아 겹쳐 보인다.
+     → 박스만 1px 올려(top 2) 원본과 같은 간격을 되살린다. 가로 위치·크기는 원본 그대로. */
+  position: absolute;
+  right: 2px;
+  top: 2px;
+  width: 12px; height: 12px;
+  border-radius: 3px;
+  display: grid; place-items: center;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity var(--t-hover) var(--ease), color var(--t-hover) var(--ease), background var(--t-hover) var(--ease);
+}
+.th:hover .th-close { opacity: 1; }
+.th-close:hover { background: var(--hover); color: var(--danger); }
+.th-grip {
+  position: absolute;
+  right: -3px; top: 0; bottom: 0;
+  width: 7px;
+  cursor: col-resize;
+  z-index: 2;
+}
+
+.tbody { flex: 1; overflow: auto; position: relative; }
+/* 결과표는 선택 행 자체가 포커스를 표시한다. 기본 focus-visible 외곽선은 헤더가
+   고정 폭인 구간에서만 드러나 히스토리를 닫을 때 오른쪽에 흰 선처럼 보였다. */
+.tbody:focus-visible { outline: none; border-radius: 0; }
+.tbody-inner { position: relative; width: 100%; }
+
+.tr {
+  display: flex;
+  align-items: center;
+  position: absolute;
+  left: 0; right: 0;
+  height: var(--h-row);
+  border-bottom: 1px solid var(--line-soft);
+  transition: background var(--t-hover) var(--ease);
+  contain: layout paint;
+}
+.tr:nth-child(even) { background: var(--row-alt); }
+.tr:hover { background: var(--row-hover); }
+.tr.selected { background: var(--row-selected); }
+.tr.playing { background: var(--row-playing); }
+.tr.playing .td-name { color: var(--text); font-weight: 600; }
+
+.td {
+  padding: 0 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-row);
+  color: var(--text-secondary);
+}
+.td.center { text-align: center; }
+.td.right { text-align: right; }
+.td-name { color: var(--text); display: flex; align-items: center; gap: 8px; min-width: 0; }
+.td-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.dot {
+  flex: 0 0 8px;
+  width: 8px; height: 8px;
+  border-radius: var(--r-pill);
+  background: var(--text-muted);
+}
+.tr.selected .dot { background: #4E90E8; }
+.tr.pip-playing .dot {
+  background: #58d97c;
+  /* 원본은 0.9초 주기 삼각파로 글로우 반지름 4~10px 를 왕복시킨다.
+     linear 팽창 링이 아니라 '호흡'으로 보여야 한다. */
+  animation: play-pip 900ms var(--ease) infinite alternate;
+}
+@keyframes play-pip {
+  from { box-shadow: 0 0 0 3px rgba(88,217,124,.34); }
+  to   { box-shadow: 0 0 0 8px rgba(88,217,124,.14); }
+}
+/* 로딩 상태 점 — 원본은 같은 주기의 빨강 박동. */
+.tr.pip-loading .dot {
+  background: #ff5a5a;
+  animation: load-pip 900ms var(--ease) infinite alternate;
+}
+@keyframes load-pip {
+  from { box-shadow: 0 0 0 3px rgba(255,90,90,.36); }
+  to   { box-shadow: 0 0 0 8px rgba(255,90,90,.14); }
+}
+/* 재생 종료 — 원본은 파란 정적 점등. */
+.tr.pip-ended .dot { background: #4E90E8; animation: none; }
+/* pip 상태가 없는 강조 행은 기본 점 색을 유지한다 (원본 else 분기) */
+
+.fmt {
+  flex: 0 0 auto;
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--line);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  /* 원본 results_table.py:_FMT_COLOR_MAP — accent/state 색은 다크·라이트가
+     비슷한 hex 라 모듈 상수로 유지한다. 즉 포맷 배지는 테마를 따라가지 않는다. */
+  color: #9ba6b8;
+  border-color: rgba(255, 255, 255, .063);
+  background: var(--bg-control);
+}
+.fmt.wav  { color: #4E90E8; border-color: rgba(78, 144, 232, .251); }
+.fmt.flac { color: #2DD4BF; border-color: rgba(45, 212, 191, .235); }
+.fmt.mp3  { color: #ffb84d; border-color: rgba(255, 184, 77, .235); }
+.fmt.aif,
+.fmt.aiff { color: #E879F9; border-color: rgba(232, 121, 249, .235); }
+.fmt.ogg  { color: #A06CFF; border-color: rgba(160, 108, 255, .235); }
+
+.statusbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 26px;
+  padding: 0 8px;
+  border-top: 1px solid var(--line);
+  background: var(--bg-header);
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+.statusbar .grow { flex: 1; }
+.status-message {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.indexed-count { color: var(--accent); padding: 0 10px; white-space: nowrap; }
+
+/* 메타 분석/미완료 인디케이터 — 원본은 이 자리를 **전 테마 공통 주황**으로 둔다
+   (`_INCOMPLETE_COLOR_HEX = "#ffa64d"`, main_window.py:39 → _meta_indicator_style 5070).
+   폴더 트리의 미완료 강조와 같은 warning tone 이라 색이 곧 의미다.
+   ⚠ 이 규칙이 없어 기본색으로 나오던 회귀가 있었다 (사용자 신고 2026-09-03).
+   폰트 크기/굵기는 지정하지 않는다 — 원본도 하단 다른 상태 텍스트와 같은 렌더링이다. */
+.meta-indicator {
+  /* 테마 토큰이 아니라 단일 hex — 원본도 전 테마 공통 한 색이다.
+     트리 미완료(.tree-count.incomplete)와 같은 값을 쓴다. */
+  color: #ffa64d;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.results-history-wrap {
+  flex: 1;
+  min-height: 200px;
+  min-width: 0;
+  display: flex;
+  padding-bottom: 7px;
+  gap: 4px;
+  overflow: hidden;
+}
+.results-slot {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ══ 라이브러리 패널 (우측) ═══════════════════════════════ */
+.libpanel {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-sidebar);
+  border-left: 1px solid var(--line);
+  min-width: 0;
+}
+.lib-root {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 4px 0 12px;
+  border-radius: var(--r-sm);
+  transition: background var(--t-hover) var(--ease);
+}
+.lib-root:hover { background: var(--row-hover); }
+.lib-name {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 12px;
+}
+.lib-count { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.lib-scan { color: var(--text-muted); font-size: 10.5px; }
+.led {
+  width: 7px; height: 7px;
+  border-radius: var(--r-pill);
+  flex: 0 0 7px;
+}
+.led.ok { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 22%, transparent); }
+.led.off { background: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 20%, transparent); }
+.led.busy { background: var(--warn); animation: pulse 1.6s var(--ease) infinite; }
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--warn) 42%, transparent); }
+  50%      { box-shadow: 0 0 0 5px transparent; }
+}
+
+/* ══ 플레이어 ════════════════════════════════════════════ */
+.player {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-panel);
+  padding: 3px 5px 5px;
+  /* 원본 player.setMinimumHeight(180) */
+  min-height: 180px;
+}
+.player-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.player-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 550;
+  color: var(--text);
+}
+.player-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.ruler {
+  /* 원본 TIMELINE_RULER_H = 16 */
+  height: 16px;
+  position: relative;
+  background: var(--ruler-bg);
+  border-bottom: 1px solid var(--ruler-sep);
+  overflow: hidden;
+  flex: 0 0 16px;
+}
+.ruler-tick {
+  position: absolute;
+  top: 0;
+  height: 16px;
+  padding-left: 2px;
+  font-size: 7pt;
+  line-height: 13px;   /* 원본 라벨 영역 = H-3, 세로 중앙 */
+  color: var(--ruler-label);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+/* 눈금선은 원본처럼 아래쪽 5px 만 (전체 높이 선이 아니다) */
+.ruler-tick::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 1px;
+  width: 1px;
+  height: 4px;
+  background: var(--ruler-tick);
+}
+
+.wave-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background: linear-gradient(var(--wave-bg-top), var(--wave-bg-mid) 55%, var(--wave-bg-bottom));
+  overflow: hidden;
+}
+.wave-canvas {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.wave-wrap.segments-on .wave-canvas { top: 20px; height: calc(100% - 20px); }
+.wave-head {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 2px;
+  background: rgb(255,190,84);
+  pointer-events: none;
+  /* 원본 정책: amber 글로우. accent 색이 아니다.
+     원본은 재생선 좌우 8px(±4) 를 rgba(255,184,77, 60~105) 로 칠한다 —
+     정지 상태는 그 중간값(α82 ≈ .32) 으로 고정한다. */
+  box-shadow: 0 0 7px rgba(255,184,77,.32), 0 0 2px rgba(255,214,140,.9);
+}
+/* 원본 _advance_animation: 재생 중에만 phase 가 돌아 글로우가 α105↔α60 을 왕복한다
+   (96 * 8ms = 768ms 주기 삼각파). */
+.wave-head.pulsing { animation: wave-head-glow 384ms linear infinite alternate; }
+@keyframes wave-head-glow {
+  from { box-shadow: 0 0 7px rgba(255,184,77,.41), 0 0 2px rgba(255,214,140,.9); }
+  to   { box-shadow: 0 0 7px rgba(255,184,77,.24), 0 0 2px rgba(255,214,140,.9); }
+}
+.wave-head::before {
+  content: "";
+  position: absolute;
+  top: 3px; left: -4px;
+  width: 10px; height: 10px;
+  border-radius: 999px;
+  background: rgb(255,190,84);
+  clip-path: none;
+}
+.wave-sel {
+  position: absolute;
+  top: 0; bottom: 0;
+  background: var(--wave-sel);
+  border-left: 1px solid var(--wave-sel-border);
+  border-right: 1px solid var(--wave-sel-border);
+  pointer-events: none;
+}
+.wave-sel.loop {
+  background: var(--wave-sel-loop);
+  border-left-color: var(--wave-sel-loop-border);
+  border-right-color: var(--wave-sel-loop-border);
+}
+.wave-wrap.segments-on .wave-sel { top: 20px; }
+.wave-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+/* 원본 paintEvent 의 _loading 분기 — 파형 배경(_fill_bg_split)만 깔고
+   가운데에 "파형 로딩 중..." (글자색 rgb(186,198,215)). */
+.wave-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  color: rgb(186, 198, 215);
+  background: linear-gradient(180deg, var(--wave-bg-top), var(--wave-bg-bottom, var(--wave-bg-top)));
+  letter-spacing: .02em;
+}
+
+.segment-header {
+  height: 20px;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 3;
+  overflow: hidden;
+  border-bottom: 1px solid var(--line-soft);
+  background: color-mix(in srgb, var(--bg-header) 84%, transparent);
+}
+.segbar {
+  display: none;
+  height: 20px;
+  position: relative;
+  border-top: 1px solid var(--line-soft);
+  background: var(--bg-header);
+  flex: 0 0 15px;
+}
+.seg {
+  position: absolute;
+  top: 0; bottom: 0;
+  border-radius: 0;
+  background: rgba(100, 120, 150, .18);
+  border: 1px solid rgba(120, 140, 170, .28);
+  transition: background var(--t-hover) var(--ease), border-color var(--t-hover) var(--ease);
+}
+.seg:hover { background: rgba(70, 200, 140, .31); border-color: rgba(160,255,200,.47); }
+.seg.active { background: rgba(160,90,230,.43); border-color: rgba(210,160,255,.55); }
+.seg::before {
+  content: attr(data-i);
+  position: absolute;
+  left: 5px;
+  top: 2px;
+  color: rgba(220,230,245,.72);
+  font-size: 8pt;
+  font-weight: 700;
+}
+
+.control-rows {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.control-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+}
+.transport { flex: 0 0 auto; }
+.monitoring-row { justify-content: flex-start; min-width: 0; }
+/* 2행 모드에서 SPD/VOL/세그먼트를 오른쪽 끝으로 밀어내는 신축 여백.
+   바이노럴 출력 컨트롤만 왼쪽에 남는다. */
+.monitoring-spacer { flex: 1 1 auto; min-width: 8px; }
+.tbtn {
+  width: 30px; height: 26px;
+  border-radius: 2px;
+  border: 1px solid color-mix(in srgb, var(--accent) 58%, transparent);
+  background: transparent;
+  color: var(--accent);
+  display: grid; place-items: center;
+  /* 원본 hover 전환: 60fps step 24/255 → 약 170ms */
+  transition: background 170ms var(--ease), border-color 170ms var(--ease),
+              color 170ms var(--ease);
+}
+.tbtn svg { display: block; }
+.tbtn:hover { background: var(--bg-control-hi); color: var(--text); border-color: var(--line-strong); }
+/* 원본 is_filled=True(재생): accent 불투명 채움 + accent 테두리 + on_accent 아이콘 */
+.tbtn.primary {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--on-accent);
+}
+.tbtn.primary:hover { background: var(--accent-hover); }
+.tbtn.loop.on { color: var(--loop); border-color: var(--loop); background: color-mix(in srgb, var(--loop) 28%, transparent); }
+
+/* ── 정지 버튼 색 (사용자 지시 2026-09-08) ───────────────────────────────────
+   정지는 **언제나 빨강**이다 — 파일을 고르지 않아 눌리지 않는 상태에서도 그렇다.
+   그래야 그 자리가 무슨 버튼인지 항상 같은 색으로 읽힌다.
+   ⚠ --warn / --accent 를 쓰지 말 것. 기본(무채색) 테마에서 둘 다 회색이라
+     색이 아예 안 나온다. --danger 는 테마 무관 상태색이다 (--loop 보라와 같은 자리).
+   ⚠ 재생/일시정지 버튼에는 색을 넣지 않는다. 재생 중에만 주황으로 바뀌게 해봤더니
+     누를 때마다 색이 바뀌어 정신없다는 지적을 받았다 (2026-09-08). 되돌린 상태다. */
+.tbtn.stop {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 62%, transparent);
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+}
+.tbtn.stop:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 26%, transparent);
+}
+.tbtn:disabled { opacity: .38; cursor: not-allowed; }
+/* 비활성이어도 빨강을 유지한다 (위 주석). 흐리기만 조금 덜 해 색이 보이게 둔다. */
+.tbtn.stop:disabled { opacity: .62; }
+.tbtn.segment {
+  /* 22px 버튼 - 좌우 보더 2px = 안쪽 20px. 아이콘은 그 80%(16px). */
+  width: 22px;
+  height: 22px;
+  color: var(--accent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  padding: 0;
+}
+.tbtn.segment.on {
+  color: var(--segment-on);
+  border-color: var(--segment-on);
+  background: color-mix(in srgb, var(--segment-on) 22%, transparent);
+}
+.time.main-time { width: 120px; flex: 0 0 120px; }
+.track-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  overflow: hidden;
+}
+.track-caption { color: var(--text-muted); font-size: 11px; white-space: nowrap; }
+/* 원본 #fileLabel: text, 12px (_ElidedLabel — 폭 넘치면 말줄임) */
+.track-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-size: 12px; }
+.track-meta { color: var(--text-muted); font-size: 11px; white-space: nowrap; }
+.split-output {
+  width: 345px;
+  flex: 0 0 345px;
+  display: flex;
+  align-items: flex-start;
+  gap: 1px;
+}
+.binaural-main {
+  width: 320px;
+  height: 22px;
+  border-radius: 2px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-control);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 8px;
+  font-size: 11px;
+  overflow: hidden;
+}
+/* 켜짐 = 버튼 채움 (원래 방식). 왼쪽에 초록 세로 바를 넣어 봤으나 두꺼운 가로선
+   처럼 보인다는 지적을 받아 되돌렸다 (사용자 지시 2026-09-08).
+   켜짐/꺼짐 구분은 뱃지 색(.state-chip.on/.off)이 맡는다. */
+.binaural-main.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+.state-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  border: 1.2px solid currentColor;
+  opacity: .72;
+}
+.state-chip {
+  width: 33px;
+  height: 16px;
+  border-radius: 3px;
+  display: grid;
+  place-items: center;
+  background: rgba(255,255,255,.07);
+  font-size: 9px;
+}
+/* 꺼짐 빨강 / 켜짐 초록 (사용자 지시 2026-09-08). 판별·선택 중에는 아직 정해진
+   상태가 아니라 위의 무채색을 그대로 쓴다 (Player.tsx chipTone). */
+.state-chip.off { background: var(--danger); color: #ffffff; font-weight: 600; }
+.state-chip.on { background: var(--active-green); color: #08170d; font-weight: 600; }
+.binaural-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.binaural-menu {
+  width: 24px;
+  height: 22px;
+  border-radius: 2px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-control);
+  color: var(--text-secondary);
+  display: grid;
+  place-items: center;
+}
+.control-group {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.control-group.speed .slider { width: 88px; }
+.control-group.volume .slider { width: 110px; }
+.value-label {
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.speed-value { width: 44px; }
+.speed-value.changed { color: var(--speed-warn); font-weight: 650; }
+.vol-value { width: 66px; }
+.value-edit {
+  height: 20px;
+  min-width: 60px;
+  padding: 0 5px;
+  border-radius: 2px;
+  border: 1px solid var(--accent);
+  background: var(--bg-elev);
+  color: var(--text);
+  font-size: 11.5px;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+}
+
+.time {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.time strong { color: var(--text); font-weight: 600; }
+
+.slider {
+  appearance: none;
+  width: 108px;
+  height: 18px;
+  background: transparent;
+}
+.slider::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: var(--r-pill);
+  background: var(--line-strong);
+}
+.slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 11px; height: 11px;
+  margin-top: -4px;
+  border-radius: var(--r-pill);
+  background: var(--text-secondary);
+  transition: background var(--t-hover) var(--ease), transform var(--t-hover) var(--ease);
+}
+.slider:hover::-webkit-slider-thumb { background: var(--accent); transform: scale(1.12); }
+
+/* ══ 히스토리 드로어 ══════════════════════════════════════ */
+.drawer {
+  position: relative;
+  width: 0;
+  max-width: 0;
+  flex: 0 0 0;
+  overflow: hidden;
+  background: var(--bg-panel);
+  /* 왼쪽 경계선을 **테두리로 두지 말 것** — 열릴 때 얇은 선이 번쩍인다.
+     테두리는 상자 **밖**에 그려져 overflow:hidden 에 잘리지 않는다. 닫힌 상태는
+     width:0 이므로, 열리는 순간 폭은 아직 0인데 테두리 1px 는 즉시 제 색으로
+     그려져 **세로 흰 선 하나만 보이다가** 패널이 그 선을 감싸며 커진다. 닫을 때는
+     반대로 선만 남았다가 사라진다 (사용자 신고 2026-09-07: "히스토리 패널 옆에
+     하얀 선 같은게 생겼다가 사라졌어" — 어두운 테마에서 --line 이 흰색 계열이다).
+     inset 그림자는 상자 **안**에 그려져 폭이 0이면 아무것도 보이지 않는다. */
+  box-shadow: inset 1px 0 0 var(--line);
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  /* 원본 history_panel 은 maximumWidth 를 168ms OutCubic(DRAWER_MS) 으로 애니메이션한다.
+     ⚠ flex-basis 도 같이 트랜지션해야 한다 — 폭만 애니메이션하고 flex-basis 가
+     즉시 튀면 드로어가 애니메이션 없이 그냥 나타난다 (실제 증상). */
+  transition: width var(--t-panel) var(--ease),
+              max-width var(--t-panel) var(--ease),
+              flex-basis var(--t-panel) var(--ease),
+              opacity var(--t-hover) var(--ease);
+}
+.drawer.open { opacity: 1; }
+.drawer-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.drawer-title { font-size: 12.5px; font-weight: 600; }
+/* ⚠ min-height:0 이 없으면 flex 컬럼 안에서 이 칸이 내용 높이 이하로 줄지 못해
+   스크롤바가 생기지 않고 넘치는 항목이 잘린다 (실측: 히스토리가 화면에 들어가는
+   개수만 보이고 나머지 100개가 안 보였다). */
+.drawer-list { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 4px 0; }
+.drawer-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--line-soft);
+  transition: background var(--t-hover) var(--ease), color var(--t-hover) var(--ease);
+}
+.drawer-item:hover { background: var(--row-hover); color: var(--text); }
+.drawer-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drawer-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+/* ══ 모달 ════════════════════════════════════════════════ */
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-overlay);
+  backdrop-filter: blur(2px);
+  display: grid;
+  place-items: center;
+  z-index: 50;
+  animation: scrim-in var(--t-control) var(--ease);
+}
+@keyframes scrim-in { from { opacity: 0; } }
+
+.modal {
+  width: min(920px, calc(100vw - 80px));
+  max-height: calc(100vh - 110px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  box-shadow: var(--shadow-modal), var(--inset-top);
+  overflow: hidden;
+  animation: modal-in var(--t-panel) var(--ease);
+}
+.modal.sm { width: min(520px, calc(100vw - 80px)); }
+.modal.lg { width: min(1120px, calc(100vw - 60px)); }
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(10px) scale(.985); }
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-header);
+}
+.modal-title { font-size: 13.5px; font-weight: 600; }
+.modal-desc { font-size: 11.5px; color: var(--text-muted); }
+.modal-body { flex: 1; overflow: auto; padding: 16px; }
+.modal-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 56px;
+  padding: 0 16px;
+  border-top: 1px solid var(--line);
+  background: var(--bg-header);
+}
+.modal-foot .grow { flex: 1; }
+
+/* ── 모달 내부 공통 ───────────────────────────────────── */
+.field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.field:last-child { border-bottom: none; }
+.field-label { flex: 0 0 210px; }
+.field-name { font-size: 12.5px; color: var(--text); }
+.field-hint { font-size: 11px; color: var(--text-muted); margin-top: 2px; line-height: 1.45; }
+.field-ctrl { flex: 1; display: flex; justify-content: flex-end; gap: 8px; }
+
+.section-title {
+  font-size: var(--fs-caps);
+  font-weight: 650;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text-caps);
+  margin: 4px 0 6px;
+}
+.section + .section { margin-top: 18px; }
+
+/* ── 체크 / 스위치 ────────────────────────────────────── */
+.check {
+  width: 16px; height: 16px;
+  border-radius: 5px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-control);
+  display: grid; place-items: center;
+  flex: 0 0 16px;
+  transition: all var(--t-control) var(--ease);
+}
+.check svg { opacity: 0; transform: scale(.7); transition: all var(--t-control) var(--ease); }
+.check.on {
+  background: var(--accent);
+  border-color: transparent;
+  box-shadow: 0 0 0 3px var(--accent-dim), inset 0 1px rgba(255,255,255,.22);
+}
+.check.on svg { opacity: 1; transform: none; color: var(--on-accent); }
+
+.switch {
+  width: 34px; height: 19px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line-strong);
+  background: var(--bg-control);
+  position: relative;
+  transition: all var(--t-control) var(--ease);
+  flex: 0 0 34px;
+}
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 13px; height: 13px;
+  border-radius: var(--r-pill);
+  background: var(--text-muted);
+  transition: all var(--t-control) var(--ease);
+}
+.switch.on { background: var(--accent); border-color: transparent; }
+.switch.on::after { left: 17px; background: var(--on-accent); }
+
+.seg-toggle {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--bg-control);
+  gap: 2px;
+}
+.seg-toggle button {
+  height: 24px;
+  padding: 0 12px;
+  border-radius: 4px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  transition: all var(--t-control) var(--ease);
+}
+.seg-toggle button:hover { color: var(--text); }
+.seg-toggle button.active {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+/* ── 모달 안 표 ───────────────────────────────────────── */
+.mtable { width: 100%; border-collapse: collapse; font-size: 12px; }
+.mtable th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-header);
+  text-align: left;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-caps);
+  font-weight: 650;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--text-caps);
+  white-space: nowrap;
+}
+.mtable td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--text-secondary);
+  max-width: 340px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mtable tr:hover td { background: var(--row-hover); color: var(--text); }
+.mtable td.strong { color: var(--text); }
+
+/* ── 진행 막대 ────────────────────────────────────────── */
+.progress {
+  height: 5px;
+  border-radius: var(--r-pill);
+  background: var(--line-soft);
+  overflow: hidden;
+}
+.progress > div {
+  height: 100%;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  transition: width var(--t-panel) var(--ease);
+}
+.progress.indet > div {
+  width: 32% !important;
+  animation: indet 1.5s var(--ease) infinite;
+}
+@keyframes indet {
+  0%   { transform: translateX(-110%); }
+  100% { transform: translateX(330%); }
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 19px;
+  padding: 0 8px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  background: var(--bg-elev);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.badge.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 36%, transparent); }
+.badge.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 36%, transparent); }
+.badge.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 36%, transparent); }
+
+/* ── 컨텍스트 메뉴 ────────────────────────────────────── */
+.ctxmenu {
+  position: fixed;
+  min-width: 190px;
+  padding: 5px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line-strong);
+  background: var(--bg-elev);
+  box-shadow: var(--shadow-modal);
+  z-index: 60;
+  animation: ctx-in 130ms var(--ease);
+}
+@keyframes ctx-in { from { opacity: 0; transform: translateY(-4px) scale(.98); } }
+.ctxitem {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  color: var(--text-secondary);
+  transition: background var(--t-hover) var(--ease), color var(--t-hover) var(--ease);
+}
+.ctxitem:hover { background: var(--row-hover); color: var(--text); }
+.ctxlabel { color: var(--text-muted); pointer-events: none; }
+.menu-check { justify-content: flex-start; }
+.menu-check .checkmark {
+  width: 14px;
+  height: 14px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 14px;
+  color: var(--accent);
+}
+.menu-check.disabled {
+  opacity: .55;
+  cursor: default;
+}
+.menu-check.disabled:hover { background: transparent; color: var(--text-secondary); }
+.ctxitem.danger:hover { color: var(--danger); }
+.ctxsep { height: 1px; margin: 4px 6px; background: var(--line-soft); }
+
+/* ── 토스트 ───────────────────────────────────────────── */
+.toasts {
+  position: fixed;
+  right: 16px; bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 70;
+}
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 14px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line-strong);
+  background: var(--bg-elev);
+  box-shadow: var(--shadow-panel);
+  font-size: 12px;
+  animation: toast-in var(--t-control) var(--ease);
+}
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+.player { flex: 1; min-width: 0; }
+
+
+/* ── 인덱싱 모션 (원본 대응) ─────────────────────────────
+   실제 인덱싱 상태가 백엔드에서 오기 전에는 화면에 쓰지 않는다.
+   가짜 진행 표시를 만들지 않기 위한 것이며, 클래스만 준비해 둔다.
+   - 배지 깜박임: 원본 _blink_timer 600ms 토글
+   - 스피너: 원본 _IndexSpinner 270도 호, 초당 270도 회전 */
+.index-badge.blinking { animation: index-blink 1200ms steps(1, end) infinite; }
+@keyframes index-blink {
+  0%, 49.9% { color: #e74c3c; border-color: #e74c3c; }
+  50%, 100% { color: #a93226; border-color: #a93226; }
+}
+.index-spinner {
+  width: 14px; height: 14px;
+  border-radius: 999px;
+  border: 1.6px solid transparent;
+  border-top-color: currentColor;
+  border-right-color: currentColor;
+  animation: index-spin 1333ms linear infinite;
+}
+@keyframes index-spin { to { transform: rotate(360deg); } }
+
+/* 원본 고정 크기 (multi_search.py / main_window.py) */
+.abtn.add-filter { width: 82px; height: 28px; justify-content: center; }
+.abtn.clear-search { height: 28px; }
+.abtn.history-toggle { height: 28px; }
+.abtn.history-toggle.active {
+  background: color-mix(in srgb, var(--ab) 16%, transparent);
+  border-color: color-mix(in srgb, var(--ab) 49%, transparent);
+}
+.abtn.row-remove { width: 28px; height: 28px; --ab: var(--text-secondary); }
+.abtn.lib-detail { height: 22px; width: 22px; font-size: 12px; }
+
+/* ── 목록 지연 툴팁 (원본 results_table.py 650ms) ──────────
+   Chromium 기본 title 툴팁은 지연/모양을 제어할 수 없어 직접 그린다. */
+/* 결과표 행 툴팁 — 아래 `.apptip` 과 **같은 표현**으로 맞춘다.
+   원본에는 QToolTip 한 종류뿐이라 목록 툴팁도 다른 툴팁과 완전히 같은 모양이다
+   (정책 획일화, 사용자 지시 2026-09-03). 여기는 위치 계산만 결과표가 직접 한다. */
+.list-tip {
+  position: fixed;
+  z-index: 80;
+  max-width: 420px;
+  padding: 6px 9px;
+  border-radius: 4px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-elev);
+  color: var(--text);
+  font-size: 11.5px;
+  line-height: 1.45;
+  white-space: pre-line;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .45);
+  pointer-events: none;
+  overflow-wrap: anywhere;
+  animation: tip-in 90ms var(--ease) both;
+}
+@keyframes tip-in { from { opacity: 0; } }
+
+/* ── 사용자 탭 / 새 탭 입력 (원본 library_tabs.py) ─────────── */
+.tab.user-tab { display: inline-flex; align-items: center; gap: 5px; padding-right: 6px; }
+.user-tab-name { max-width: 108px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tab-close {
+  width: 14px; height: 14px;
+  display: grid; place-items: center;
+  border-radius: 3px;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity var(--t-hover) var(--ease), color var(--t-hover) var(--ease),
+              background var(--t-hover) var(--ease);
+}
+.tab.user-tab:hover .tab-close { opacity: 1; }
+.tab-close:hover { background: var(--hover); color: var(--danger); }
+.new-tab-input {
+  height: 26px;
+  width: 110px;
+  flex: 0 0 110px;
+  font-size: 11.5px;
+  padding: 0 8px;
+}
+.tab-error {
+  margin: 2px 10px 0;
+  font-size: 11px;
+  color: var(--danger);
+}
+
+/* ══ 환경설정 창 (원본 SettingsDialog, 500x500 / 탭 6개) ═══════ */
+.modal.settings { width: 620px; max-width: calc(100vw - 80px); }
+/* ⚠ `>` (직계 자식) 을 반드시 유지할 것. 자손 선택자로 두면 환경설정 창 **안에**
+   그려지는 작은 확인창(검색 제외 확인 등)의 본문까지 이 규칙에 걸린다.
+   실측 2026-09-07 (사용자 신고): 확인창 본문이 padding:0 이 되어 글자가 창
+   가장자리에 붙고, min-height:420px 때문에 짧은 문구인데도 창이 세로로 길게
+   늘어나 아래가 텅 비었다. 아래 .modal.suppressed 도 같은 이유로 `>` 를 쓴다. */
+.modal.settings > .modal-body { padding: 0; display: flex; flex-direction: column; min-height: 420px; }
+
+.tabstrip {
+  display: flex;
+  gap: 2px;
+  padding: 8px 12px 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-header);
+  flex: 0 0 auto;
+}
+.strip-tab {
+  height: 27px;
+  padding: 0 13px;
+  border-radius: var(--r-md) var(--r-md) 0 0;
+  border: 1px solid transparent;
+  border-bottom: none;
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  transition: background var(--t-hover) var(--ease), color var(--t-hover) var(--ease);
+}
+.strip-tab:hover { background: var(--hover); color: var(--text); }
+.strip-tab.active {
+  background: var(--bg-panel);
+  border-color: var(--line);
+  color: var(--text);
+  font-weight: 600;
+  margin-bottom: -1px;
+}
+
+.form { padding: 16px; overflow: auto; }
+.form-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 5px 0;
+}
+.form-label {
+  flex: 0 0 190px;
+  font-size: 12.5px;
+  color: var(--text);
+  padding-top: 4px;
+}
+.form-radios { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.form-hint {
+  margin: 4px 0 0 202px;
+  font-size: 10.5px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+.form-sep { height: 1px; margin: 11px 0; background: var(--line-soft); }
+
+/* 라디오 / 체크 — 원본 QRadioButton / QCheckBox 대응 */
+.radio-row, .check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 24px;
+  padding: 0 6px 0 2px;
+  border-radius: var(--r-sm);
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  text-align: left;
+  transition: color var(--t-hover) var(--ease), background var(--t-hover) var(--ease);
+}
+.radio-row:hover, .check-row:hover { background: var(--hover); color: var(--text); }
+.radio-row.on, .check-row.on { color: var(--text); }
+/* 원형 표식 — 13px(홀수) + border 1px 은 배율 1.25/1.5 에서 테두리가 device pixel 로
+   비대칭 스냅되어 점이 중앙에서 밀려 보인다. 짝수(14px)로 두고 점은 transform 으로
+   정확히 중앙 정렬한다. */
+.radio-mark {
+  width: 14px; height: 14px;
+  flex: 0 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-control);
+  position: relative;
+  transition: border-color var(--t-control) var(--ease);
+}
+.radio-row.on .radio-mark { border-color: var(--accent); }
+.radio-row.on .radio-mark::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: var(--accent);
+}
+.check-mark {
+  width: 13px; height: 13px;
+  flex: 0 0 13px;
+  border-radius: 3px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-control);
+  position: relative;
+  transition: all var(--t-control) var(--ease);
+}
+.check-row.on .check-mark { background: var(--accent); border-color: transparent; }
+.check-row.on .check-mark::after {
+  content: "";
+  position: absolute;
+  left: 3.5px; top: 1px;
+  width: 4px; height: 7px;
+  border: solid var(--on-accent);
+  border-width: 0 1.6px 1.6px 0;
+  transform: rotate(40deg);
+}
+
+.input-key { width: 148px; flex: 0 0 148px; text-align: center; font-size: 11.5px; }
+.input-key.disabled-key { color: #888888; }
+
+/* ── 중복 검수 탭 (원본 _setup_duplicate_tab) ────────────── */
+.dup-tab { padding: 14px 12px 12px; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.dup-tab .form-hint { margin-left: 0; }
+.dup-actions { display: flex; align-items: center; gap: 8px; }
+.dup-status { font-size: 10.5px; color: var(--text-secondary); }
+/* 결과 목록 아래 오른쪽 줄 — [검색 제외] 자리 (Settings.tsx dup-foot 주석 참고) */
+.dup-foot { display: flex; justify-content: flex-end; }
+/* 되돌리기 번거로운 작업의 글자만 위험 색으로 — 배경은 평범한 버튼 그대로 둔다.
+   원본도 위험 동작을 배경이 아니라 글자색으로 알린다 (실패 항목 제거 등). */
+.btn-danger-text { color: var(--danger); }
+.btn-danger-text:enabled:hover { color: var(--danger); border-color: var(--danger); }
+.btn-danger-text:disabled { color: var(--text-muted); }
+.dup-tools { display: flex; align-items: center; gap: 8px; }
+
+/* 중복 검수 진행바 — 원본 _dup_progress (높이 10px, 글자 없음). */
+.dup-progress {
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--bg-control);
+  border: 1px solid var(--line);
+}
+.dup-progress-bar {
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width var(--t-control) var(--ease);
+}
+/* 총량이 아직 안 정해진 준비 단계 — 원본 setRange(0,0) 의 흐르는 애니메이션. */
+.dup-progress-bar.indet {
+  width: 34%;
+  animation: dup-indet 1.1s linear infinite;
+}
+@keyframes dup-indet {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(300%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dup-progress-bar.indet { animation: none; width: 100%; opacity: .45; }
+}
+.dup-tools .input { flex: 1; }
+.dup-tree {
+  flex: 1;
+  min-height: 190px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--bg);
+}
+/* 모든 행이 같은 4열(캐럿 / 파일명·경로 / 크기 / 개수)을 쓴다.
+   원본 컬럼 폭 320/90/60 을 비율로 옮긴 것 — 파일명 열만 늘어난다. */
+.dup-head, .dup-row {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) 90px 60px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  height: 26px;
+  font-size: 11.5px;
+  text-align: left;
+  width: 100%;
+}
+.dup-head {
+  position: sticky;
+  top: 0;
+  height: 28px;
+  background: var(--bg-header);
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-caps);
+  font-weight: 650;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--text-caps);
+}
+.dup-row { color: var(--text-secondary); border-bottom: 1px solid var(--line-soft); }
+.dup-row.group { color: var(--text); }
+.dup-row:hover { background: var(--row-hover); }
+.dup-row.child .dup-name { padding-left: 22px; color: var(--text-secondary); }
+.dup-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dup-head span { white-space: nowrap; overflow: hidden; }
+.dup-size, .dup-count { text-align: right; }
+.dup-caret { display: inline-grid; place-items: center; width: 14px; transition: transform var(--t-control) var(--ease); }
+.dup-caret.open { transform: rotate(90deg); }
+
+/* ── 결과 텍스트 "작게" 모드 (원본 compact_results) ───────── */
+/* 원본 set_compact: verticalHeader().setDefaultSectionSize(22 if compact else 30).
+   ⚠ PoC 는 JS 가 행 위치를 22px 간격으로 잡는데 CSS 행 높이는 --h-row(30px) 그대로여서
+   행이 8px 씩 겹치고, 같은 높이에 보이는 행 수가 원본보다 36% 적었다 (사용자 보고
+   "결과 영역이 답답하다"의 실제 원인). 행 높이를 같이 줄인다. */
+.results.compact .tr { height: 22px; }
+.results.compact .td { font-size: 11.5px; }
+.results.compact .fmt { font-size: 8px; padding: 0 4px; }
+.results.compact .dot { flex-basis: 7px; width: 7px; height: 7px; }
+
+/* ── 검색 도움말 툴팁 (원본 _HelpButton, hover 150ms) ────────
+   원본은 QToolTip 이지 별도 창이 아니다. PoC 가 만들었던 모달을 없앴다. */
+.help-tip {
+  position: fixed;
+  z-index: 85;
+  max-width: 420px;
+  padding: 10px 13px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line-strong);
+  background: var(--bg-elev);
+  color: var(--text);
+  font-size: 11.5px;
+  line-height: 1.62;
+  white-space: pre-wrap;
+  box-shadow: var(--shadow-panel);
+  pointer-events: none;
+  animation: tip-in 90ms var(--ease) both;
+}
+
+/* 새 탭 다이얼로그 오류 문구 (원본 QMessageBox "중복") */
+.dialog-error { margin-top: 8px; font-size: 11.5px; color: var(--danger); }
+
+
+/* ══ 라이브러리 현황 — 원본 LibraryStatusInline 수치 재적용 ══════════
+   (이전 PoC 값은 임의였다. 아래는 main_window.py:1397~1627 실측값.) */
+.lib-inline { padding: 0 4px 0 10px; }
+.lib-inline-head { display: flex; align-items: center; gap: 4px; }
+.lib-inline-head .abtn.lib-detail { width: 26px; height: 22px; }
+.lib-inline-head .legend:first-of-type { margin-left: 6px; }
+.lib-inline-head .legend { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; color: var(--text-secondary); }
+/* 현황 목록 높이 — 이 값이 상단 고정 영역 전체 높이를 좌우한다 (.search-top).
+   사용자 지시(2026-09-02): 노출 항목을 줄여 고정 높이를 낮춘다. 목록은 세로
+   스크롤(드래그)로 나머지를 본다. 140px(약 6행) → 70px(약 3행). */
+.lib-inline-list { max-height: 70px; overflow-y: auto; overflow-x: hidden; padding-right: 4px; margin-top: 2px; }
+.lib-drive + .lib-drive { margin-top: 2px; }
+.lib-root {
+  display: flex;
+  align-items: center;
+  gap: 6px;               /* 원본 row.setSpacing(6) */
+  padding: 0 0 0 12px;    /* 원본 contentsMargins(12, 0, 0, 0) — 그룹 안 들여쓰기 */
+  height: 22px;
+  border-radius: var(--r-sm);
+}
+.lib-root + .lib-root { margin-top: 2px; }
+.lib-name { flex: 0 0 auto; max-width: 132px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lib-count { flex: 0 0 auto; }
+.lib-scan { flex: 0 0 auto; color: var(--text-muted); font-size: 11px; }
+/* 끝에 신축 여백 — 원본 row.addStretch() 로 전부 좌측 정렬된다 */
+.lib-root::after { content: ""; flex: 1 1 auto; }
+
+/* 상태 점 — 원본 GLOW_* 는 테마와 무관한 상수다 */
+/* 원본 _GlowDot: 색은 GLOW_OK/PENDING/FAIL/MISSING, hollow 는 "경로 없음" 일 때만.
+   hollow 링 두께는 원본 max(1.25, size*0.095) → 7px 점에서 1.25px. */
+.led.ok      { background: #58d97c; box-shadow: 0 0 0 3px rgba(88,217,124,.22); }
+.led.busy    { background: #ffb84d; box-shadow: 0 0 0 3px rgba(255,184,77,.22); animation: none; }
+.led.fail    { background: #ff5a5a; box-shadow: 0 0 0 3px rgba(255,90,90,.22); animation: none; }
+.led.missing,
+.led.off     { background: transparent; border: 1.25px solid rgba(255,90,90,.92); box-shadow: none; animation: none; }
+.lib-root .led { width: 9px; height: 9px; flex: 0 0 9px; }
+
+/* ══ 히스토리 패널 — 원본 history_panel.py 수치 ═══════════════════
+   폭 애니메이션(168ms)으로 결과표 옆에 밀려 들어온다. 오버레이가 아니다. */
+.drawer {
+  position: relative;
+  flex: 0 0 auto;
+  overflow: hidden;
+  display: flex;
+  background: var(--bg-panel);
+  border-left: 0;
+  box-shadow: inset 1px 0 var(--line);
+  transform: none;
+  /* 원본 DRAWER_MS 168 OutCubic. flex-basis/max-width 도 함께 트랜지션해야
+     "그냥 나타나는" 증상이 사라진다 (인라인으로 세 값을 같이 준다). */
+  transition: width var(--t-panel) var(--ease),
+              max-width var(--t-panel) var(--ease),
+              flex-basis var(--t-panel) var(--ease),
+              opacity var(--t-hover) var(--ease);
+}
+/* 경계선을 inset 그림자로 바꿨으므로 닫힘 상태를 따로 지울 필요가 없다
+   (폭 0 이면 그림자도 안 보인다). 위 .drawer 주석 참고 — 테두리로 되돌리지 말 것. */
+/* 좌측 8px 리사이즈 grip — 호버 시 중앙에 점 3개 (원본 _HistoryResizeGrip) */
+.history-grip {
+  flex: 0 0 8px;
+  position: relative;
+  cursor: col-resize;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+.history-grip::before {
+  content: "";
+  position: absolute;
+  top: 12px; bottom: 12px; left: 3px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--line-strong);
+  transition: background var(--t-hover) var(--ease);
+}
+.history-grip:hover::before { background: var(--accent); }
+.history-grip span {
+  width: 2.6px; height: 2.6px;
+  border-radius: 999px;
+  background: transparent;
+  transition: background var(--t-hover) var(--ease);
+  z-index: 1;
+}
+.history-grip:hover span { background: var(--on-accent); }
+.history-content {
+  flex: 1;
+  min-width: 0;
+  /* ⚠ Chromium 은 flex 자식의 기본 min-height:auto 때문에 내용보다 작게 못 줄인다.
+     이 값이 없으면 목록이 내용 높이만큼 늘어나 드로어가 화면을 넘고, 스크롤바가
+     생기지 않아 **일부 항목만 보이는** 상태가 된다 (히스토리 개수 보고 대응). */
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+}
+.history-head { padding-bottom: 6px; }
+.history-list { flex: 1; min-height: 0; overflow: auto; }
+.history-item {
+  padding: 5px 8px;
+  border-left: 2px solid transparent;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: background var(--t-hover) var(--ease), color var(--t-hover) var(--ease),
+              border-color var(--t-hover) var(--ease);
+}
+.history-item:hover {
+  background: var(--row-hover);
+  border-left-color: var(--accent);
+  color: var(--text);
+}
+.history-foot { display: flex; align-items: center; gap: 8px; padding: 4px; }
+.caps-num { font-size: 11px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.btn.pill { border-radius: 999px; }
+
+/* ── 중복 결과에서 '제외해도 남는 항목' 표시 (조사 D04) ────────────────────
+   원본은 그 행의 글자색을 accent 로 바꾸고 앞에 "✓ 유지" 를 붙인다. */
+.dup-row.child.keep .dup-name { color: var(--accent); }
+.dup-keep {
+  display: inline-block;
+  margin-right: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+/* ── 백그라운드 인덱싱 일시정지/재개 버튼 (조사 I04) ──────────────────────
+   원본 _style_meta_pause_btn: 22px 정사각 + 외곽선 + 옅은 채움.
+   멈출 수 있는 상태(⏸)는 빨강, 멈춰 있는 상태(▶)는 초록. */
+.meta-pause {
+  width: 20px; height: 20px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 4px;
+  border: 1px solid rgba(219, 67, 67, .55);
+  background: rgba(219, 67, 67, .20);
+  color: #db4343;
+  cursor: pointer;
+  transition: background var(--t-hover) var(--ease), border-color var(--t-hover) var(--ease);
+}
+.meta-pause:hover { background: rgba(219, 67, 67, .30); }
+.meta-pause.paused {
+  border-color: rgba(47, 179, 68, .55);
+  background: rgba(47, 179, 68, .13);
+  color: #3a9d52;
+}
+.meta-pause.paused:hover { background: rgba(47, 179, 68, .22); }
+
+/* ── 라이브러리 현황 범례 (원본 _make_legend_chip) ──────────
+   세 칩 모두 같은 도형: 채운 점 + 3px 간격 + 10px 라벨. 색만 다르다.
+   범례 묶음 우측 정렬은 사용자 지시. */
+.legend-spacer { flex: 1 1 auto; }
+.legend-dot {
+  width: 9px; height: 9px;
+  flex: 0 0 9px;
+  border-radius: 999px;
+  border: none;
+}
+.legend-dot.ok      { background: #58d97c; box-shadow: 0 0 0 2px rgba(88,217,124,.20); }
+.legend-dot.pending { background: #ffb84d; box-shadow: 0 0 0 2px rgba(255,184,77,.20); }
+.legend-dot.fail    { background: #ff5a5a; box-shadow: 0 0 0 2px rgba(255,90,90,.20); }
+/* 경로 없음 — 원본은 속 빈 빨강 원 (범례의 "실패" 칩은 채운 원 그대로) */
+.legend-dot.missing { background: transparent; border: 1.25px solid rgba(255,90,90,.92); box-shadow: none; }
+.help-dot.status-help { margin-left: 2px; }
+
+/* 컬럼 재배치 — 마우스 드래그 (원본 setSectionsMovable 대응) */
+.th { cursor: default; }
+.th.dragging { opacity: .45; }
+/* (2026-09-02) 끌고 있는 동안 실제로 칸이 움직이므로 목표 칸 표시는 쓰지 않는다.
+   양쪽 2px 바가 "흰색 바" 로 보이는 문제도 이 규칙 때문이었다. 원본 Qt 도 표시가 없다. */
+
+/* ══ 파일 브라우저 트리 — 원본 folder_tree.py 정책 ══════════════
+   - setIndentation(18), 폰트 9pt, uniform row height
+   - 선택 행은 뷰포트 폭 전체를 row_selected 로 칠함 (컬럼 폭 무관)
+   - 선택 행 **과 조상 행** 모두 좌측 3px #4E90E8 바 (drawRow:2204)
+   - 개수는 파랑 상수 #4E90E8, 우측 50px 고정 컬럼 (_CountOverlay)
+   - 화살표는 삼각형만, 가지 세로선 없음. 색 #727d8e / 호버 #d6deea
+   - 검색 매칭은 토큰 접두만 #cf7676 bold */
+.tree-row { padding-right: 0; }
+.tree-row.selected { background: var(--row-selected); }
+.tree-row.selected::before,
+.tree-row.ancestor::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  border-radius: 0;
+  background: #4E90E8;
+}
+.tree-caret { color: #727d8e; transition: color var(--t-hover) var(--ease); }
+.tree-row:hover .tree-caret,
+.tree-caret:hover { color: #d6deea; }
+.tree-count {
+  /* 원본 _CountOverlay: 우측 고정 폭 50px, 우측 정렬(여백 6px), 좌측 1px 구분선.
+     폰트/색 정책은 원본 _apply_counts (folder_tree.py:868):
+       · 라이브러리 루트 : 9pt **굵게**, #4E90E8
+       · 하위 폴더      : 9pt × 0.8, 굵기 없음, #999999
+       · 미완료 포함    : #ffa64d (루트만 굵게)
+     PoC 는 전부 11px 파랑이라 숫자가 칸을 넘칠 듯 빽빽해 보였다. */
+  /* 원본 _CountOverlay 는 tree(스크롤 영역)의 자식이라 **가로 스크롤과 무관하게**
+     뷰포트 우측에 고정된다. sticky 로 같은 효과를 낸다 (배경이 불투명해야
+     밑을 지나가는 긴 라벨을 덮는다 — 원본도 bg_panel 로 채운다). */
+  /* 사용자 지시(2026-09-02): 우측 고정은 유지하고 **판만 투명**으로.
+     원본 _CountOverlay 는 bg_panel 로 채우지만 검은 사각형처럼 보였다. */
+  position: sticky;
+  right: 0;
+  margin-left: auto;
+  flex: 0 0 auto;
+  /* 최소 폭(옛 min-width:50px)을 두지 않는다 — 자릿수만큼만 차지한다
+     (사용자 지시 2026-09-08). */
+  box-sizing: border-box;
+  text-align: right;
+  padding-right: 6px;
+  color: #999999;
+  font-size: 7.7px;
+  /* 이 규칙은 이제 **고정 헤더 행**에서만 쓰인다 (일반 행의 개수는 오버레이가 그린다). */
+  background: transparent;
+  font-variant-numeric: tabular-nums;
+}
+/* ── 고정 헤더 행 ────────────────────────────────────────────────────────────
+   불투명 판을 두면 선택/조상 행의 배경(--row-selected 는 10% 흰색 **반투명**)을
+   덮어 숫자 자리가 검은 박스로 보인다 (사용자 보고: '전체' 개수만 검은 배경).
+   고정 헤더는 가로 스크롤이 없으므로 **라벨을 말줄임**하면 판이 아예 필요 없다 —
+   긴 이름이 숫자 뒤로 새지도 않고, 행 배경이 그대로 이어진다. */
+.tree-sticky .tree-row { width: 100%; min-width: 0; overflow: hidden; }
+.tree-sticky .tree-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 라이브러리 루트(및 '전체') 행의 카운트 */
+/* 고정 헤더(sticky) 행의 개수 — 오버레이 셀과 같은 값이어야 한다 */
+.tree-row.is-root > .tree-count {
+  color: #4E90E8;
+  font-weight: 400;
+  font-size: 8.8px;
+}
+/* 미완료(대기/실패) 포함 — 원본 _INCOMPLETE_COLOR */
+.tree-count.incomplete { color: #ffa64d; }
+.tree-row.selected .tree-count { color: #4E90E8; }
+.tree-count.incomplete {
+  color: #f0a43c;
+}
+.tree-hit { color: #cf7676; font-weight: 700; }
+
+/* 위험 액션 — 원본 _add_danger_action (#e05555, 호버 배경 rgba(224,85,85,.16)) */
+.ctxitem.danger { color: #e05555; }
+.ctxitem.danger:hover { background: rgba(224, 85, 85, .16); color: #e05555; }
+.ctxitem:disabled { color: var(--text-muted); cursor: default; }
+.ctxitem:disabled:hover { background: transparent; }
+.rot-up { transform: rotate(-90deg); }
+.rot-down { transform: rotate(90deg); }
+
+/* ══ 중앙 토스트 — 원본 _CenterToast 수치 ═══════════════════════ */
+/* ── 중앙 알림 (블랙리스트 추가/제거 등) ──────────────────────────────────────
+   **동작 정책은 원본 그대로** (main_window.py:_CenterToast 1106):
+     화면 중앙 / 입력을 막지 않는다(클릭 통과) / 패널 밖은 딤 없음 /
+     완전 불투명 500ms 유지 → 1000ms 페이드아웃 / 상태별 색(추가 초록·제거 빨강·안내 노랑).
+
+   **재질은 Tauri 판으로 다시 짰다** (사용자 지시): 원본은 330x134 회색 상자에
+   accent 1.5px 외곽선 + 58px 색 원이었다. 여기서는 스플래시·중앙 로더와 같은 결로
+     · 층이 보이는 라디얼 바닥 + 미세 격자 + 대각 시트
+     · 하드한 색 외곽선 대신 **헤어라인 + 상태색 글로우**
+     · 아이콘은 색 원 + 부드러운 링, 하단에 상태색 헤어라인
+   상태색은 `--toast-color` 로 한 번만 받아 테두리/글로우/아이콘에 함께 쓴다. */
+.center-toast {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 90;
+  pointer-events: none;   /* 원본 WA_TransparentForMouseEvents — 입력 통과 */
+}
+.center-toast.hold { opacity: 1; }
+.center-toast.fade { opacity: 0; transition: opacity 1000ms linear; }
+
+.center-toast-panel {
+  position: relative;
+  box-sizing: border-box;
+  width: 300px;
+  min-height: 132px;
+  overflow: hidden;
+  padding: 18px 18px 16px;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 11px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .035), rgba(255, 255, 255, 0) 38%),
+    radial-gradient(78% 92% at 50% 104%, #191b1f 0%, #101216 54%, #08090b 100%);
+  border: 1px solid rgba(255, 255, 255, .085);
+  box-shadow:
+    0 20px 54px rgba(0, 0, 0, .58),
+    0 0 40px -30px color-mix(in srgb, var(--toast-color) 45%, transparent);
+  animation: toast-rise 190ms var(--ease-emph) both;
+}
+/* 라이트 테마 — 어두운 카드용 고정색을 토큰으로 되돌린다 */
+:root[data-theme="light"] .center-toast-msg { color: var(--text); }
+:root[data-theme="light"] .center-toast-icon {
+  background:
+    radial-gradient(120% 120% at 50% 10%,
+      color-mix(in srgb, var(--toast-color) 88%, #ffffff) 0%,
+      var(--toast-color) 70%,
+      color-mix(in srgb, var(--toast-color) 78%, #000000) 100%);
+  color: #fff;
+}
+:root[data-theme="light"] .center-toast-panel {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .8), rgba(255, 255, 255, 0) 40%),
+    radial-gradient(78% 92% at 50% 104%, #fffdf6 0%, #f7f2e4 60%, #efe8d6 100%);
+  border-color: rgba(60, 52, 36, .16);
+  box-shadow: 0 20px 54px rgba(60, 52, 36, .22), 0 0 46px -26px var(--toast-color);
+}
+@keyframes toast-rise {
+  from { opacity: 0; transform: translateY(6px) scale(.985); }
+  to   { opacity: 1; transform: none; }
+}
+.center-toast-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, .03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, .024) 1px, transparent 1px);
+  background-size: 26px 100%, 100% 26px;
+  mask-image: radial-gradient(72% 78% at 50% 56%, #000 26%, transparent 100%);
+}
+:root[data-theme="light"] .center-toast-grid {
+  background-image:
+    linear-gradient(to right, rgba(60, 52, 36, .05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(60, 52, 36, .04) 1px, transparent 1px);
+}
+.center-toast-sheen {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(122deg, rgba(255, 255, 255, .045), transparent 44%);
+}
+:root[data-theme="light"] .center-toast-sheen {
+  background: linear-gradient(122deg, rgba(255, 255, 255, .55), transparent 44%);
+}
+
+/* 아이콘 — 색 원 + 부드러운 링 (원본은 링 없는 58px 단색 원) */
+.center-toast-icon {
+  position: relative;
+  z-index: 1;
+  width: 46px;
+  height: 46px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  color: #e8eaee;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  /* 톤다운 (사용자 지시 2026-09-03): 흰 하이라이트를 빼고 어두운 쪽으로 눌렀다.
+     상태는 알아볼 정도만 남기고 밝기는 어두운 카드에 맞춘다. */
+  background:
+    radial-gradient(120% 120% at 50% 10%,
+      color-mix(in srgb, var(--toast-color) 82%, #1a1c20) 0%,
+      color-mix(in srgb, var(--toast-color) 68%, #101216) 68%,
+      color-mix(in srgb, var(--toast-color) 52%, #08090b) 100%);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--toast-color) 34%, transparent),
+    0 0 0 6px color-mix(in srgb, var(--toast-color) 8%, transparent),
+    0 5px 14px -8px color-mix(in srgb, var(--toast-color) 60%, transparent);
+}
+.center-toast-msg {
+  position: relative;
+  z-index: 1;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -.005em;
+  text-align: center;
+  color: #dfe2e6;
+  white-space: pre-line;
+  line-height: 1.4;
+  text-wrap: balance;
+}
+/* 하단 상태색 헤어라인 — 스플래시 진행 헤어라인과 같은 장치 */
+.center-toast-rule {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent,
+              var(--toast-color) 22%, var(--toast-color) 78%, transparent);
+  opacity: .42;
+}
+@media (prefers-reduced-motion: reduce) {
+  .center-toast-panel { animation: none; }
+}
+
+/* 블랙리스트 행 — 경로 + 사유 2줄 (원본 _BlacklistRow) */
+.blacklist-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.blacklist-desc { color: var(--text-secondary); font-size: 10px; }
+
+/* 모달 표 — 원본 setAlternatingRowColors(True) */
+.mtable.alt tbody tr:nth-child(even) td { background: var(--row-alt); }
+.mtable tbody tr.sel td { background: var(--row-selected); color: var(--text); }
+
+/* 미완료 항목 창 (원본 FailedPendingDialog) */
+.failed-head { display: flex; flex-direction: column; gap: 3px; font-size: 12px; margin-bottom: 8px; }
+.failed-head b { color: var(--text); overflow-wrap: anywhere; }
+.cnt-pending { color: #7adfc4; font-weight: 700; }
+.cnt-failed { color: #ff7878; font-weight: 700; }
+.cnt-sep { color: var(--text-muted); }
+.failed-tools { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+/* ⚠ 표(.failed-scroll)가 `flex: 1 1 auto` 라 이 줄이 눌려 사라졌다 — 원본에 있는
+   "필터된 전체 재시도/제거" 두 버튼이 화면에서 안 보였다 (사용자 신고: PoC 엔 하나뿐).
+   줄어들지 않게 못박는다. */
+.failed-tools.bar3 { flex: 0 0 auto; margin-top: 8px; margin-bottom: 0; }
+/* 진행 중에는 버튼을 잠근다 (중복 실행 방지, 사용자 지시 2026-09-03) */
+.failed-tools .btn:disabled, .modal-foot .btn:disabled { opacity: .5; cursor: default; }
+/* 재분석 진행 배너 — 원본 _retry_banner 와 같은 자리(제목 아래) */
+.retry-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.retry-banner .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: currentColor;
+  animation: retry-pulse 900ms var(--ease) infinite alternate;
+}
+@keyframes retry-pulse { from { opacity: .35; } to { opacity: 1; } }
+.failed-count { font-size: 11px; color: var(--text-secondary); }
+.failed-table th:first-child, .failed-table td:first-child { width: 32px; }
+.failed-table th:nth-child(2), .failed-table td:nth-child(2) { width: 60px; }
+.failed-table th:nth-child(3), .failed-table td:nth-child(3) { width: 260px; }
+.failed-table th:nth-child(4), .failed-table td:nth-child(4) { width: 380px; }
+
+/* 드래그가 올라온 탭 — 원본 _TabButton.dragEnterEvent 의 수락 강조 */
+.tab.drop-target {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--text);
+}
+.tree-row[draggable="true"] { -webkit-user-drag: element; }
+.confirm-text { font-size: 12px; line-height: 1.6; color: var(--text); }
+
+/* 상태바 우측 "인덱싱 집중" 체크박스 (원본 focus_index_chk, main_window.py:4765) */
+.focus-index {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+.focus-index:hover { color: var(--text); }
+
+/* 확인 대화상자 본문 — 원본 QMessageBox 는 줄바꿈을 그대로 보여준다 */
+.confirm-text.pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* 블랙리스트 상세 (원본 BlacklistStatusDialog) */
+.bl-detail-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.bl-table th:first-child, .bl-table td:first-child { width: 1%; white-space: nowrap; }
+.bl-table th:last-child, .bl-table td:last-child { width: 48px; }
+.bl-remove {
+  width: 36px; height: 22px;
+  display: grid; place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 11px;
+  transition: color var(--t-hover) var(--ease), border-color var(--t-hover) var(--ease),
+              background var(--t-hover) var(--ease);
+}
+.bl-remove:hover { color: var(--danger); border-color: var(--danger); background: var(--hover); }
+
+/* ══ 중앙 로딩 오버레이 ═══════════════════════════════════════════════
+   구조/수치/문구는 원본 _CenterLoaderOverlay(main_window.py:912) 정책 유지:
+     전체를 덮어 입력 차단(키보드·휠 포함), 패널 300x150(게이지 176) radius 12,
+     메시지 11pt Bold, 진행 텍스트 9pt.
+   시각 언어는 이 PoC 의 다른 표면과 같은 결로 올렸다 (사용자 지시):
+     글래스 패널(반투명 + 블러 + 상단 하이라이트), 이중 링(트랙 + accent 호),
+     은은한 accent 글로우, 등장 시 살짝 떠오름. */
+/* ── 중앙 로더 (Tauri 재설계) ────────────────────────────────────────────────
+   원본은 300x150 회색 상자 + 회전 링. 여기서는 가로형 카드로 바꾸고 로딩 표현을
+   앱 아이콘처럼 **왼쪽→오른쪽으로 흐르는 파형 박동**으로 했다. 딤/입력 차단 정책은
+   원본과 동일 (main_window.py:1016). */
+.center-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(58% 46% at 50% 46%, rgba(0, 0, 0, .34), transparent 72%),
+    rgba(5, 6, 8, .52);
+  backdrop-filter: blur(10px) saturate(118%);
+  animation: cl-in 150ms var(--ease) both;
+}
+:root[data-theme="light"] .center-loader {
+  background:
+    radial-gradient(58% 46% at 50% 46%, rgba(40, 34, 22, .20), transparent 72%),
+    rgba(40, 34, 22, .24);
+}
+@keyframes cl-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── 로더 카드 ────────────────────────────────────────────────────────────────
+   **크기·구성은 원본 그대로** (main_window.py:1037 paintEvent):
+     패널 300x150, 게이지가 있으면 300x176. 세로 배치 —
+     로딩 표현(원본은 회전 링) / 메시지 / 진행 텍스트 / 게이지 막대 220x8.
+   **재질은 스플래시와 같은 결로 다시 짰다** (사용자 지시): 층이 보이는 라디얼 바닥,
+   아주 옅은 격자, 대각 시트, 헤어라인 테두리 + 액센트 글로우.
+   원본의 1.5px 액센트 테두리 대신 헤어라인 + 글로우로 — 앱의 다른 패널과 같은 결. */
+.cl-card {
+  position: relative;
+  box-sizing: border-box;
+  width: 300px;
+  min-height: 150px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  padding: 20px 22px;
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .035), rgba(255, 255, 255, 0) 38%),
+    radial-gradient(78% 92% at 50% 104%, #191b1f 0%, #101216 54%, #08090b 100%);
+  border: 1px solid rgba(255, 255, 255, .08);
+  box-shadow:
+    0 22px 60px rgba(0, 0, 0, .55),
+    0 0 50px -28px rgba(78, 144, 232, .4);
+  animation: cl-rise 200ms var(--ease-emph) both;
+}
+.cl-card.has-gauge { min-height: 176px; }
+:root[data-theme="light"] .cl-card {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .8), rgba(255, 255, 255, 0) 40%),
+    radial-gradient(78% 92% at 50% 104%, #fffdf6 0%, #f7f2e4 60%, #efe8d6 100%);
+  border-color: rgba(60, 52, 36, .16);
+  box-shadow: 0 22px 60px rgba(60, 52, 36, .22), 0 0 54px -26px rgba(93, 208, 216, .4);
+}
+@keyframes cl-rise {
+  from { opacity: 0; transform: translateY(6px) scale(.985); }
+  to   { opacity: 1; transform: none; }
+}
+/* 스플래시와 같은 미세 격자 — 오디오 툴의 눈금 느낌만 옅게 */
+.cl-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, .03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, .024) 1px, transparent 1px);
+  background-size: 26px 100%, 100% 26px;
+  mask-image: radial-gradient(72% 78% at 50% 58%, #000 26%, transparent 100%);
+  pointer-events: none;
+}
+:root[data-theme="light"] .cl-grid {
+  background-image:
+    linear-gradient(to right, rgba(60, 52, 36, .05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(60, 52, 36, .04) 1px, transparent 1px);
+}
+.cl-sheen {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(122deg, rgba(255, 255, 255, .04), transparent 44%);
+  pointer-events: none;
+}
+:root[data-theme="light"] .cl-sheen {
+  background: linear-gradient(122deg, rgba(255, 255, 255, .55), transparent 44%);
+}
+
+/* 로딩 표현 — 좌→우로 흐르는 파형 박동 (좌상단 앱 아이콘과 같은 결, 사용자 지시).
+   원본의 회전 링 자리를 그대로 쓴다. */
+.cl-pulse {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 34px;
+  padding: 0 2px;
+}
+.cl-baseline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(78, 144, 232, .32) 22%,
+                              rgba(78, 144, 232, .32) 78%, transparent);
+}
+.cl-pulse i {
+  width: 3px;
+  height: 22%;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #7fb4f2, var(--accent));
+  box-shadow: 0 0 10px -3px rgba(78, 144, 232, .9);
+  animation: cl-wave 1150ms var(--ease) infinite;
+  animation-delay: calc(var(--i) * 96ms);
+}
+@keyframes cl-wave {
+  0%, 100% { height: 22%; opacity: .5; }
+  38%      { height: 100%; opacity: 1; }
+}
+
+.cl-title {
+  position: relative;
+  z-index: 1;
+  max-width: 100%;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -.005em;
+  text-align: center;
+  color: var(--text);
+  text-wrap: balance;
+}
+/* 메시지 아래 짧은 액센트 밑줄 — 스플래시 워드마크와 같은 장치 */
+.cl-underline {
+  position: relative;
+  z-index: 1;
+  width: 34px;
+  height: 2px;
+  margin-top: -4px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, rgba(78, 144, 232, .15), var(--accent),
+                              rgba(78, 144, 232, .15));
+}
+.cl-sub {
+  position: relative;
+  z-index: 1;
+  font-size: 10.5px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* 게이지 — 원본과 같은 220x8 */
+.cl-gauge {
+  position: relative;
+  z-index: 1;
+  width: 220px;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, .09);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .35);
+}
+:root[data-theme="light"] .cl-gauge {
+  background: rgba(60, 52, 36, .12);
+  box-shadow: inset 0 1px 2px rgba(60, 52, 36, .16);
+}
+.cl-gauge-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--accent), #7fb4f2);
+  box-shadow: 0 0 12px -4px rgba(78, 144, 232, .95);
+  transition: width 220ms var(--ease);
+}
+/* 불확정 — 원본은 70px 세그먼트가 좌→우로 흐른다 (시간 기반) */
+.cl-gauge-fill.indet {
+  width: 70px;
+  animation: cl-sweep 1250ms var(--ease) infinite;
+}
+@keyframes cl-sweep {
+  0%   { transform: translateX(-72px); }
+  100% { transform: translateX(220px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cl-pulse i, .cl-gauge-fill.indet { animation: none; }
+  .cl-pulse i { height: 52%; opacity: .85; }
+}
+
+/* ── 트랜스포트/세그먼트 버튼 호버 (사용자 요청 디자인 개선) ───────────────
+   원본 _TransportButton 은 호버 상태를 그리지 않는다(세그먼트 토글은 호버 애니메이션
+   없음이라고 주석에 명시). 사용자가 두 번 요청한 개선 사항이라 추가한다.
+   값은 다른 버튼과 같은 결: 140ms OutCubic, 채움 α 소폭 상승 + 외곽선 밝아짐. */
+.tbtn {
+  transition: background 140ms var(--ease), border-color 140ms var(--ease),
+              color 140ms var(--ease);
+}
+
+/* 꺼진 상태 호버.
+   ⚠ 예전에는 `.tbtn:enabled:hover` 에 accent 16% 를 줬는데, 세그먼트 버튼의 평상시
+   배경이 이미 accent 16% 라 호버해도 **아무 변화가 없었다** (사용자가 세 번 지적한
+   "세그먼트 호버 애니메이션 없음"의 진짜 원인). 값을 갈라 놓는다. */
+.tbtn:enabled:hover {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.tbtn.segment:enabled:hover {
+  background: color-mix(in srgb, var(--accent) 34%, transparent);
+  border-color: var(--accent);
+}
+
+/* 켜져 있는 토글은 자기 색을 유지하면서 살짝만 밝아진다 */
+/* ⚠ 아이콘 색(color)도 함께 지정해야 한다. 안 쓰면 위쪽 `.tbtn:enabled:hover` 의
+   accent 색이 (선택자 특이도가 같고 뒤에 있어서) 이겨서, 켜진 토글에 호버할 때
+   배경은 초록/보라인데 **아이콘만 꺼진 색(파랑)** 으로 바뀐다 (실측 증상). */
+.tbtn.segment.on:hover {
+  background: color-mix(in srgb, var(--segment-on) 32%, transparent);
+  border-color: var(--segment-on);
+  color: var(--segment-on);
+}
+.tbtn.loop.on:hover {
+  background: color-mix(in srgb, var(--loop) 34%, transparent);
+  border-color: var(--loop);
+  color: var(--loop);
+}
+
+/* 폭을 끌어 조절하는 중에는 애니메이션을 끈다 (끌림 지연 방지) */
+.drawer.resizing { transition: none; }
+
+/* ══ 바이노럴 채널 배치 메뉴 (원본 _build_binaural_layout_menu) ══════════
+   버튼 우상단 기준으로 위쪽으로 펼친다. 항목/문구/활성 규칙은 원본 그대로. */
+.bmenu {
+  position: fixed;
+  z-index: 120;
+  min-width: 236px;
+  padding: 5px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg-elev) 97%, #fff 3%);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, .5), 0 0 0 1px rgba(0, 0, 0, .35);
+  animation: bmenu-in 130ms var(--ease) both;
+}
+@keyframes bmenu-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.bmenu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  color: var(--text);
+  text-align: left;
+  transition: background 120ms var(--ease), color 120ms var(--ease);
+}
+.bmenu-item:enabled:hover { background: var(--hover); }
+.bmenu-item:disabled { color: var(--text-muted); cursor: default; }
+.bmenu-item.strong { font-weight: 700; }
+.bmenu-item.auto .bmenu-auto-result {
+  margin-left: auto;
+  color: var(--accent-hover);
+  font-weight: 700;
+}
+.bmenu-check {
+  width: 10px;
+  flex: 0 0 10px;
+  color: var(--accent-hover);
+  font-size: 10px;
+}
+.bmenu-arrow { margin-left: auto; color: var(--text-muted); }
+.bmenu-guide,
+.bmenu-reason {
+  padding: 4px 9px 6px;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.bmenu-reason { color: var(--status-warn); border-top: 1px solid var(--line-soft); margin-top: 4px; }
+.bmenu-sep { height: 1px; margin: 4px 6px; background: var(--line); }
+.bmenu-sub { position: relative; }
+.bmenu-flyout.flip { right: auto; left: calc(100% + 4px); }
+/* 기본은 왼쪽으로 펼친다. 창 왼쪽에 붙어 잘릴 때만 .flip 으로 오른쪽으로 뒤집는다
+   (BinauralMenu 가 실제 위치를 재서 붙인다). */
+.bmenu-flyout {
+  position: absolute;
+  right: calc(100% + 4px);
+  top: -5px;
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  min-width: 200px;
+  padding: 5px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg-elev) 97%, #fff 3%);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, .5);
+}
+
+/* ══ 원본에 있고 PoC 에 없던 부품만 남긴 블록 ══════════════════════════
+   (2026-09-02 되돌림: 버튼/입력/탭/메뉴/캡션/툴팁 등 **이미 다듬어둔 부품의**
+    QSS 값 덮어쓰기는 전부 제거했다. 아래는 대응 정의가 없던 것들만이다.) */
+
+/* 히스토리 선택 행 */
+.history-item.selected {
+  background: var(--row-selected);
+  border-left-color: var(--accent-hover);
+  color: var(--text);
+}
+
+/* 진행바 */
+.progress-track {
+  height: 18px;
+  border-radius: 99px;
+  background: var(--bg-control);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-teal));
+}
+
+/* 라디오 표식 (체크박스는 기존 다듬은 정의를 쓴다) */
+.radio {
+  width: 14px; height: 14px;
+  border-radius: 8px;
+  border: 1.5px solid var(--line-strong);
+  background: var(--bg-control);
+}
+.radio:hover { border-color: var(--accent); background: var(--hover); }
+.radio.on { border-color: var(--accent); }
+
+/* 작은 툴팁 (.help-tip 은 기존 정의 유지) */
+.tip {
+  background: var(--bg-elev);
+  color: var(--text);
+  border: 1px solid var(--line-strong);
+  padding: 6px 9px;
+  border-radius: 4px;
+}
+
+/* 바이노럴 버튼 호버 — 원본 button_style 의 mix 보간과 같은 목적지 값 */
+.binaural-main:hover {
+  background: var(--bg-control-hi);
+  border-color: var(--accent-hover);
+  color: var(--text);
+}
+.binaural-main.on:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: var(--on-accent); }
+.binaural-menu:hover { background: var(--bg-control-hi); border-color: var(--accent-hover); color: var(--text); }
+
+/* ══ 시작 스플래시 (Tauri 재설계) ═══════════════════════════════════════════
+   동작은 원본과 동일 (즉시 표시 → 초기 데이터 준비 후 240ms 페이드).
+   테마와 무관하게 항상 다크 톤이다 — 원본 QSplashScreen 픽스맵과 같은 정책. */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(58% 74% at 46% 88%, #15171a 0%, #0d0f12 46%, #07080a 100%);
+  transition: opacity 240ms var(--ease);
+}
+.splash.leaving { opacity: 0; pointer-events: none; }
+
+.splash-card {
+  position: relative;
+  width: min(680px, calc(100vw - 72px));
+  height: min(360px, calc(100vh - 96px));
+  overflow: hidden;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .032), rgba(255, 255, 255, 0) 34%),
+    radial-gradient(72% 88% at 42% 96%, #191b1f 0%, #101216 52%, #08090b 100%);
+  border: 1px solid rgba(255, 255, 255, .075);
+  box-shadow:
+    0 30px 90px rgba(0, 0, 0, .62),
+    0 0 66px -32px rgba(78, 144, 232, .42);
+  animation: splash-rise 320ms var(--ease-emph) both;
+}
+@keyframes splash-rise {
+  from { opacity: 0; transform: translateY(8px) scale(.99); }
+  to   { opacity: 1; transform: none; }
+}
+/* 미세 격자 — 오디오 툴 특유의 눈금 느낌만 아주 옅게 */
+.splash-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, .028) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, .022) 1px, transparent 1px);
+  background-size: 34px 100%, 100% 34px;
+  mask-image: radial-gradient(76% 76% at 50% 60%, #000 30%, transparent 100%);
+}
+.splash-sheen {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(122deg, rgba(255, 255, 255, .045), transparent 46%);
+}
+
+/* 좌측 상단 — 소속 표기 (가로 락업 이미지 한 장) */
+.splash-org {
+  position: absolute;
+  left: 38px;
+  top: 34px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+/* 가로 락업 — 네이티브 시작창(splash.html 의 .lockup)과 **같은 폭**이어야
+   한다. 두 화면이 이어 뜨는 구조라 폭이 다르면 로고가 튄다. */
+.splash-lockup {
+  width: 380px;
+  height: auto;
+  filter: drop-shadow(0 2px 10px rgba(0, 0, 0, .45));
+}
+/* 우측 하단 — 워드마크 */
+.splash-mark {
+  position: absolute;
+  right: 40px;
+  bottom: 34px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 9px;
+}
+/* 배경 사진 — 흐림은 자산에 구워져 있다 (tools/build_ysg_splash_bg.py) */
+.splash-photo {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+}
+.splash-word {
+  /* 네이티브 시작창(splash.html 의 .word)과 **같은 글꼴**이어야 한다 — 두 화면이
+     이어 뜨는 구조라 다르면 글자가 바뀐다. 앱 기본 글꼴(내장 Pretendard)이다
+     (사용자 지시 2026-09-15 — 전에는 Aldrich 였다). */
+  font-family: var(--font-ui);
+  font-size: 46px;
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  background: linear-gradient(180deg, #dfe2e6 6%, #85898f 96%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, .45);
+}
+.splash-underline {
+  width: 152px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, #4E90E8);
+}
+.splash-meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 11px;
+  color: #85898f;
+  font-variant-numeric: tabular-nums;
+}
+.splash-ver { letter-spacing: .06em; }
+.splash-load { display: inline-flex; align-items: center; gap: 8px; }
+
+/* 로딩 박동 — 중앙 로더와 같은 결 (좌 → 우) */
+.splash-pulse { display: inline-flex; align-items: center; gap: 2.5px; height: 12px; }
+.splash-pulse i {
+  width: 2px;
+  height: 26%;
+  border-radius: 1px;
+  background: linear-gradient(180deg, #6fd6e6, #4E90E8);
+  animation: splash-wave 980ms cubic-bezier(.4, 0, .3, 1) infinite;
+  animation-delay: calc(var(--i) * 82ms);
+}
+@keyframes splash-wave {
+  0%, 60%, 100% { height: 26%; opacity: .55; }
+  22%           { height: 100%; opacity: 1; }
+}
+
+/* 하단 전폭 진행 헤어라인 */
+.splash-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(78, 144, 232, .85), transparent);
+  background-size: 42% 100%;
+  background-repeat: no-repeat;
+  animation: splash-scan 1600ms var(--ease) infinite;
+}
+@keyframes splash-scan {
+  0%   { background-position: -45% 0; }
+  100% { background-position: 145% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .splash-pulse i, .splash-progress, .splash-card { animation: none; }
+}
+
+/* ── 채널 배치 확인 줄 (원본 binaural_layout_detail, player_widget.py:3175) ──
+   margins (2,0,1,0), spacing 3. 경고 라벨 #e45b64 8pt bold 높이 13,
+   "초기화" 버튼 43x13, 7.5pt/600, 색 #aeb4bf → 호버 흰색+밑줄, 누름 #8f98a8. */
+.binaural-detail {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 1px 0 2px;
+  height: 13px;
+}
+.binaural-warn {
+  flex: 1;
+  text-align: center;
+  color: #e45b64;
+  font-size: 8pt;
+  font-weight: 700;
+  height: 13px;
+  line-height: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.binaural-reset {
+  width: 43px;
+  height: 13px;
+  flex: 0 0 43px;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: #aeb4bf;
+  font-size: 7.5pt;
+  font-weight: 600;
+  cursor: pointer;
+}
+.binaural-reset:hover { color: #ffffff; text-decoration: underline; }
+.binaural-reset:active { color: #8f98a8; }
+/* 바이노럴이 실패해 스테레오로 되돌아간 상태 (조사 B01) — 테두리만 경고색.
+   원본 state_chip 의 '오류' 에 대응한다. */
+.binaural-main.error { border-color: var(--danger); }
+
+/* 배치 미확정 상태에서는 버튼 테두리도 경고색 (원본 needs_layout indicator) */
+.binaural-main.needs-layout { border-color: #f0a43c; }
+.binaural-main.needs-layout .state-dot { border-color: #f0a43c; }
+
+/* ── 채널 배치 판별 중 표시 (버튼 안) ────────────────────────────────────────
+   중앙 로더를 걷고 버튼 안에서 알린다 (사용자 지시 2026-09-03). 입력을 막지 않아
+   재생도 끊지 않는다.
+
+   ⚠ 첫 시도는 점(7px)의 테두리 한쪽만 색을 줘 돌렸는데 **보이지 않았다** —
+   9px 링에 1.3px 테두리로는 회전이 눈에 안 잡힌다. 그래서 크기를 14px 로 올리고
+   회전과 **호 길이 변화(dash)** 를 겹쳤다. 문구도 본문색으로 올렸다 (읽히는 게 우선).
+
+   색은 **`currentColor`** 를 쓴다. 버튼이 이미 상태별로 글자색을 정해 두기 때문이다:
+     꺼짐 → 기본 텍스트색 / 켜짐(.on) → `--on-accent` (배경이 `--accent` 로 채워지므로).
+   ⚠ `var(--accent)` 를 직접 쓰면 **버튼이 켜져 있을 때 배경과 같은 색**이 되어 사라진다
+   (무채색 테마: 배경 #9a9a9a 위에 스트로크 #9a9a9a — 실제로 그렇게 안 보였다).
+   currentColor 로 두면 테마·상태 조합 전부에서 칩·문구와 같은 대비를 갖는다. */
+.state-probe {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  display: block;
+}
+.state-probe svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  animation: probe-rot 1100ms linear infinite;
+}
+.probe-track {
+  fill: none;
+  stroke: color-mix(in srgb, currentColor 24%, transparent);
+  stroke-width: 2.8;
+}
+.probe-arc {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.8;
+  stroke-linecap: round;
+  /* 2πr = 2π·9 ≈ 56.5. ⚠ 단위를 반드시 붙인다 — 단위 없는 값은 키프레임에서
+     보간되지 않아 회전만 돌고 호 길이가 그대로였다 (실측: dashoffset 52px 고정). */
+  stroke-dasharray: 56.5px;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, currentColor 45%, transparent));
+  animation: probe-dash 1400ms cubic-bezier(.4, 0, .2, 1) infinite;
+}
+@keyframes probe-rot { to { transform: rotate(360deg); } }
+@keyframes probe-dash {
+  0%   { stroke-dashoffset: 52px; }
+  50%  { stroke-dashoffset: 14px; }
+  100% { stroke-dashoffset: 52px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .state-probe svg { animation-duration: 2600ms; }
+  .probe-arc { animation: none; stroke-dashoffset: 30px; }
+}
+/* 판별 중 문구 — 읽히는 것이 우선. 버튼이 켜져 있으면 --on-accent 를 물려받아야
+   하므로 색을 따로 박지 않고 버튼의 currentColor 를 그대로 쓴다. */
+.binaural-main.probing .binaural-label {
+  color: inherit;
+  opacity: 1;
+}
+/* 판별 중 칩 — 상태가 진행 중임이 보이게 액센트 틴트 (테마 색을 따른다) */
+.binaural-main.probing .state-chip {
+  background: color-mix(in srgb, currentColor 18%, transparent);
+  border-color: color-mix(in srgb, currentColor 50%, transparent);
+}
+/* 버튼 자체도 진행 중임을 아주 옅게 (경고색과 구분되는 액센트 결) */
+.binaural-main.probing:not(.on) {
+  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+}
+/* split-output 은 경고 줄을 포함하므로 세로로 쌓는다 (원본 binaural_stack, spacing 1) */
+.split-output { flex-direction: column; gap: 1px; }
+.split-output > .binaural-row { display: flex; gap: 1px; }
+
+/* 루트 재정렬 드래그 중인 행 (원본 folder_tree.drawRow, folder_tree.py:2191)
+   배경 rgba(78,144,232,42), 1px 테두리 rgba(126,181,255,160), 좌측 3px #7eb5ff.
+   원본은 뷰포트 폭 전체를 칠하므로 여기서도 행 전체에 그린다. */
+.tree-row.root-dragging {
+  background: rgba(78, 144, 232, 0.165);
+  box-shadow: inset 0 0 0 1px rgba(126, 181, 255, 0.627),
+              inset 3px 0 0 0 #7eb5ff;
+}
+
+/* 라이브러리 검색 드롭다운 — 블랙리스트 행 (원본 _SearchHitDelegate, library_tabs.py:359)
+   빗금 + #e06c75 + 전각 공백 뒤에 "블랙리스트 · 사유", 클릭/호버 불가. */
+.library-search-hit.blacklisted,
+.library-search-hit.blacklisted .hit-label {
+  color: #e06c75;
+  cursor: default;
+}
+.library-search-hit.blacklisted:hover { background: transparent; }
+.library-search-hit .hit-bl { color: #e06c75; }
+
+/* 미완료 항목 표 — 원본은 줄바꿈 없이 가로로 길게 늘리고 가로 스크롤을 켠다
+   (setWordWrap(False) + ScrollBarAsNeeded + ScrollPerPixel, main_window.py:1915). */
+.failed-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+.failed-table { table-layout: fixed; width: max-content; min-width: 100%; }
+.failed-table td, .failed-table th { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.failed-table th:last-child, .failed-table td:last-child { width: 420px; }
+/* 원본 bar3 — 표 아래 한 줄 (필터된 전체) */
+.failed-tools.bar3 { margin: 8px 0 0; }
+
+/* 다이얼로그 안에서 다시 띄우는 확인/안내 창 — 부모 모달 위에 겹친다 */
+.scrim.inner { position: fixed; z-index: 60; }
+
+/* 표 우클릭 메뉴 뒤를 덮어 바깥 클릭으로 닫히게 */
+.ctx-scrim { position: fixed; inset: 0; z-index: 70; }
+.failed-scroll ~ .ctxmenu, .modal .ctxmenu { z-index: 71; }
+
+/* 저장된 배치 표시 (원본 _set_layout_warning_visible 의 show_saved 분기)
+   "폴더 설정 · 5.1" 처럼 오른쪽 정렬 + #9fc4ff. 경고 상태와 색/정렬이 다르다. */
+.binaural-warn.saved { color: #9fc4ff; text-align: right; }
+/* 판정 근거 줄 (확인 필요도, 저장도 아닐 때) — 경고와 같은 크기, 보조 색, 왼쪽 정렬 */
+.binaural-warn.info { color: var(--text-secondary); font-weight: 500; text-align: left; }
+
+/* ── 채널 배치 A/B 비교 창 (원본 _AmbisonicFormatDialog / _ChannelOrderDialog) ──
+   원본은 비모달 창이라 뒤쪽 조작을 막지 않는다 — 화면 가운데 아래쪽에 뜨는
+   패널로 옮기고 스크림을 두지 않았다. 최소 폭은 원본과 같게 510/520. */
+.layout-dialog {
+  position: fixed;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%);
+  z-index: 55;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elev);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
+  animation: layout-dialog-in 168ms var(--ease);
+}
+@keyframes layout-dialog-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+}
+.layout-dialog.ambisonic { width: 510px; }
+/* 2026-09-16: 버튼 문구가 실제 채널 순서를 밝히면서 길어져 520 고정 폭을 넘쳤다
+   → 버튼 줄이 요구하는 만큼 넓어지되(적응형), 설명 문장은 폭을 밀지 않게
+   contain: inline-size 로 본문 글은 사이즈 계산에서 뺀다. 화면보다 크면 버튼 안에서 줄바꿈. */
+.layout-dialog.order { min-width: 520px; width: max-content; max-width: min(92vw, 900px); }
+.layout-dialog.order .layout-dialog-text,
+.layout-dialog.order .layout-dialog-status { contain: inline-size; }
+.layout-dialog.iem { width: 520px; }
+.layout-dialog-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 8px 16px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.layout-dialog-title { font-size: 12px; font-weight: 700; color: var(--text); flex: 1; }
+.layout-dialog-x {
+  width: 22px; height: 22px;
+  background: transparent; border: 0; border-radius: 4px;
+  color: var(--text-secondary); cursor: pointer; font-size: 11px;
+}
+.layout-dialog-x:hover { background: var(--bg-control-hi); color: var(--text); }
+/* 원본 레이아웃 여백 (18,16,18,14) + spacing 10 */
+.layout-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px 14px;
+}
+.layout-dialog-text { font-size: 12px; line-height: 1.6; color: var(--text); }
+.layout-dialog-text.pre { white-space: pre-wrap; }
+.layout-dialog-row { display: flex; gap: 8px; }
+.layout-dialog-row .btn.wide {
+  flex: 1 1 auto; justify-content: center; /* 기준폭=내용: flex:1(기준 0)은 균등 분할이라 긴 쪽만 줄바꿈됐다 */
+  min-width: 0; white-space: normal; height: auto; min-height: var(--h-control); padding: 4px 12px;
+}
+/* 원본은 QPushButton setCheckable — 고른 쪽이 눌린 상태로 남는다 */
+.layout-dialog-row .btn.on {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--text);
+}
+/* 버튼 안의 "· 지금 이 방식" 꼬리표 — 본문보다 흐리게 */
+.layout-dialog-row .btn .sub { color: var(--text-secondary); font-weight: 400; white-space: nowrap; }
+/* 원본 status_label: 가운데 정렬 + #aeb4bf */
+.layout-dialog-status { text-align: center; color: #aeb4bf; font-size: 11px; }
+.layout-dialog-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 18px 14px;
+}
+/* 저장 범위 안내 — 폴더 단위로 적용될 때만 왼쪽 아래에 나온다 */
+.layout-dialog-scope {
+  font-size: 11px;
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.layout-dialog-scope select { min-width: 0; }
+
+/* 원본 _apply_data 의 빈 상태 — libPillText 한 줄 */
+.lib-empty { font-size: 11px; color: var(--text-secondary); padding: 4px 2px; }
+
+/* 세그먼트 헤더 드래그 중 커서 (원본 ClosedHandCursor) */
+.segment-header .seg { cursor: pointer; }
+.segment-header .seg.grabbing { cursor: grabbing; }
+
+/* ⚠ 검색 정리 (원본 #ftsRecovery, theme.py) — 경고색 테두리 + 경고색 글자.
+   색인이 어긋났을 때만 헤더에 나타난다. */
+.fts-recovery {
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 2px;
+  border: 1px solid color-mix(in srgb, var(--warn) 55%, transparent);
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+  color: var(--warn);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  cursor: pointer;
+  transition: background var(--t-control) var(--ease), border-color var(--t-control) var(--ease);
+}
+.fts-recovery:hover {
+  background: color-mix(in srgb, var(--warn) 22%, transparent);
+  border-color: var(--warn);
+}
+
+/* ── 검색 제외 목록 (원본 _open_suppressed_manager, 780x480) ── */
+.modal.suppressed { width: 780px; max-width: 94vw; height: 480px; max-height: 88vh; }
+/* `>` 유지 — 안쪽에 확인창이 겹칠 때 새는 것을 막는다 (.modal.settings 주석 참고) */
+.modal.suppressed > .modal-body { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.suppressed-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--bg-input);
+}
+.suppressed-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.suppressed-row:hover { background: var(--row-hover); }
+.suppressed-row.on { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.suppressed-path { overflow: hidden; text-overflow: ellipsis; }
+/* 원본 _INCOMPLETE_COLOR_HEX — [중복 아님 · 미복원] 태그 색 */
+.suppressed-path.orphan { color: #ffa64d; }
+
+/* 라이브러리 검색창 X (원본 QLineEdit setClearButtonEnabled) — 입력 안 오른쪽 끝 */
+.library-search-row { position: relative; }
+/* 지우기 X — 컨테이너 오른쪽에서 (여백 8 + 드롭다운 버튼 22) = 30px 지점이
+   **입력창의 오른쪽 테두리**다. right:30px 이면 X 의 오른쪽 변이 그 테두리에
+   정확히 얹혀 겹쳐 보였다 → 테두리 안쪽으로 6px 들여 놓는다. */
+/* 입력창만 감싸는 래퍼 — X 의 중앙 정렬 기준이 된다 */
+.library-search-field {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+}
+.library-search-clear {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px; height: 16px;
+  display: grid; place-items: center;
+  border: 0; border-radius: 999px;
+  background: color-mix(in srgb, var(--text-secondary) 26%, transparent);
+  color: var(--bg);
+  cursor: pointer;
+}
+.library-search-clear:hover { background: var(--text-secondary); }
+
+/* (되돌림: 원본 픽스맵 재현(3중 radial 헤일로)을 제거하고
+    다듬어둔 단색 점 + 링으로 돌렸다.) */
+
+/* 채널 배치 확인 필요 안내창 (원본 QMessageBox — 본문 + 보조 안내 두 단락) */
+.layout-dialog.required { width: 560px; }
+.layout-dialog-text.secondary { color: var(--text-secondary); font-size: 11px; }
+
+/* 끌고 있는 사용자 탭 — 결과표 컬럼과 같은 결: 커서를 따라 희미하게 밀려 나온다.
+   위치는 CSS 변수만 갱신하므로 mousemove 마다 리렌더하지 않는다. */
+.tabbar { --tab-drag-dx: 0px; --tab-drag-dy: 0px; }
+.tab.tab-dragging {
+  opacity: .62;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--text);
+  cursor: grabbing;
+  transform: translate(var(--tab-drag-dx), var(--tab-drag-dy));
+  will-change: transform;
+  z-index: 3;
+  position: relative;
+}
+
+/* ══ 개수 오버레이 (원본 _CountOverlay, folder_tree.py:126) ══════════════════
+   폭 OVERLAY_W=50, 뷰포트 우측 고정, 마우스 투과. 배경 bg_panel + 좌측 1px 구분선.
+   개수는 우측 정렬(우측 여백 6). 선택 행은 row_selected 로 칠한다. */
+/* ── 개수 층 (사용자 지시 2026-09-08) ────────────────────────────────────────
+   예전에는 이 층이 **불투명한 판 한 장**이었다 — 배경(bg-sidebar) + 왼쪽 1px 선 +
+   폭은 "보이는 숫자 중 가장 긴 것"(sizer). 그래서 `0` 이나 `12` 인 행도 위쪽
+   `1,141,352` 의 폭만큼 라벨이 덮여 공간을 빼앗겼다.
+   지금은 **자리만 잡는 투명한 층**이다. 폭은 각 행의 숫자가 자기 것만 쓴다
+   (.tree-count-cell). 구분선도 없앴다.
+   ⚠ 여기에 background / border-left / width:max-content 를 되돌리지 말 것.
+   ⚠ 가로 스크롤과 무관하게 뷰포트 우측에 붙어 있어야 한다 (원본 _CountOverlay 정책) —
+     그래서 트리 본문이 아니라 이 절대 위치 층에 그린다. */
+.tree-count-col {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+/* 행마다 **자기 숫자 폭만** 차지한다 (사용자 지시 2026-09-08).
+   왼쪽에 짧은 그라데이션을 깔아, 밑을 지나가는 긴 라벨이 숫자에 닿기 전에
+   자연스럽게 사라지게 한다 — 불투명한 판이나 구분선 없이 읽힌다.
+   ⚠ left:0 (칸 전체 차지) 로 되돌리지 말 것 — 그게 공간을 빼앗던 원인이다.
+   ⚠ tabular-nums 는 남긴다. 세로로 자릿수가 흔들리지 않아야 읽기 편하다. */
+.tree-count-cell {
+  position: absolute;
+  right: 0;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 6px;
+  padding-left: 20px;
+  background: linear-gradient(to right, transparent, var(--bg-sidebar) 60%);
+  /* 원본 _apply_counts: 하위 폴더는 9pt x 0.8, 색 #999999 */
+  font-size: 7.7px;
+  color: #999999;
+  font-variant-numeric: tabular-nums;
+}
+/* 라이브러리 루트('전체' 포함) — 원본은 9pt(12px) **굵게** + #4E90E8 이지만
+   굵기 700 이 개수 칸을 크게 잡아먹어 고정 폭이 과했다 (사용자 지시 2026-09-02):
+   하얀 라벨(12px/400)보다 아주 살짝 크게만 두고 굵기는 낮춘다. */
+/* 라이브러리 루트('전체' 포함) — 하얀 라벨과 **눈에 같은 크기**로 보이게 한다.
+   ⚠ font-size 를 라벨과 똑같이 12px 로 두면 숫자가 더 커 보인다:
+   숫자는 대문자 높이(cap height ≈ 0.72em)로 그려지고 한글/소문자는 그보다 낮게
+   그려지기 때문이다. 그래서 실제 값을 11px 로 내려 시각 크기를 맞춘다. */
+.tree-count-cell.is-root { font-size: 8.8px; font-weight: 400; color: #4E90E8; }
+/* 원본 _INCOMPLETE_COLOR */
+.tree-count-cell.incomplete { color: #ffa64d; }
+/* 원본 folder_tree.py:213 — 선택 행은 개수 쪽도 같은 색으로 이어져야 한다.
+   그라데이션을 두 겹 쌓는다: 아래는 트리 배경(라벨 가리기), 위는 선택 띠 색.
+   --row-selected 는 반투명이라 위에 얹으면 행이 보여주는 색과 그대로 맞는다.
+   ⚠ 단색 var(--row-selected) 로 되돌리지 말 것 — 숫자 폭만큼만 칠해져 띠가 끊긴다. */
+.tree-count-cell.selected {
+  background:
+    linear-gradient(to right, transparent, var(--row-selected) 60%),
+    linear-gradient(to right, transparent, var(--bg-sidebar) 60%);
+}
+/* 고정 헤더는 개수 칸 위에 온다 (원본도 sticky 가 오버레이를 덮고 자기 개수를 그린다) */
+.tree-sticky { z-index: 2; }
+
+/* 폭을 만들던 보이지 않는 자(.tree-count-sizer)는 없앴다 — 이제 행마다 자기
+   숫자 폭만 쓰므로 공용 폭을 잴 필요가 없다 (사용자 지시 2026-09-08). */
+
+/* ── 컬럼을 끌 때: 컬럼 전체(헤더+셀)가 희미하게 커서를 따라 끌려 나온다 ─────
+   자리 판정은 폭 계산으로 하고, 이 표현은 CSS 변수 하나만 갱신해 그린다
+   (매 mousemove 리렌더 없음). 자리를 바꾸면 dx 가 0 에 가까워져 제자리로 붙는다. */
+.results { --col-drag-dx: 0px; }
+.th.col-dragging,
+.td.col-dragging {
+  transform: translateX(var(--col-drag-dx));
+  will-change: transform;
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+.th.col-dragging {
+  opacity: .62;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  z-index: 3;
+}
+.td.col-dragging { opacity: .45; }
+
+/* ══ 인덱싱 진행 표시 (원본 indexing_badge + progress_bar, main_window.py:4706/4718) ══
+   위치는 원본과 같다 — 배지는 상태바 좌측, 게이지는 우측 고정.
+   원본은 QLabel 배지를 60ms 타이머로 깜빡이고 QProgressBar 에 텍스트를 얹는다.
+   여기서는 같은 정보를 유지하면서 표현만 다듬었다:
+     · 점은 깜빡임(on/off) 대신 숨쉬듯 밝기가 오간다 (시선을 덜 때린다)
+     · 게이지는 텍스트를 안에 넣고 채움을 accent→teal 그라데이션으로
+     · 퍼센트를 모르는 구간(1단계 첫 스캔)은 왕복하는 띠로 표시한다 */
+.index-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  height: 18px;
+  padding: 0 9px 0 8px;
+  border-radius: 9px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  white-space: nowrap;
+  border: 1px solid color-mix(in srgb, currentColor 45%, transparent);
+  background: color-mix(in srgb, currentColor 13%, transparent);
+}
+.index-badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 20%, transparent);
+  animation: index-badge-breathe 1400ms var(--ease) infinite;
+}
+@keyframes index-badge-breathe {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: .45; transform: scale(.86); }
+}
+/* 1단계 = 원본과 같은 danger 계열 / 2단계 = 미완료색과 같은 계열로 구분 */
+.index-badge.index { color: #ff6b6b; }
+.index-badge.meta  { color: #ffa64d; }
+
+.index-gauge {
+  position: relative;
+  flex: 0 1 340px;
+  width: 340px;
+  min-width: 170px;
+  height: 16px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-control);
+  border: 1px solid var(--line);
+}
+.index-gauge-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-radius: 8px;
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--accent) 62%, transparent),
+    color-mix(in srgb, var(--accent-teal) 72%, transparent));
+  transition: width 180ms var(--ease);
+}
+/* 퍼센트를 모르는 구간 — 원본은 QProgressBar range(0,0) 의 왕복 애니메이션 */
+.index-gauge-fill.indet {
+  width: 34%;
+  transition: none;
+  animation: index-gauge-sweep 1150ms var(--ease) infinite;
+}
+@keyframes index-gauge-sweep {
+  0%   { transform: translateX(-110%); }
+  100% { transform: translateX(305%); }
+}
+.index-gauge-label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 0 7px;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .01em;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+/* 대화상자 뒤로 버튼 — 제목 왼쪽, 캐럿을 왼쪽으로 돌린다 */
+.modal-back { margin-right: 2px; margin-left: -4px; }
+.rot-left { transform: rotate(180deg); }
+
+/* ⑦ 줄무늬 행의 호버 — `.mtable.alt tbody tr:nth-child(even) td` 가 특이도(0,4,1)로
+   `.mtable tr:hover td`(0,2,1)를 이겨서 **밝은 행에는 호버가 안 나왔다** (사용자 보고).
+   같은 특이도로 뒤에 두어 호버가 이기게 한다. 선택 행은 그보다 우선. */
+.mtable.alt tbody tr:hover td { background: var(--row-hover); color: var(--text); }
+.mtable.alt tbody tr.sel td,
+.mtable.alt tbody tr.sel:hover td { background: var(--row-selected); color: var(--text); }
+
+
+/* ── 커스텀 드롭다운 (Dropdown.tsx) ──────────────────────────────────────────
+   네이티브 select 팝업은 OS 가 그려서 앱과 일치감이 없었다 (어두운 라운드 버튼 ↔
+   흰 외곽선 각진 목록, 사용자 보고). 버튼은 `.select` 모양을 그대로 물려받고
+   목록만 컨텍스트 메뉴와 같은 결로 직접 그린다. */
+button.select.sf-select {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  text-align: left;
+  line-height: 1;
+}
+.sf-select-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 열려 있는 동안은 눌린 상태를 유지 — 팝업과 버튼이 한 덩어리로 보이게 */
+button.select.sf-select.open {
+  border-color: var(--accent);
+  background-color: var(--bg-control-hi);
+}
+
+.sf-pop {
+  position: fixed;
+  z-index: 120;
+  padding: 5px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line-strong);
+  background: var(--bg-elev);
+  box-shadow: var(--shadow-modal);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  transform-origin: top center;
+  animation: sf-pop-in 120ms var(--ease-emph) both;
+}
+.sf-pop.up { transform-origin: bottom center; }
+@keyframes sf-pop-in {
+  from { opacity: 0; transform: translateY(-4px) scale(.985); }
+  to   { opacity: 1; transform: none; }
+}
+.sf-pop.up { animation-name: sf-pop-in-up; }
+@keyframes sf-pop-in-up {
+  from { opacity: 0; transform: translateY(4px) scale(.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+.sf-opt {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  height: 26px;
+  padding: 0 9px 0 6px;
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  text-align: left;
+  color: var(--text-secondary);
+  transition: background var(--t-hover) var(--ease), color var(--t-hover) var(--ease);
+}
+/* 키보드 이동과 마우스 호버를 같은 표시로 통일한다 */
+.sf-opt.hi { background: var(--row-hover); color: var(--text); }
+.sf-opt.on { color: var(--text); }
+/* 현재 값 표시 — 좌측 액센트 점 (체크 아이콘보다 목록이 조용하다) */
+.sf-opt-mark {
+  width: 5px;
+  height: 5px;
+  flex: 0 0 5px;
+  border-radius: 999px;
+  background: transparent;
+  transition: background var(--t-hover) var(--ease), box-shadow var(--t-hover) var(--ease);
+}
+.sf-opt.on .sf-opt-mark {
+  background: var(--accent);
+  box-shadow: 0 0 8px -1px var(--accent);
+}
+.sf-opt-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+
+/* ── 앱 툴팁 (TooltipLayer) ───────────────────────────────────────────────────
+   원본은 전역 QSS 로 **모든** 툴팁을 이 값으로 통일한다 (theme.py:207):
+     background bg_elev / color text / border 1px border_strong / padding 6px 9px /
+     radius 4px. 그래서 원본에는 OS 기본 흰 툴팁이 한 곳도 없다.
+   PoC 도 `title=` 을 전부 `data-tip=` 으로 바꿔 이 한 곳에서만 그린다.
+   값은 원본 정책을 지키고 표현만 다듬었다 (그림자·여러 줄 처리). */
+.apptip {
+  position: fixed;
+  z-index: 400;
+  max-width: 420px;
+  padding: 6px 9px;
+  border-radius: 4px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-elev);
+  color: var(--text);
+  font-size: 11.5px;
+  line-height: 1.45;
+  white-space: pre-line;      /* 원본도 
+ 을 그대로 여러 줄로 보여준다 */
+  pointer-events: none;       /* 툴팁이 커서를 가로채면 호버가 끊긴다 */
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .45);
+  animation: apptip-in 90ms var(--ease) both;
+}
+@keyframes apptip-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* 검색 제안에서 화면에 그리지 못한 나머지 개수 — 조용히 감추지 않는다 */
+.library-search-more {
+  padding: 5px 10px;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--line-soft);
+}
+
+/* 미완료 항목 창 본문 — 표만 스크롤하고 위/아래 줄은 항상 보이게 한다.
+   ⚠ `.modal-body` 는 블록 + overflow:auto 다. 자식에 `height: 100%` 만 주면
+   본문의 padding(16px×2)만큼 넘쳐서 **본문 자체가 조금 스크롤**된다 — 그래서
+   "끝까지 내려야 버튼이 보인다"가 남았다 (사용자 재확인). 이 창일 때만 본문을
+   flex 열로 바꿔 스크롤을 표 안쪽으로 완전히 밀어넣는다. */
+.modal-body:has(> .failed-body) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.failed-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* 즐겨찾기/사용자 탭에 항목이 들어갔을 때 그 탭을 잠시 깜빡인다
+   (사용자 결정 2026-09-14 — 토스트만으로는 '어디에' 들어갔는지 알 수 없다).
+   1.1초 뒤 Sidebar 가 클래스를 뗀다. */
+.tab.tab-flash {
+  animation: tab-flash 1.1s ease-out 1;
+}
+@keyframes tab-flash {
+  0%   { background: var(--accent); color: #0b0d10; }
+  40%  { background: var(--accent); color: #0b0d10; }
+  100% { background: transparent; }
+}
+
+/* 표가 비었을 때의 한 줄 안내 (미완료 항목 등) — 행이 없어도 표 자리는 유지한다 */
+.mtable .empty-row td {
+  padding: 18px 12px;
+  text-align: center;
+  color: var(--fg-dim);
+  font-size: 12px;
+}
+
+/* 중복 검수 — 지금 보이는 목록이 언제 것인지 (사용자 지시 2026-09-15) */
+.dup-scanned-at {
+  margin-left: 10px;
+  font-size: 11px;
+  color: var(--fg-dim);
+  white-space: nowrap;
+}
+.dup-toolarge { margin: 6px 0 2px; }

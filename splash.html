@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <title>SoundField</title>
+    <!--
+      시작 스플래시 — **독립된 작은 창**이다.
+
+      예전에는 메인 창(1500x850) 안의 전면 오버레이였다. 그래서 스플래시가 뜰 때
+      뒤에 툴 창 크기의 어두운 화면이 함께 보였다 (사용자 2회 신고).
+      원본은 QSplashScreen 이라는 별도 창을 띄우고 메인 창이 준비되면 닫는다
+      (main.py:279 splash.show() → 316 splash.finish(win)) — 같은 구조로 바꿨다.
+
+      창 크기(680x360)에 꽉 차게 그린다. 창 자체가 카드이므로 바깥 여백/딤이 없다.
+      메인 앱의 app.css 를 불러오지 않는다 — 이 페이지는 정적이고, 스타일이 앱
+      번들에 묶여 늦게 도착하면 첫 프레임이 비어 보이기 때문이다.
+    -->
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        /* 창을 **투명**으로 만들었다 (tauri.conf.json splash: transparent). 그래야 카드의
+           라운딩이 실제로 잘려 보인다 — 불투명 창에 검은 모서리를 두는 방식으로는
+           라운딩이 보이지 않았다 (사용자 2회 신고). */
+        background: transparent;
+        color: #dfe2e6;
+        font-family: "Inter Variable", Inter, "Segoe UI", system-ui, sans-serif;
+        -webkit-user-select: none;
+        user-select: none;
+        cursor: default;
+      }
+      /* 창 전체가 카드 — 라디얼 바닥 + 상단 하이라이트 (메인 앱과 같은 램프) */
+      .card {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, .032), rgba(255, 255, 255, 0) 34%),
+          radial-gradient(72% 88% at 42% 96%, #191b1f 0%, #101216 52%, #08090b 100%);
+        border: 1px solid rgba(255, 255, 255, .1);
+        /* 아주 살짝 라운딩 (사용자 지시). 창을 투명하게 만들지 않아도 1px 헤어라인이
+           곡선을 따라가서 라운딩이 눈에 보인다 — 곡선 밖은 창 배경(#07080a)과
+           카드 모서리(#08090b)가 사실상 같은 색이라 티가 나지 않는다. */
+        border-radius: 10px;
+        /* 투명 창이므로 그림자가 창 밖으로 나가지 않는다 — 안쪽 링으로 입체감을 준다 */
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .04),
+                    inset 0 24px 60px -30px rgba(255, 255, 255, .05);
+      }
+      /* 미세 격자 — 오디오 툴 특유의 눈금 느낌만 아주 옅게 */
+      .grid {
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(to right, rgba(255, 255, 255, .028) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(255, 255, 255, .022) 1px, transparent 1px);
+        background-size: 34px 100%, 100% 34px;
+        -webkit-mask-image: radial-gradient(76% 76% at 50% 60%, #000 30%, transparent 100%);
+        mask-image: radial-gradient(76% 76% at 50% 60%, #000 30%, transparent 100%);
+      }
+      .sheen {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(122deg, rgba(255, 255, 255, .045), transparent 46%);
+      }
+      /* 배경 사진 (vite.config.ts 의 brandSplash).
+         ⚠ 흐림은 여기서 CSS filter 로 걸지 않는다. 미리 구워 둔 그림을 쓴다 —
+           filter 를 걸면 창 가장자리에서 흐림이 카드 밖을 물어 테두리가 번지고,
+           첫 프레임에 흐림 계산이 얹힌다 (tools/build_ysg_splash_bg.py 주석 참고).
+         ⚠ 사진이 들어오면 눈금 격자(.grid)는 끈다 — 사진 위에 겹치면 지저분하다
+           (사용자 지적 2026-09-15). 끄는 규칙도 같은 조각이 들고 온다. */
+      .photo {
+        position: absolute;
+        inset: 0;
+        background-size: cover;
+        background-position: center;
+      }
+
+      /* 좌측 상단 — 소속 표기가 들어오는 자리 (vite.config.ts 의 brandSplash).
+         자리만 여기서 잡고, 안에 들어가는 락업 이미지는 그쪽에서 채운다. */
+      .org {
+        position: absolute;
+        left: 34px;
+        top: 30px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+      }
+      /* 가로 락업 — 엠블럼 + "YSG AUDIO LABS" 가 한 덩어리인 그림.
+         자산은 tools/build_ysg_lockup.py 가 **고해상도 원본에서 조립**한다 —
+         완성된 락업 파일을 줄여 쓰면 엠블럼만 뭉갠다 (2026-09-15 실제 사고,
+         생성기 주석 참고). 폭만 정하고 높이는 비율대로 둔다 — 높이를 같이 박으면
+         원본 비율이 바뀔 때 글자가 눌린다. */
+      .lockup {
+        width: 380px;
+        height: auto;
+        filter: drop-shadow(0 2px 10px rgba(0, 0, 0, .45));
+      }
+      /* 우측 하단 — 워드마크 */
+      .mark {
+        position: absolute;
+        right: 40px;
+        bottom: 34px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 9px;
+      }
+      /* 워드마크 줄 — 왼쪽에 툴 로고(헤더와 같은 마크) */
+      .word-row { display: flex; align-items: center; gap: 14px; }
+      /* ⚠ 앱이 **들고 다니는** 글꼴을 쓴다 (사용자 지시 2026-09-15 — 앱 화면과
+           같은 글꼴로). 스플래시는 app.css 를 안 불러오므로 여기서 따로 선언한다.
+           2.6MB TTF 지만 로컬 파일이라 첫 프레임 전에 붙는다. font-display:block
+           이라 늦게 붙어도 다른 글꼴로 한 번 그렸다가 바뀌는 일은 없다. */
+      @font-face {
+        font-family: "Pretendard Bundled";
+        src: url("/fonts/Pretendard-SemiBold.ttf") format("truetype");
+        font-weight: 600;
+        font-style: normal;
+        font-display: block;
+      }
+      .word {
+        font-family: "Pretendard Bundled", "Inter Variable", Inter, "Segoe UI", sans-serif;
+        font-size: 46px;
+        line-height: 1;
+        font-weight: 600;
+        letter-spacing: -.01em;
+        background: linear-gradient(180deg, #dfe2e6 6%, #85898f 96%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, .45);
+      }
+      .underline {
+        width: 152px;
+        height: 2px;
+        border-radius: 2px;
+        background: linear-gradient(90deg, transparent, #4E90E8);
+      }
+      .meta {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        font-size: 11px;
+        color: #85898f;
+        font-variant-numeric: tabular-nums;
+      }
+      .ver { letter-spacing: .06em; }
+      .load { display: inline-flex; align-items: center; gap: 8px; }
+
+      /* 로딩 박동 — 좌 → 우 (앱 아이콘과 같은 결) */
+      .pulse { display: inline-flex; align-items: center; gap: 2.5px; height: 12px; }
+      .pulse i {
+        width: 2px;
+        height: 26%;
+        border-radius: 1px;
+        background: linear-gradient(180deg, #6fd6e6, #4E90E8);
+        animation: wave 980ms cubic-bezier(.4, 0, .3, 1) infinite;
+      }
+      @keyframes wave {
+        0%, 60%, 100% { height: 26%; opacity: .55; }
+        22%           { height: 100%; opacity: 1; }
+      }
+
+      /* 하단 전폭 진행 헤어라인 — 좌에서 우로 흐른다.
+         ⚠ background-position 애니메이션 대신 **자식 요소의 transform** 을 움직인다.
+         transform 은 합성 단계에서 처리돼 어떤 환경에서도 확실히 돌아간다
+         (배경 위치 방식은 이 창에서 움직이지 않는다는 보고가 있었다). */
+      .progress {
+        position: absolute;
+        /* ⚠ 예전에는 창 아래 끝(bottom:0)에 붙여서 선의 위쪽 일부만 보였다
+           (사용자 신고). 배율(DPI) 반올림과 라운딩 곡선에 마지막 픽셀 줄이 먹힌다.
+           안쪽으로 들여서 어떤 배율에서도 온전히 보이게 한다. */
+        left: 14px;
+        right: 14px;
+        bottom: 8px;
+        height: 3px;
+        border-radius: 3px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, .05);
+      }
+      .progress i {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        width: 42%;
+        background: linear-gradient(90deg, transparent, rgba(78, 144, 232, .85), transparent);
+        animation: scan 1600ms cubic-bezier(.33, 1, .68, 1) infinite;
+      }
+      @keyframes scan {
+        0%   { transform: translateX(-105%); }
+        100% { transform: translateX(240%); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .pulse i, .progress i { animation: none; }
+        .progress i { transform: translateX(70%); }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <!--BRAND_BG-->
+      <span class="grid"></span>
+      <span class="sheen"></span>
+
+      <!-- ⚠ 소속 표기는 **빌드 시점에** 박힌다 (vite.config.ts 의 brandSplash 플러그인).
+           빌드 때 넣는다 —
+           사용자 결정 2026-09-14. 여기 글자를 직접 적으면 반대편 배포본에도 섞여 나간다.
+           런타임 스크립트로 바꿔치우던 방식은 버렸다: 바뀌기 전 한 프레임 동안
+           잘못된 문구가 보인다. 문구는 src/brand.ts 의 orgLines 와 같아야 한다. -->
+      <!--BRAND_ORG-->
+
+      <div class="mark">
+        <div class="word-row">
+          <!-- 툴 로고 — 앱 아이콘/헤더와 같은 파형 막대 글리프 (배율 무관 선명) -->
+          <svg width="42" height="42" viewBox="0 0 24 24" aria-hidden="true">
+            <defs>
+              <linearGradient id="wm" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#7fb4f2" />
+                <stop offset="1" stop-color="#2f6dc4" />
+              </linearGradient>
+            </defs>
+            <!-- 5개 좌우 대칭 (헤더 WaveMark 와 같은 봉우리 0.40/0.76/1.0/0.76/0.40) -->
+            <g>
+              <rect x="2.5"  y="8.6"  width="2.6" height="6.8"  rx="1.3" fill="url(#wm)"/>
+              <rect x="6.6"  y="5.55" width="2.6" height="12.9" rx="1.3" fill="url(#wm)"/>
+              <rect x="10.7" y="3.5"  width="2.6" height="17.0" rx="1.3" fill="#8dbcf5"/>
+              <rect x="14.8" y="5.55" width="2.6" height="12.9" rx="1.3" fill="url(#wm)"/>
+              <rect x="18.9" y="8.6"  width="2.6" height="6.8"  rx="1.3" fill="url(#wm)"/>
+            </g>
+          </svg>
+          <div class="word">SoundField</div>
+        </div>
+        <span class="underline"></span>
+        <div class="meta">
+          <!-- ⚠ 버전을 글자로 적어 두지 말 것. 아래 script 가 실행 중인 exe 에서
+               읽어 채운다. 예전에는 "v2.0.0" 이 박혀 있어서 2.1.0 으로 올린 뒤에도
+               스플래시에만 계속 옛 번호가 보였다 (사용자 보고 2026-09-07).
+               이 창은 React 가 아니라 이 정적 페이지다 — src/components/Splash.tsx
+               는 어디서도 쓰지 않으므로 거기를 고쳐도 화면은 그대로다. -->
+          <span class="ver"></span>
+          <span class="load">
+            <span class="pulse">
+              <i style="animation-delay:0ms"></i>
+              <i style="animation-delay:82ms"></i>
+              <i style="animation-delay:164ms"></i>
+              <i style="animation-delay:246ms"></i>
+              <i style="animation-delay:328ms"></i>
+            </span>
+            라이브러리 로딩 중…
+          </span>
+        </div>
+      </div>
+
+      <span class="progress"><i></i></span>
+    </div>
+
+    <script>
+      /* 첫 프레임이 실제로 그려진 뒤에 창을 보여 달라고 알린다.
+         창을 먼저 띄우면 페인트 전 빈 창이 잠깐 보인다 — 메인 창에서 겪은 것과 같은
+         문제라 같은 방식으로 막는다. Rust 쪽에 1.5초 안전망이 있어 이 신호가
+         못 가도 스플래시는 반드시 나타난다.
+
+         이 명령은 **버전 문자열도 돌려준다** — 버전 표기를 그 값으로 채운다.
+         표준 API(getVersion)를 쓰지 않는 이유는 lib.rs sf_splash_ready 주석 참고
+         (권한이 메인 창에만 부여돼 있어 이 창에서는 막힌다).
+         못 받으면 빈 칸으로 둔다 — 틀린 번호를 보여주는 것보다 낫다. */
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          setTimeout(function () {
+            try {
+              window.__TAURI__.core.invoke("sf_splash_ready").then(function (v) {
+                var el = document.querySelector(".ver");
+                if (el && v) el.textContent = "v" + v;
+              });
+            } catch (err) {
+              /* 안전망이 대신 띄운다 */
+            }
+          }, 0);
+        });
+      });
+    </script>
+  </body>
+</html>

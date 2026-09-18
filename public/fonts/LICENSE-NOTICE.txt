@@ -1,0 +1,20 @@
+이 폴더의 글꼴 파일과 라이선스
+================================
+
+SoundField 는 다른 PC 에서도 화면이 같게 보이도록 글꼴을 앱에 함께 담습니다.
+시스템 글꼴로 설치하지 않으며, 앱 안에서만 사용합니다.
+
+Pretendard-Regular.ttf / Pretendard-Medium.ttf / Pretendard-SemiBold.ttf
+  - 글꼴: Pretendard
+  - 라이선스: SIL Open Font License, Version 1.1 (OFL 1.1)
+  - 재배포가 허용되며, **라이선스 전문을 함께 배포해야 합니다.**
+
+Aldrich.ttf
+  - 글꼴: Aldrich
+  - 라이선스: SIL Open Font License, Version 1.1 (OFL 1.1)
+
+해야 할 일
+----------
+각 글꼴의 **공식 OFL.txt 전문**을 이 폴더에 함께 넣어 주세요
+(예: OFL-Pretendard.txt, OFL-Aldrich.txt). 이 파일은 어떤 글꼴을 어떤
+라이선스로 담았는지 적어 둔 메모이고, 라이선스 전문을 대체하지 않습니다.

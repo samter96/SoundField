@@ -1,0 +1,64 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "SoundField",
+  "version": "2.1.1",
+  "identifier": "com.ysgaudiolabs.soundfield",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "SoundField",
+        "width": 1500,
+        "height": 850,
+        "minWidth": 820,
+        "minHeight": 620,
+        "center": true,
+        "resizable": true,
+        "decorations": false,
+        "shadow": false,
+        "backgroundColor": "#07080a",
+        "dragDropEnabled": false,
+        "visible": false,
+        "label": "main"
+      },
+      {
+        "label": "splash",
+        "url": "splash.html",
+        "title": "SoundField",
+        "width": 680,
+        "height": 360,
+        "center": true,
+        "resizable": false,
+        "decorations": false,
+        "shadow": false,
+        "skipTaskbar": true,
+        "alwaysOnTop": true,
+        "focus": false,
+        "visible": false,
+        "transparent": true
+      }
+    ],
+    "security": {
+      "csp": null
+    },
+    "withGlobalTauri": true
+  },
+  "bundle": {
+    "publisher": "YSG Audio Labs",
+    "active": true,
+    "targets": [
+      "nsis"
+    ],
+    "icon": [
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "bridge-dist/sf_bridge": "bridge"
+    }
+  }
+}

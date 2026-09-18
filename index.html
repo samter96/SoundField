@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SoundField</title>
+    <!-- React 가 붙기 전 첫 프레임이 **검은 창**으로 보이던 문제 (사용자 보고).
+         스플래시와 같은 바닥색을 HTML 단계에서 미리 칠해 둔다. 실제 스플래시가
+         마운트되면 그 위에 덮이고, 스플래시가 걷힐 때 함께 사라진다. -->
+    <style>
+      html, body { margin: 0; background: #07080a; }
+      #boot {
+        position: fixed;
+        inset: 0;
+        background:
+          radial-gradient(58% 74% at 46% 88%, #15171a 0%, #0d0f12 46%, #07080a 100%);
+      }
+      #root:not(:empty) + #boot { display: none; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <div id="boot"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,35 @@
+﻿# 브리지 실행 파일(sf_bridge.exe)의 VERSIONINFO — PyInstaller --version-file 로 넣는다.
+#
+# 왜 필요한가: 작업 관리자의 "이름" 열은 exe 에 박힌 **FileDescription** 을 쓴다.
+# 이게 없으면 파일명 그대로 `sf_bridge` 세 줄이 따로 보여서, 사용자가 SoundField 가
+# 얼마나 쓰는지 합산할 수 없었다 (사용자 요청 2026-09-03).
+# 크롬이 헬퍼 프로세스를 "Google Chrome" 으로 묶어 보여주는 것과 같은 방식으로,
+# 설명을 "SoundField" 로 맞추고 제품명도 통일한다. 프로세스는 이미 soundfield.exe 의
+# 자식이므로, 정렬을 끄면 작업 관리자에서 앱 아래로 접히는 트리로 나타난다.
+VSVersionInfo(
+  ffi=FixedFileInfo(
+    filevers=(2, 1, 0, 0),
+    prodvers=(2, 1, 0, 0),
+    mask=0x3f,
+    flags=0x0,
+    OS=0x40004,
+    fileType=0x1,
+    subtype=0x0,
+    date=(0, 0)
+  ),
+  kids=[
+    StringFileInfo([
+      StringTable(
+        '041204B0',
+        [StringStruct('CompanyName', 'YSG Audio Labs'),
+         StringStruct('FileDescription', 'SoundField'),
+         StringStruct('FileVersion', '2.1.0.0'),
+         StringStruct('InternalName', 'sf_bridge'),
+         StringStruct('LegalCopyright', 'YSG Audio Labs'),
+         StringStruct('OriginalFilename', 'sf_bridge.exe'),
+         StringStruct('ProductName', 'SoundField'),
+         StringStruct('ProductVersion', '2.1.0.0')])
+    ]),
+    VarFileInfo([VarStruct('Translation', [0x0412, 1200])])
+  ]
+)

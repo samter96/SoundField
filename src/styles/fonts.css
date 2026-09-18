@@ -1,0 +1,50 @@
+/* ══ 앱에 내장한 글꼴 ═══════════════════════════════════════════════════════
+   ⚠ 이 파일과 public/fonts/*.ttf 를 지우지 말 것 — 지우면 **다른 PC 에서 글꼴이
+     바뀌어 서식/줄바꿈이 어긋난다.**
+
+   왜 내장하는가 (사용자 지시 2026-09-08):
+     예전에는 시스템에 깔린 글꼴에만 의존했다. 스택 1순위는 Inter 였는데 실측해
+     보니 **개발 PC 에도 Inter 가 없어서** 실제로는 2순위 Pretendard 로 그려지고
+     있었다. Pretendard 도 없는 PC 에서는 Malgun Gothic 으로 내려가 글자 폭이
+     달라지고, 폭을 재서 만든 칸(결과표 열, 개수 칸, 버튼)이 어긋난다.
+     그래서 **지금 화면과 같은 글꼴을 앱이 직접 들고 다닌다.**
+
+   시스템 폰트로 설치하지 않는다 — 앱만 쓰고, 제거해도 시스템에 남는 것이 없다.
+
+   ⚠ 굵기는 400/500/600 세 종만 넣었다 (구할 수 있는 파일이 그 세 개다).
+     CSS 에는 650/700/800 도 쓰이는데, 그건 브라우저가 SemiBold 를 굵게 흉내 내
+     그린다. 실제 Bold 파일을 넣으려면 여기에 700 을 추가할 것.
+
+   ⚠ 라이선스: Pretendard 는 SIL Open Font License 1.1 이다. 재배포가 허용되지만
+     **라이선스 전문을 함께 배포해야 한다.** public/fonts/LICENSE-NOTICE.txt 참고 —
+     공식 OFL.txt 를 그 폴더에 함께 넣어 두는 것이 좋다.
+     Aldrich 도 OFL 1.1 (원본 저장소 app/assets/fonts 에서 가져왔다). */
+
+@font-face {
+  font-family: "Pretendard Bundled";
+  src: url("/fonts/Pretendard-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;   /* 글꼴이 늦게 붙어 글자가 튀는 것을 막는다 (로컬 파일이라 즉시 로드) */
+}
+@font-face {
+  font-family: "Pretendard Bundled";
+  src: url("/fonts/Pretendard-Medium.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: "Pretendard Bundled";
+  src: url("/fonts/Pretendard-SemiBold.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: "Aldrich Bundled";
+  src: url("/fonts/Aldrich.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
