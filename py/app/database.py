@@ -2892,7 +2892,7 @@ class Database:
         if fts_parts:
             sql = "SELECT f.rowid AS r FROM search_fts f"
             if likes:
-                sql += " JOIN audio_files a ON a.id = f.file_id"
+                sql += " CROSS JOIN audio_files a ON a.id = f.file_id"   # 순서 고정 — 아래 hit 주석
             sql += " WHERE search_fts MATCH ?" + "".join(f" AND {c}" for c in likes)
             return sql, [" AND ".join(fts_parts)] + like_params
         return ("SELECT sf_rowid(a.id) AS r FROM audio_files a WHERE " + " AND ".join(likes),
@@ -2942,7 +2942,7 @@ class Database:
                 conds.append(like_sql)
                 params.extend(like_params)
             inner = " INTERSECT ".join(f"SELECT r FROM ({s})" for s, _ in driver)
-            positives = [("SELECT f.rowid AS r FROM search_fts f JOIN audio_files a ON a.id = f.file_id "
+            positives = [("SELECT f.rowid AS r FROM search_fts f CROSS JOIN audio_files a ON a.id = f.file_id "
                           f"WHERE f.rowid IN ({inner}) AND " + " AND ".join(conds),
                           [p for _, ps in driver for p in ps] + params)]
         else:
@@ -2961,7 +2961,11 @@ class Database:
         """1~2글자 단어만으로 된 단위가 **혼자** 집합을 만들어야 하는 모양인지.
         ('a', 'ui', 'ui OR hud' — 다른 단어로 좁힐 수 없다.) 이런 식을 집합 SQL 로 돌리면
         LIKE 에 걸리는 수십만 행을 먼저 다 모으느라 멈춘다 (실측 'a' 60초 넘음).
-        그때는 행을 훑으며 조건을 보고 limit 에서 멈추는 _pred_sql 로 간다."""
+        그때는 행을 훑으며 조건을 보고 limit 에서 멈추는 _pred_sql 로 간다.
+        빼기만 있는 묶음('-slam')도 같다 — 집합으로 하면 158만 행 전체에서 빼야 해서,
+        드문 필터(5.1, 7채널 이상)와 겹치면 실측 14~16초였다."""
+        if isinstance(expr, sq.Node) and expr.kind == "and" and not expr.items:
+            return True
         if precise:
             return False
         if isinstance(expr, sq.Term):
@@ -2973,21 +2977,21 @@ class Database:
             return True
         return any(self._needs_scan(e, precise) for e in long_ + expr.negs)
 
-    def _pred_sql(self, expr) -> Tuple[str, List]:
-        """식 → audio_files 한 행(a)에 대한 WHERE 조건. 짧은 단어는 LIKE 그대로,
+    def _pred_sql(self, expr, precise: bool = False) -> Tuple[str, List]:
+        """식 → audio_files 한 행(a)에 대한 WHERE 조건. 짧은 단어는 LIKE 그대로(넓게 찾기),
         나머지 단위는 rowid 집합 소속 여부(sf_rowid(a.id) IN ...)로 본다."""
         if isinstance(expr, sq.Term):
-            like = self._like_only(expr)
+            like = None if precise else self._like_only(expr)
             if like is not None:
                 return like
-            set_sql, set_params = self._set_sql(expr, False)
+            set_sql, set_params = self._set_sql(expr, precise)
             return f"sf_rowid(a.id) IN ({set_sql})", set_params
         joiner = " OR " if expr.kind == "or" else " AND "
-        parts = [self._pred_sql(e) for e in expr.items]
+        parts = [self._pred_sql(e, precise) for e in expr.items]
         sql = joiner.join(f"({s})" for s, _ in parts) if parts else "1"
         params = [p for _, ps in parts for p in ps]
         for neg in expr.negs:
-            s, ps = self._pred_sql(neg)
+            s, ps = self._pred_sql(neg, precise)
             sql = f"({sql}) AND NOT ({s})"
             params.extend(ps)
         return sql, params
@@ -3249,24 +3253,32 @@ class Database:
                 if fts is not None:
                     # 정확한 검색 — 단어색인 MATCH 하나 + bm25 전역 정렬 (예전 _query_term 과 같은 모양)
                     wts = ", ".join(str(w) for w in self._TERM_BM25_WEIGHTS)
-                    run(f"{with_sql}SELECT a.* FROM audio_files a "
-                        "JOIN search_fts_term ON search_fts_term.file_id = a.id "
+                    # CROSS JOIN = 단어색인을 먼저 (아래 hit 주석과 같은 이유)
+                    run(f"{with_sql}SELECT a.* FROM search_fts_term "
+                        "CROSS JOIN audio_files a ON a.id = search_fts_term.file_id "
                         f"WHERE search_fts_term MATCH ? AND {where} "
                         f"ORDER BY bm25(search_fts_term, {wts})",
                         [fts] + cond_params, int(limit))
                     ordered = True
                 elif self._needs_scan(expr, precise):
-                    # 짧은 단어만으로 된 검색('ui', 'a') — 예전 엔진처럼 행을 훑다가 limit 에서 멈춘다
-                    pred, pred_params = self._pred_sql(expr)
+                    # 짧은 단어만으로 된 검색('ui', 'a')·빼기만 있는 검색('-slam') —
+                    # 예전 엔진처럼 행을 훑다가 limit 에서 멈춘다
+                    pred, pred_params = self._pred_sql(expr, precise)
                     run(f"{with_sql}SELECT a.* FROM audio_files a WHERE ({pred}) AND {where}",
                         pred_params + cond_params, int(limit))
                 else:
                     set_sql, set_params = self._set_sql(expr, precise)
                     table = "search_fts_term" if precise else "search_fts"
-                    ctes_all = ctes + [f"hit(r) AS ({set_sql})"]
+                    # ⚠ CROSS JOIN 으로 순서를 고정한다 — hit → 색인 → audio_files.
+                    #   그냥 JOIN 이면 채널·샘플레이트·길이처럼 색인 있는 필터가 걸릴 때 SQLite 가
+                    #   audio_files 를 바깥으로 골라(idx_channels 등) **행마다 hit 를 처음부터 다시
+                    #   훑었다** — 실측 2026-10-07 'rain AND storm' + STEREO: 필터 없이 0.26초,
+                    #   STEREO 로 2분 넘게 안 끝남 (설치본 '검색 중...' 멈춤 신고).
+                    #   MATERIALIZED 는 hit 를 한 번만 계산하게 한다.
+                    ctes_all = ctes + [f"hit(r) AS MATERIALIZED ({set_sql})"]
                     base = ("WITH " + ", ".join(ctes_all) + " SELECT a.* FROM hit "
-                            f"JOIN {table} f ON f.rowid = hit.r "
-                            f"JOIN audio_files a ON a.id = f.file_id WHERE {where}")
+                            f"CROSS JOIN {table} f ON f.rowid = hit.r "
+                            f"CROSS JOIN audio_files a ON a.id = f.file_id WHERE {where}")
                     # ⚠ CTE 인자(블랙리스트 CTE 는 인자 없음) → hit 인자 → 조건 인자 순서.
                     params = set_params + cond_params
                     # 결과가 limit 보다 많을 때 '원래 단어가 이름·제목 등에 있는' 행을 먼저

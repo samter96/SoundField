@@ -111,6 +111,11 @@ comments, description, keywords, category, sub_category, source.
   규칙을 바꾸면 `Database.TERM_NAME_MODE` 를 올릴 것 — 시작 정비가 표식을 보고 단어색인을
   새로 만든다 (158만 행 실측 5.4분, 그동안 정확한 검색 결과 일부 빠짐).
   표식은 만들기 **시작할 때 지우고 끝날 때 남긴다** — 도중에 꺼져도 다음 실행이 다시 만든다.
+- ⚠ 새 엔진의 검색 SQL 은 **CROSS JOIN 으로 처리 순서를 고정**한다 (검색 결과 → 색인 → audio_files).
+  그냥 JOIN 이면 채널·샘플레이트·길이처럼 색인 있는 필터가 걸릴 때 SQLite 가 audio_files 를
+  바깥으로 골라 행마다 결과 목록을 다시 훑었다 — 2.1.4 설치본 'rain AND storm' + STEREO 가
+  2분 넘게 '검색 중...' (2026-10-07 신고). 빼기만 있는 검색('-slam')도 행 훑기 길로 보낸다.
+  고친 뒤 검색어 11종 × 필터 9종 × 넓게/정확 = 198회 모두 1.9초 이내.
 - 1~2글자 단어만으로 된 검색('ui', 'a')은 집합으로 모으면 멈춘다(실측 60초+). `_needs_scan`
   이 행을 훑다 limit 에서 멈추는 길로 보낸다 — 지우지 말 것.
 - 되돌리기: 환경변수 `SOUNDFIELD_SEARCH_ENGINE=legacy` 면 옛 엔진(`_query_legacy`)이 돈다.
