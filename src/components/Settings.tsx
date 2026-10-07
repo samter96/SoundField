@@ -486,7 +486,7 @@ export function Settings({ onClose, config, onSave, runAdmin, onBusyChange }: Pr
             <span className="form-label">동의어:</span>
             <div className="form-radios">
               <CheckRow checked={searchSynonyms} label="동의어도 함께 찾기"
-                        title={"'glass break' 를 찾으면 shatter · smash 처럼 같은 뜻의 말이 든 파일도 함께 찾습니다.\n붙은 말은 검색 줄 아래에 보이고, 그 자리에서 빼거나 더할 수 있습니다.\n따옴표로 감싼 말에는 붙지 않습니다."}
+                        title={"검색어와 비슷한 말(UCS 동의어 사전, 단어마다 최대 3개)이 든 파일도 함께 찾습니다.\n4글자 이상 단어에만 붙고, 따옴표로 감싼 말과 정확한 검색에는 붙지 않습니다."}
                         onToggle={() => setSearchSynonyms((v) => !v)} />
             </div>
           </div>

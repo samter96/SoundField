@@ -30,23 +30,14 @@ $Thesaurus = Join-Path $PyRoot "app\data\ucs_thesaurus.json"
 if (-not (Test-Path $Thesaurus)) {
   throw "UCS 동의어 사전을 찾을 수 없습니다: $Thesaurus"
 }
-# 2026-10-07 부터 검색어 확장은 아래 '같은 뜻' 사전(sfx_synonyms.json)이 1단계, UCS 가
-# 2단계(남은 자리 채우기)다. UCS 는 철자 제안 후보와 옛 엔진(되돌리기용)에도 쓴다.
-# 위 실측은 옛 엔진 시절 기록이다.
+# UCS 사전은 동의어(단어마다 최대 3개)와 결과 0건 철자 제안 후보에 쓴다.
 
-# ── 같은 뜻 사전 (필수) ──────────────────────────────────────────────────────
-# ⚠ 빠지면 UCS 사전과 똑같이 **오류 없이 동의어만 사라진다** (synonyms.py 가 빈 사전으로 동작).
-#   'glass break' 가 Shatter·Smash 를 못 찾는 상태로 돌아간다.
-$Synonyms = Join-Path $PyRoot "app\data\sfx_synonyms.json"
-if (-not (Test-Path $Synonyms)) {
-  throw "같은 뜻 사전을 찾을 수 없습니다: $Synonyms"
-}
-# ── UCS 분류 약어표 (필수) — vehicle → VEH 처럼 약어로만 이름 붙은 파일을 찾는다.
-# 빠지면 역시 오류 없이 약어 확장만 사라진다 (ucs_codes.py 가 빈 표로 동작).
-$UcsCodes = Join-Path $PyRoot "app\data\ucs_codes.json"
-if (-not (Test-Path $UcsCodes)) {
-  throw "UCS 분류 약어표를 찾을 수 없습니다: $UcsCodes"
-}
+# ── 동의어 실험 보관 모듈 — 설치본 제외 (사용자 결정 2026-10-07) ─────────────
+# '같은 뜻' 새 사전·UCS 분류 약어·칩은 써 보고 되돌렸다. 코드는 저장소에만 둔다:
+#   app.synonym_lab (엔진 연결부), app.synonyms + data/sfx_synonyms.json,
+#   app.ucs_codes + data/ucs_codes.json, 화면은 parked/synonym_chips.
+# 아래 --exclude-module 로 빼고, 빌드 뒤 PYZ 목록에 없는지 확인한다 (유사 검색 격리와 같은 방식).
+# 데이터 파일은 --add-data 하지 않는다.
 
 # ⚠ --version-file / --icon 을 빼지 말 것.
 # 작업 관리자의 "이름" 열은 exe 의 FileDescription 을, 아이콘은 exe 임베드 아이콘을
@@ -63,10 +54,11 @@ python -m PyInstaller --noconfirm --onedir --name sf_bridge `
   --exclude-module app.similarity `
   --exclude-module app.similarity_indexer `
   --exclude-module app.similarity_search `
+  --exclude-module app.synonym_lab `
+  --exclude-module app.synonyms `
+  --exclude-module app.ucs_codes `
   --add-binary "$Sidecar;monitor" `
   --add-data "$Thesaurus;app\data" `
-  --add-data "$Synonyms;app\data" `
-  --add-data "$UcsCodes;app\data" `
   --distpath $DistRoot --workpath $WorkRoot `
   (Join-Path $ProjectRoot "src-tauri\python\sf_bridge.py")
 
@@ -134,17 +126,10 @@ if (Test-Path $BundledThesaurus) {
 } else {
   throw "UCS 동의어 사전이 번들에 들어가지 않았습니다: $BundledThesaurus"
 }
-$BundledSynonyms = Join-Path $DistRoot "sf_bridge\_internal\app\data\sfx_synonyms.json"
-if (Test-Path $BundledSynonyms) {
-  Write-Host "같은 뜻 사전 포함 확인: $BundledSynonyms"
-} else {
-  throw "같은 뜻 사전이 번들에 들어가지 않았습니다: $BundledSynonyms"
-}
-$BundledUcsCodes = Join-Path $DistRoot "sf_bridge\_internal\app\data\ucs_codes.json"
-if (Test-Path $BundledUcsCodes) {
-  Write-Host "UCS 분류 약어표 포함 확인: $BundledUcsCodes"
-} else {
-  throw "UCS 분류 약어표가 번들에 들어가지 않았습니다: $BundledUcsCodes"
+foreach ($parkedData in @("sfx_synonyms.json", "ucs_codes.json")) {
+  if (Test-Path (Join-Path $DistRoot "sf_bridge\_internal\app\data\$parkedData")) {
+    throw "보관 데이터가 번들에 들어갔습니다: $parkedData"
+  }
 }
 
 # ── 유사 사운드 검색 격리 검사 (필수) ────────────────────────────────────────
@@ -166,6 +151,9 @@ if (-not (Test-Path $Toc)) { throw "빌드 목록을 찾을 수 없습니다: $T
 $SimLeak = Select-String -Path $Toc -Pattern 'app\.similarity' -List -ErrorAction SilentlyContinue
 if ($SimLeak) { throw "유사 검색 모듈이 번들에 들어갔습니다 — $Toc 확인" }
 Write-Host "유사 검색 격리 확인: 번들에 app.similarity* 없음"
+$LabLeak = Select-String -Path $Toc -Pattern "'app\.(synonym_lab|synonyms|ucs_codes)'" -List -ErrorAction SilentlyContinue
+if ($LabLeak) { throw "동의어 실험 보관 모듈이 번들에 들어갔습니다 — $Toc 확인" }
+Write-Host "동의어 실험 격리 확인: 번들에 app.synonym_lab / synonyms / ucs_codes 없음"
 
 # ── 번들 자체 점검 (필수) ────────────────────────────────────────────────────
 # ⚠ 이 단계를 지우지 말 것. 여기서 확인하는 것들은 빠져도 앱이 에러 없이 돌고

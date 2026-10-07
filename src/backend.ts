@@ -48,12 +48,8 @@ export type SearchRequest = {
   limit: number;
   /** 환경설정 '동의어도 함께 찾기' */
   synonyms?: boolean;
-  /** 동의어 칩에서 이번 검색에만 뺀/더한 말 — {검색 단어: {off, add}} */
-  synonym_overrides?: Record<string, { off: string[]; add: string[] }> | null;
 };
 
-/** 이번 검색에 붙은 동의어 — available: 사전에 있는 말, used: 실제로 함께 찾은 말 */
-export type SynonymInfo = { term: string; available: string[]; used: string[] };
 /** 결과 0건일 때 철자 제안 — 혼자서도 아무것도 안 걸리는 단어만 */
 export type SpellSuggestion = { word: string; suggestion: string };
 
@@ -108,15 +104,13 @@ export async function loadInitialRows(limit: number): Promise<Row[] | null> {
    (main_window.py:7291). 예전에는 null 만 돌려줘서 화면에는 옛 결과가 새 결과처럼
    남고, 브리지가 잠깐 죽었다 살아나도 같은 검색이 계속 건너뛰어졌다. */
 export async function searchRows(req: SearchRequest):
-    Promise<{ rows: Row[] | null; error: string; synonyms: SynonymInfo[]; suggestions: SpellSuggestion[] }> {
+    Promise<{ rows: Row[] | null; error: string; suggestions: SpellSuggestion[] }> {
   try {
-    const res = await invoke<{ rows: DbRow[]; synonyms?: SynonymInfo[]; suggestions?: SpellSuggestion[] }>(
-      "sf_search_rows", { req });
-    return { rows: res.rows.map(toRow), error: "",
-             synonyms: res.synonyms ?? [], suggestions: res.suggestions ?? [] };
+    const res = await invoke<{ rows: DbRow[]; suggestions?: SpellSuggestion[] }>("sf_search_rows", { req });
+    return { rows: res.rows.map(toRow), error: "", suggestions: res.suggestions ?? [] };
   } catch (err) {
     return { rows: null, error: String((err as { message?: string })?.message ?? err),
-             synonyms: [], suggestions: [] };
+             suggestions: [] };
   }
 }
 

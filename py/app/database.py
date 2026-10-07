@@ -11,9 +11,7 @@ from typing import List, Optional, Dict, Callable, Tuple
 from dataclasses import dataclass, field
 
 from app import thesaurus
-from app import synonyms as sfx_synonyms
 from app import search_query as sq
-from app import ucs_codes
 
 logger = logging.getLogger(__name__)
 
@@ -2815,18 +2813,13 @@ class Database:
         return results
 
     # ─────────── 검색 엔진 (2026-10-07) ───────────────────────────────────────
-    # 바뀐 점 (사용자 확정 2026-10-07, 근거·실측은 COLLAB_LOG / 메모리):
-    #   · 동의어 1단계 = 사운드용 '같은 뜻' 사전(app/synonyms.py).
-    #     2단계 = UCS 분류 목록의 단어 전부 — 1단계로 limit 를 못 채울 때만 남은 자리를 채우고,
-    #     정렬은 가장 아래 (사용자 결정 2026-10-07: 원래 단어 > 새 사전 > UCS, 칩에는 안 보임).
-    #   · 원래 친 단어는 예전처럼 넓게(글자 일부), **동의어는 단어 단위**(단어색인)로만 찾는다.
-    #     글자 일부로 찾으면 shut→Shutter, tick→Stick, blast→Blastwave 가 섞인다 (실측).
-    #   · 동의어는 소리를 설명하는 칸에서만 찾는다 — 경로·아티스트·앨범·장르·출처는 이름이라
-    #     회사 이름(BOOM, Blastwave)에 걸린다.
-    #   · 따옴표 = 그대로(동의어 없음), '-' = 빼기, 쉼표 = OR, 정확한 검색도 같은 문법.
-    #   · 빼기(NOT/-) 쪽에는 동의어를 붙이지 않는다 — slam 을 빼려다 bang 까지 빠진다.
-    _SYNONYM_FIELDS = ("file_name", "title", "comments", "description",
-                       "keywords", "category", "sub_category")
+    # 바뀐 점 (사용자 확정 2026-10-07):
+    #   · 문법 — 따옴표 = 그대로(동의어 없음), '-' = 빼기, 쉼표 = OR, 정확한 검색도 같은 문법.
+    #     예전엔 따옴표만 쓰면 0건, '-slam' 이 오히려 포함, 정확한 검색이 AND/NOT 을 단어로 찾았다.
+    #   · 동의어는 **예전 엔진과 같은 규칙**이다 (UCS, 단어마다 최대 3개, 글자 일부, '전체' 필드,
+    #     정확한 검색엔 없음). 같은 날 '같은 뜻' 새 사전 + UCS 전부 + 분류 약어를 써 봤으나 결과가
+    #     덜 직관적이라 되돌렸다 (사용자 결정). 그 코드는 app/synonym_lab.py 에 보관 — 설치본 제외.
+    #   · 빼기(NOT/-) 쪽에는 동의어를 붙이지 않는다.
     _ENGINE_ENV = "SOUNDFIELD_SEARCH_ENGINE"   # "legacy" 면 옛 엔진 (되돌리기용)
     _SUGGEST_VOCAB: Optional[List[str]] = None
 
@@ -2837,63 +2830,6 @@ class Database:
     @staticmethod
     def _phrase(words: List[str]) -> str:
         return '"' + " ".join(w.replace('"', '""') for w in words) + '"'
-
-    def _syn_cols(self, field: str) -> Optional[str]:
-        """동의어를 찾을 단어색인 칸 (FTS5 칸 지정 문법). 이름 칸이면 None = 동의어 없음."""
-        if field == "any":
-            cols = ("file_name", "file_name_norm") + self._SYNONYM_FIELDS[1:]
-        elif field == "file_name":
-            cols = ("file_name", "file_name_norm")
-        elif field in self._SYNONYM_FIELDS:
-            cols = (field,)
-        else:
-            return None
-        return "{" + " ".join(cols) + "}"
-
-    def _term_synonyms(self, term, overrides: Dict) -> Tuple[List[str], List[str]]:
-        """(사전에 있는 동의어, 이번 검색에 쓸 동의어). overrides 는 화면 칩에서 뺀/더한 것."""
-        key = term.text.lower()
-        book = sfx_synonyms.get()
-        available = book.lookup(key)
-        if not available and len(term.words) == 1:
-            # 'breaking' → break 묶음, 'sci-fi' → scifi 묶음. 단어색인이 동의어 쪽 어형
-            # (shattering 등)은 어간 처리로 알아서 잡는다.
-            for variant in self._token_variants(term.words[0])[1:]:
-                available = book.lookup(variant)
-                if available:
-                    break
-        ov = overrides.get(key) or {}
-        off = {" ".join(str(o).lower().split()) for o in (ov.get("off") or [])}
-        used = [s for s in available if s not in off]
-        for extra in ov.get("add") or []:
-            extra = " ".join(str(extra).lower().split())
-            if extra and extra != key and extra not in used:
-                used.append(extra)
-        return available, used
-
-    # UCS 동의어 정렬 점수 — 원래 단어 > 새 사전(_SYNONYM_RANK_FACTOR) > UCS (사용자 결정 2026-10-07)
-    _UCS_RANK_FACTOR = 0.1
-
-    def _ucs_synonyms(self, term, exclude: set) -> List[str]:
-        """UCS 사전에서 이 단어가 든 분류 목록의 영어 단어 **전부** (사용자 결정 2026-10-07:
-        '다 붙여'). 분류별 관련어라 엉뚱한 말도 섞이지만(실측: door slam → 창고 총소리),
-        정렬 점수를 가장 낮게 줘서 아래로 보낸다. 화면 칩에는 보이지 않는다.
-        exclude — 검색어의 다른 단어·이미 붙은 말. 'door close' 에서 close 의 UCS 말에
-        door 가 있으면 close 칸이 모든 door 파일에 맞아 검색이 그냥 'door' 가 된다."""
-        book = thesaurus.get()
-        words = [term.text]
-        if len(term.words) == 1:
-            words += self._token_variants(term.words[0])[1:]
-        out: List[str] = []
-        seen = set(exclude) | {term.text.lower()}
-        for word in words:
-            for t in book.expand(word, cap=100_000, max_groups=1_000_000):
-                low = " ".join(t.lower().split())
-                if low in seen or len(low) < 3 or not low.isascii():
-                    continue
-                seen.add(low)
-                out.append(low)
-        return out
 
     def _orig_term_fts(self, term) -> str:
         """정확한 검색: 원래 단어를 단어색인 MATCH 식으로. 'door*' 는 접두 검색."""
@@ -2940,7 +2876,12 @@ class Database:
                         f'(file_name:"{esc}" OR file_name_norm:"{esc}")' if field == "file_name"
                         else f'{field}:"{esc}"'))
                 else:
-                    fts_parts.append(self._fts_term(field, word))
+                    expr = self._fts_term(field, word)
+                    # 예전 방식 동의어 (UCS, 단어마다 최대 3개) — 원래 단어와 OR 로 묶는다
+                    syns = getattr(term, "legacy_syns", None)
+                    if syns:
+                        expr = "(" + " OR ".join([expr] + [self._fts_term("any", s) for s in syns]) + ")"
+                    fts_parts.append(expr)
             else:
                 clauses = []
                 for f in fields:
@@ -2975,34 +2916,18 @@ class Database:
             clauses.append("(" + " OR ".join(ors) + ")")
         return "(" + " AND ".join(clauses) + ")", params
 
-    def _syn_match(self, term, used: List[str]) -> Optional[str]:
-        cols = self._syn_cols(term.field)
-        if not used or cols is None:
-            return None
-        return f"{cols}: (" + " OR ".join(self._phrase(s.split()) for s in used) + ")"
-
-    def _set_sql(self, expr, precise: bool, syn_used: Dict[int, List[str]]) -> Tuple[str, List]:
+    def _set_sql(self, expr, precise: bool) -> Tuple[str, List]:
         """식 → rowid 집합 SQL ('r' 한 열). AND=INTERSECT, OR=UNION, 빼기=EXCEPT.
         두 색인(search_fts / search_fts_term)이 같은 rowid(fts_rowid)를 쓰므로 섞을 수 있다."""
         if isinstance(expr, sq.Term):
             if precise:
-                parts = [("SELECT rowid AS r FROM search_fts_term WHERE search_fts_term MATCH ?",
-                          [self._orig_term_fts(expr)])]
-            else:
-                parts = [self._orig_term_sql(expr)]
-            syn = self._syn_match(expr, syn_used.get(id(expr)) or [])
-            if syn:
-                parts.append(("SELECT rowid AS r FROM search_fts_term WHERE search_fts_term MATCH ?", [syn]))
-            if len(parts) == 1:
-                return parts[0]
-            return (" UNION ".join(f"SELECT r FROM ({s})" for s, _ in parts),
-                    [p for _, ps in parts for p in ps])
+                return ("SELECT rowid AS r FROM search_fts_term WHERE search_fts_term MATCH ?",
+                        [self._orig_term_fts(expr)])
+            return self._orig_term_sql(expr)
         table = "search_fts_term" if precise else "search_fts"
-        subs: List[Tuple[str, List]] = []
         if expr.kind == "or":
-            subs = [self._set_sql(e, precise, syn_used) for e in expr.items]
-            joiner = " UNION "
-            sql = joiner.join(f"SELECT r FROM ({s})" for s, _ in subs)
+            subs = [self._set_sql(e, precise) for e in expr.items]
+            sql = " UNION ".join(f"SELECT r FROM ({s})" for s, _ in subs)
             return sql, [p for _, ps in subs for p in ps]
         # 1~2글자 단어('ui')만으로 된 단위는 LIKE 라 혼자 집합을 만들면 158만 행을 다 훑는다
         # (실측 'ui click' 2.3초). 다른 단위로 좁힌 행 안에서 거르는 조건으로 바꾼다 —
@@ -3010,27 +2935,21 @@ class Database:
         short = [e for e in expr.items if not precise and self._like_only(e)]
         long_ = [e for e in expr.items if all(e is not s for s in short)]
         if short and long_:
-            driver = [self._set_sql(e, precise, syn_used) for e in long_]
+            driver = [self._set_sql(e, precise) for e in long_]
             conds, params = [], []
             for term in short:
                 like_sql, like_params = self._like_only(term)
-                syn = self._syn_match(term, syn_used.get(id(term)) or [])
-                if syn:
-                    conds.append(f"({like_sql} OR f.rowid IN (SELECT rowid FROM search_fts_term "
-                                 "WHERE search_fts_term MATCH ?))")
-                    params.extend(like_params + [syn])
-                else:
-                    conds.append(like_sql)
-                    params.extend(like_params)
+                conds.append(like_sql)
+                params.extend(like_params)
             inner = " INTERSECT ".join(f"SELECT r FROM ({s})" for s, _ in driver)
             positives = [("SELECT f.rowid AS r FROM search_fts f JOIN audio_files a ON a.id = f.file_id "
                           f"WHERE f.rowid IN ({inner}) AND " + " AND ".join(conds),
                           [p for _, ps in driver for p in ps] + params)]
         else:
-            positives = [self._set_sql(e, precise, syn_used) for e in expr.items]
+            positives = [self._set_sql(e, precise) for e in expr.items]
         if not positives:                            # 빼기만 있는 묶음 — 전체에서 뺀다
             positives = [(f"SELECT rowid AS r FROM {table}", [])]
-        negatives = [self._set_sql(e, precise, {}) for e in expr.negs]
+        negatives = [self._set_sql(e, precise) for e in expr.negs]
         sql = " INTERSECT ".join(f"SELECT r FROM ({s})" for s, _ in positives)
         params = [p for _, ps in positives for p in ps]
         for s, ps in negatives:
@@ -3054,45 +2973,37 @@ class Database:
             return True
         return any(self._needs_scan(e, precise) for e in long_ + expr.negs)
 
-    def _pred_sql(self, expr, syn_used: Dict[int, List[str]]) -> Tuple[str, List]:
+    def _pred_sql(self, expr) -> Tuple[str, List]:
         """식 → audio_files 한 행(a)에 대한 WHERE 조건. 짧은 단어는 LIKE 그대로,
         나머지 단위는 rowid 집합 소속 여부(sf_rowid(a.id) IN ...)로 본다."""
         if isinstance(expr, sq.Term):
             like = self._like_only(expr)
-            syn = self._syn_match(expr, syn_used.get(id(expr)) or [])
             if like is not None:
-                sql, params = like
-                if syn:
-                    sql = (f"({sql} OR sf_rowid(a.id) IN (SELECT rowid FROM search_fts_term "
-                           "WHERE search_fts_term MATCH ?))")
-                    params = params + [syn]
-                return sql, params
-            set_sql, set_params = self._set_sql(expr, False, syn_used)
+                return like
+            set_sql, set_params = self._set_sql(expr, False)
             return f"sf_rowid(a.id) IN ({set_sql})", set_params
         joiner = " OR " if expr.kind == "or" else " AND "
-        parts = [self._pred_sql(e, syn_used) for e in expr.items]
+        parts = [self._pred_sql(e) for e in expr.items]
         sql = joiner.join(f"({s})" for s, _ in parts) if parts else "1"
         params = [p for _, ps in parts for p in ps]
         for neg in expr.negs:
-            s, ps = self._pred_sql(neg, {})
+            s, ps = self._pred_sql(neg)
             sql = f"({sql}) AND NOT ({s})"
             params.extend(ps)
         return sql, params
 
-    def _fts_string(self, expr, syn_used: Dict[int, List[str]]) -> Optional[str]:
+    def _fts_string(self, expr) -> Optional[str]:
         """정확한 검색: 식 전체를 단어색인 MATCH 문자열 하나로 (bm25 정렬을 쓰려고).
         빼기만 있는 묶음처럼 FTS5 로 못 쓰는 모양이면 None → 집합 SQL 로 대신한다."""
         if isinstance(expr, sq.Term):
-            orig = self._orig_term_fts(expr)
-            syn = self._syn_match(expr, syn_used.get(id(expr)) or [])
-            return f"({orig} OR {syn})" if syn else orig
+            return self._orig_term_fts(expr)
         if expr.kind == "or":
-            parts = [self._fts_string(e, syn_used) for e in expr.items]
+            parts = [self._fts_string(e) for e in expr.items]
             return None if any(p is None for p in parts) else "(" + " OR ".join(parts) + ")"
         if not expr.items:
             return None
-        parts = [self._fts_string(e, syn_used) for e in expr.items]
-        negs = [self._fts_string(e, {}) for e in expr.negs]
+        parts = [self._fts_string(e) for e in expr.items]
+        negs = [self._fts_string(e) for e in expr.negs]
         if any(p is None for p in parts + negs):
             return None
         out = " AND ".join(parts)
@@ -3153,13 +3064,8 @@ class Database:
                              " OR a.file_path LIKE _bl.pat)")
         return ctes, conds, params
 
-    @staticmethod
-    def _word_re(term: str):
-        """정렬 점수용 단어 경계 — 'shut' 이 'Shutter' 에 점수를 주지 않게."""
-        return re.compile(r"(?<![a-z0-9])" + re.escape(term.lower()) + r"(?:s|es|ed|ing)?(?![a-z])")
-
-    def _rank_score_v2(self, row: Dict, tokens: List[str], syn_res, ucs_res=()) -> float:
-        """_rank_score 와 같은 가중치. 동의어는 단어 경계로만 — 새 사전 30%, UCS 10%."""
+    def _rank_score_v2(self, row: Dict, tokens: List[str], syn_res) -> float:
+        """_rank_score 와 같은 가중치. 동의어는 원래 단어 점수의 30% (예전 엔진과 같음)."""
         s = 0.0
         for f, w in self._RANK_WEIGHTS.items():
             v = row.get(f)
@@ -3176,19 +3082,15 @@ class Database:
             for rx in syn_res:
                 if rx.search(v):
                     s += w * self._SYNONYM_RANK_FACTOR
-            for rx in ucs_res:
-                if rx.search(v):
-                    s += w * self._UCS_RANK_FACTOR
-                    break                    # UCS 는 수백 개 — 칸마다 한 번만 친다
         return s
 
     # ── 철자 제안 (결과 0건일 때) ──
     @classmethod
     def _suggest_vocab(cls) -> List[str]:
-        """후보 단어 = 동의어 사전 + UCS 사전의 영어 단어. UCS 는 효과음 어휘 수천 개라
-        'explostion' → 'explosion' 같은 제안 후보로 알맞다 (확장에는 더 쓰지 않는다)."""
+        """후보 단어 = UCS 사전의 영어 단어. 효과음 어휘 수천 개라
+        'explostion' → 'explosion' 같은 제안 후보로 알맞다."""
         if cls._SUGGEST_VOCAB is None:
-            words = set(sfx_synonyms.get().words())
+            words = set()
             try:
                 for group in thesaurus.get()._groups:
                     for t in group:
@@ -3259,14 +3161,12 @@ class Database:
               batch_callback: Optional[Callable[[List[Dict]], None]] = None,
               batch_size: int = 200,
               limit: int = 500,
-              synonym_overrides: Optional[Dict] = None,
               info: Optional[Dict] = None) -> List[Dict]:
         """통합 검색.
         - matchers: 필터 줄 [{field, operator(첫 줄 None / AND·OR·NOT), value}]
         - use_thesaurus: 동의어 켜기/끄기 (환경설정)
         - precise: 정확한 검색 — 원래 단어도 단어 단위 + bm25 정렬
-        - synonym_overrides: {단어: {"off": [...], "add": [...]}} — 이번 검색에만 뺀/더한 동의어
-        - info: 넘기면 {"synonyms": [...], "suggestions": [...]} 를 채워 돌려준다 (화면 칩 · 철자 제안)
+        - info: 넘기면 {"suggestions": [...]} 를 채워 돌려준다 (결과 0건일 때 철자 제안)
         """
         if os.environ.get(self._ENGINE_ENV, "").strip().lower() == "legacy":
             return self._query_legacy(
@@ -3277,10 +3177,6 @@ class Database:
                 use_thesaurus=use_thesaurus, precise=precise, cancel_check=cancel_check,
                 batch_callback=batch_callback, batch_size=batch_size, limit=limit)
 
-        book = sfx_synonyms.get()
-        codes_book = ucs_codes.get()
-        # 여러 단어 표현 — 새 사전의 'pass by' 와 UCS 분류명 'user interface' 를 한 단위로 묶는다
-        phrase_lookup = lambda words: book.has(" ".join(words)) or codes_book.has_phrase(" ".join(words))
         rows_expr = []
         for m in matchers or []:
             value = (m.get("value") or "").strip()
@@ -3289,53 +3185,31 @@ class Database:
             field = m.get("field") or "any"
             if field != "any" and field not in self.SEARCHABLE_FIELDS:
                 field = "any"
-            rows_expr.append((m.get("operator"), sq.parse(value, field, phrase_lookup)))
+            rows_expr.append((m.get("operator"), sq.parse(value, field)))
         expr = sq.combine_rows(rows_expr)
 
-        # 동의어 — 빼기가 아닌 검색 단위마다. 따옴표 구문·이름 칸은 붙이지 않는다.
+        # 동의어 — 예전 엔진과 같은 규칙: '전체' 필드, 넓게 찾기, 따옴표·빼기 아닌 단어 하나,
+        # UCS 사전에서 단어마다 최대 3개(_query_synonyms), 글자 일부로 원래 단어와 OR.
+        # 예전과 다른 점 하나 — 글자로 친 AND/OR/괄호 안의 단어에도 똑같이 붙는다
+        # (예전엔 'glass break' 에는 붙고 'glass AND break' 에는 안 붙었다).
         terms = sq.positive_terms(expr)
-        overrides = {" ".join(str(k).lower().split()): v
-                     for k, v in (synonym_overrides or {}).items()}
-        syn_used: Dict[int, List[str]] = {}     # 1단계 — 새 사전 말
-        syn_all: Dict[int, List[str]] = {}      # 2단계 — 새 사전 + UCS
-        syn_info: List[Dict] = []
-        ucs_words: List[str] = []           # 정렬 점수용 (가장 낮게)
-        seen_keys = set()
-        query_words = {" ".join(t.text.lower().split()) for t in terms} | \
-                      {w.lower() for t in terms for w in t.words}
-        if use_thesaurus:
+        legacy_syn_words: List[str] = []
+        if use_thesaurus and not precise:
             for term in terms:
-                if term.quoted or self._syn_cols(term.field) is None:
+                if term.quoted or term.field != "any" or len(term.words) != 1:
                     continue
-                available, used = self._term_synonyms(term, overrides)
-                # UCS 분류 약어 (vehicle → veh, break → brk) — 정확한 대응이라 1단계,
-                # 칩에는 안 보인다 (사용자 결정 2026-10-07). 검색어의 다른 단어와 같은 약어는 뺀다.
-                codes = [c for c in codes_book.lookup(term.text)
-                         if c not in query_words and c not in used]
-                ucs = self._ucs_synonyms(term, query_words | set(used) | set(codes))
-                ucs_words.extend(ucs)
-                if used or codes:
-                    syn_used[id(term)] = used + codes
-                if used or codes or ucs:
-                    syn_all[id(term)] = used + codes + ucs
-                key = term.text.lower()
-                # 칩에는 새 사전 말만 — UCS 는 수백 개라 보이지 않는다 (사용자 결정 2026-10-07)
-                if (available or used) and key not in seen_keys:
-                    seen_keys.add(key)
-                    syn_info.append({"term": key, "available": available, "used": used})
+                syns = self._query_synonyms(term.words[0])
+                if syns:
+                    term.legacy_syns = syns
+                    legacy_syn_words.extend(s.lower() for s in syns)
 
         ctes, conds, cond_params = self._result_filters(
             path_prefix, path_prefixes, min_duration, max_duration, sample_rate,
             channels, min_channels, exclude_prefixes, apply_blacklist)
 
         rank_tokens = [w.lower().rstrip("*") for t in terms for w in t.words]
-        syn_res = [self._word_re(s) for used in syn_used.values() for s in used]
-        # UCS 말은 수백 개 — 하나씩 정규식을 돌리면 5000행×12칸×수백 번이라 정렬만 수십 초.
-        # 한 정규식(가장 긴 말 먼저)으로 합친다.
-        ucs_res = []
-        if ucs_words:
-            alts = "|".join(re.escape(w) for w in sorted(set(ucs_words), key=len, reverse=True))
-            ucs_res = [re.compile(r"(?<![a-z0-9])(?:" + alts + r")(?:s|es|ed|ing)?(?![a-z])")]
+        # 예전 정렬과 같게 — 동의어는 글자 일부 일치로 원래 단어 점수의 30%
+        syn_res = [re.compile(re.escape(s)) for s in dict.fromkeys(legacy_syn_words)]
 
         conn = self._connect()
         try:
@@ -3371,7 +3245,7 @@ class Database:
             if expr is None:
                 run(f"{with_sql}SELECT a.* FROM audio_files a WHERE {where}", cond_params, int(limit))
             else:
-                fts = self._fts_string(expr, syn_used) if precise else None
+                fts = self._fts_string(expr) if precise else None
                 if fts is not None:
                     # 정확한 검색 — 단어색인 MATCH 하나 + bm25 전역 정렬 (예전 _query_term 과 같은 모양)
                     wts = ", ".join(str(w) for w in self._TERM_BM25_WEIGHTS)
@@ -3383,11 +3257,11 @@ class Database:
                     ordered = True
                 elif self._needs_scan(expr, precise):
                     # 짧은 단어만으로 된 검색('ui', 'a') — 예전 엔진처럼 행을 훑다가 limit 에서 멈춘다
-                    pred, pred_params = self._pred_sql(expr, syn_used)
+                    pred, pred_params = self._pred_sql(expr)
                     run(f"{with_sql}SELECT a.* FROM audio_files a WHERE ({pred}) AND {where}",
                         pred_params + cond_params, int(limit))
                 else:
-                    set_sql, set_params = self._set_sql(expr, precise, syn_used)
+                    set_sql, set_params = self._set_sql(expr, precise)
                     table = "search_fts_term" if precise else "search_fts"
                     ctes_all = ctes + [f"hit(r) AS ({set_sql})"]
                     base = ("WITH " + ", ".join(ctes_all) + " SELECT a.* FROM hit "
@@ -3404,19 +3278,6 @@ class Database:
                         remaining = max(0, int(limit) - len(results))
                         if remaining > 0:
                             run(base, params, remaining + len(results))
-                # 2단계 — UCS 동의어. 1단계(원래 단어 + 새 사전)로 limit 를 못 채웠을 때만
-                # 단어색인 MATCH 하나로 남은 자리를 채운다. 실측(158만 행): 이 방식 0.2~0.3초 /
-                # 1단계에 섞어 집합 SQL 로 하면 1~4초 / 정확한 검색 bm25 에 섞으면 12~16초 +
-                # UCS 말이 맨 위로 올라와 '원래 단어 > 새 사전 > UCS' 순서(사용자 결정)가 깨졌다.
-                # 이미 담은 행은 run() 이 건너뛰므로 LIMIT 은 limit 그대로 준다.
-                if (ucs_words and len(results) < int(limit)
-                        and (cancel_check is None or not cancel_check())):
-                    fts_all = self._fts_string(expr, syn_all)
-                    if fts_all is not None:
-                        run(f"{with_sql}SELECT a.* FROM audio_files a "
-                            "JOIN search_fts_term ON search_fts_term.file_id = a.id "
-                            f"WHERE search_fts_term MATCH ? AND {where}",
-                            [fts_all] + cond_params, int(limit))
             if expr is not None and not results and info is not None:
                 info["suggestions"] = self._suggestions(conn, terms)
         finally:
@@ -3425,12 +3286,11 @@ class Database:
             conn.close()
 
         if not ordered and rank_tokens and len(results) > 1:
-            results.sort(key=lambda row: self._rank_score_v2(row, rank_tokens, syn_res, ucs_res),
+            results.sort(key=lambda row: self._rank_score_v2(row, rank_tokens, syn_res),
                          reverse=True)
         if len(results) > int(limit):
             results = results[:int(limit)]
         if info is not None:
-            info["synonyms"] = syn_info
             info.setdefault("suggestions", [])
         if batch_callback is not None:
             bs = max(1, int(batch_size))

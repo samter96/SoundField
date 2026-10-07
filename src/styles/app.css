@@ -1077,62 +1077,6 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 }
 .target-toggle.on:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); }
 
-/* ── 동의어 칩 (2026-10-07) — 이번 검색에 붙은 '같은 뜻' 말. 동의어가 붙을 때만 한 줄 생긴다.
-   × 로 빼고, 흐린 칩(뺀 말)을 누르면 다시 넣고, + 로 더한다. 이번 검색에만 적용. */
-.syn-row {
-  display: flex; flex-wrap: wrap; align-items: center;
-  gap: 4px 10px;
-  min-height: 24px;
-  padding: 2px 0 0;
-  font-size: 11px;
-}
-.syn-label { color: var(--text-secondary); font-size: 10.5px; margin-right: 2px; }
-.syn-group { display: inline-flex; align-items: center; gap: 4px; }
-.syn-term { color: var(--text); font-weight: 600; margin-right: 1px; }
-.syn-term::after { content: ":"; color: var(--text-secondary); font-weight: 400; }
-.syn-chip {
-  display: inline-flex; align-items: center; gap: 3px;
-  height: 20px;
-  padding: 0 4px 0 8px;
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
-  border-radius: var(--r-pill);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  color: var(--text);
-  font-size: 11px;
-  white-space: nowrap;
-}
-.syn-chip.off {
-  padding: 0 8px;
-  border-style: dashed;
-  border-color: var(--line-strong);
-  background: transparent;
-  color: var(--text-secondary);
-  text-decoration: line-through;
-  cursor: pointer;
-}
-.syn-chip.off:hover { color: var(--text); border-color: var(--accent); text-decoration: none; }
-.syn-x, .syn-add {
-  display: grid; place-items: center;
-  width: 16px; height: 16px;
-  border: 0; border-radius: var(--r-pill);
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: background var(--t-hover) var(--ease), color var(--t-hover) var(--ease);
-}
-.syn-x:hover, .syn-add:hover { color: var(--text); background: color-mix(in srgb, var(--accent) 22%, transparent); }
-.syn-add { width: 20px; height: 20px; border: 1px dashed var(--line-strong); }
-.syn-input {
-  height: 20px; width: 110px;
-  padding: 0 8px;
-  border: 1px solid var(--accent);
-  border-radius: var(--r-pill);
-  background: var(--bg-elev);
-  color: var(--text);
-  font-size: 11px;
-  outline: none;
-}
-
 /* ── 철자 제안 (결과 0건) — 결과표 빈 자리 가운데. 누르면 검색창의 그 단어를 바꾼다. */
 .results-slot { position: relative; }
 .spell-suggest {
