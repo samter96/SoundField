@@ -46,6 +46,18 @@ def selftest():
         terms = len(getattr(t, "_term_map", {}))
         return groups > 0, "그룹 %d / 용어 %d" % (groups, terms)
 
+    def _synonyms():
+        """같은 뜻 사전 — 없으면 동의어(break → shatter 등)가 조용히 사라진다."""
+        from app import synonyms
+        words = len(synonyms.get().words())
+        return words > 0, "단어 %d" % words
+
+    def _ucs_codes():
+        """UCS 분류 약어표 — 없으면 vehicle → VEH 같은 약어 확장이 조용히 사라진다."""
+        from app import ucs_codes
+        n = ucs_codes.get().count()
+        return n > 0, "열쇠 %d" % n
+
     def _scandir():
         """1차 인덱싱 폴더 훑기 가속 — 없으면 조용히 느려진다."""
         from app.library_manager import RustScandir
@@ -86,6 +98,8 @@ def selftest():
 
     check("모듈 출처", _origin)
     check("동의어 사전", _thesaurus)
+    check("같은 뜻 사전", _synonyms)
+    check("UCS 분류 약어", _ucs_codes)
     check("폴더 훑기 가속", _scandir)
     check("바이노럴 모니터", _binaural)
     check("메타 추출", _meta)

@@ -91,8 +91,36 @@ npm run installer        설치본까지 (프런트 → 실행 파일 → ISCC)
 comments, description, keywords, category, sub_category, source.
 새 필드를 더하면 `_ensure_indices()` 가 FTS5 스키마를 자동으로 다시 만든다.
 
-⚠ UCS 동의어 사전(`py/app/data/ucs_thesaurus.json`)이 번들에서 빠지면 **아무 오류 없이
-검색 결과만 크게 줄어든다.** `build_bridge.ps1` 이 매번 확인한다 — 그 검사를 지우지 말 것.
+
+## 검색 엔진 (2026-10-07 개편 — 사용자 확정)
+
+- **동의어 = '같은 뜻' 사전** `py/app/data/sfx_synonyms.json` (`app/synonyms.py`).
+  UCS 사전(`ucs_thesaurus.json`)은 분류별 관련어 목록이라 엉뚱한 말이 섞인다
+  (close → Automobile). 그래서 **2단계**로만 붙인다 — 1단계(원래 단어 + 새 사전)로 limit 를
+  못 채울 때 단어색인 MATCH 하나로 남은 자리를 채우고, 정렬은 가장 아래, 칩에는 안 보인다
+  (사용자 결정 2026-10-07). 1단계에 섞으면 실측 1~4초, 정확한 검색은 12~16초 + 순서가 깨진다.
+  UCS 말 중 검색어의 다른 단어는 뺀다 ('door close' 가 그냥 'door' 가 되는 것 방지).
+  단어를 더하기 전에 `python tools/check_synonyms.py 단어` — 라이브러리·회사 이름과
+  겹치면(boom → BOOM Library) 그 라이브러리가 통째로 섞인다.
+- **UCS 분류 약어** `py/app/data/ucs_codes.json` (`app/ucs_codes.py`, 생성 `tools/build_ucs_codes.py`):
+  vehicle → veh, break → brk 처럼 분류·하위분류 이름을 UCS 파일명 약어로도 찾는다. 1단계(새 사전과 같이),
+  칩에는 안 보임 (사용자 결정 2026-10-07). 실측 효과는 생각보다 작다 — 약어 파일 대부분이 폴더 경로에
+  분류 이름이 있어 이미 잡혔다 (user interface +12,458, foley +3,656, vehicle +863).
+- 원래 친 단어는 넓게(글자 일부, trigram), **동의어는 단어 단위**(단어색인)로만 찾는다.
+  동의어는 소리를 설명하는 칸에서만 — 경로·아티스트·앨범·장르·출처에는 붙이지 않는다.
+  따옴표 안 말과 빼기(NOT, `-`)에는 붙이지 않는다.
+- 문법은 `app/search_query.py`: 띄어쓰기 AND, `OR`/쉼표 OR, `NOT`/`-` 빼기, 따옴표, 괄호.
+  '경로' 필드만 문법 없이 띄어쓰기 AND. 우선순위 NOT > AND > OR (필터 줄 조합도 같다).
+- 단어색인 `file_name_norm` 칸에는 **쪼갠 파일명**도 들어간다 (`GlassSmash_05` → Glass Smash 05).
+  규칙을 바꾸면 `Database.TERM_NAME_MODE` 를 올릴 것 — 시작 정비가 표식을 보고 단어색인을
+  새로 만든다 (158만 행 실측 5.4분, 그동안 정확한 검색·동의어 결과 일부 빠짐).
+  표식은 만들기 **시작할 때 지우고 끝날 때 남긴다** — 도중에 꺼져도 다음 실행이 다시 만든다.
+- 1~2글자 단어만으로 된 검색('ui', 'a')은 집합으로 모으면 멈춘다(실측 60초+). `_needs_scan`
+  이 행을 훑다 limit 에서 멈추는 길로 보낸다 — 지우지 말 것.
+- 되돌리기: 환경변수 `SOUNDFIELD_SEARCH_ENGINE=legacy` 면 옛 엔진(`_query_legacy`)이 돈다.
+
+⚠ 두 사전(`ucs_thesaurus.json`, `sfx_synonyms.json`) 중 하나라도 번들에서 빠지면 **아무 오류
+없이** 동의어·철자 제안만 사라진다. `build_bridge.ps1` 이 매번 확인한다 — 그 검사를 지우지 말 것.
 
 ## 데이터 경로
 

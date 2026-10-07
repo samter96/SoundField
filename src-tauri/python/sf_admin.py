@@ -1,6 +1,11 @@
 """SoundField 원본의 쓰기 정책을 Tauri에서 호출하는 작은 브리지."""
 import json
 import os
+# numpy 의 행렬 계산 부품(OpenBLAS)은 불러오는 순간 CPU 스레드마다 작업 공간을 잡는다.
+#   실측 2026-10-01 (28스레드 PC): numpy 하나로 +781MB → 1스레드면 +42MB.
+#   설치본에 행렬 계산을 쓰는 기능은 없다(유사 검색만 쓰고, 배포에서 빠진다).
+#   numpy 를 부르기 **전에** 정해야 먹는다 — 이 줄을 import 아래로 옮기지 말 것.
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
 import sys
 from pathlib import Path
 
@@ -289,8 +294,10 @@ def run(req):
         db.set_meta("meta_parser_version", current)
         return {"success": True, "reset": reset, "restored": restored}
     if op == "ensure_term_index":
-        # 정확 검색용 단어 색인. 이미 있으면 쓰기 없이 즉시 끝난다.
-        if db.term_index_count() > 0:
+        # 정확 검색·동의어용 단어 색인. 지금 규칙(쪼갠 파일명, Database.TERM_NAME_MODE)으로
+        # 이미 있으면 쓰기 없이 즉시 끝난다. 없거나 옛 규칙이면 새로 만든다 — 실측 5.4분
+        # (158만 행, 2026-10-07). 그동안 정확한 검색·동의어 결과는 일부 빠진다 (사용자 결정 B).
+        if db.term_index_current():
             return {"success": True, "built": False}
         return {"success": bool(db.build_term_index()), "built": True}
     if op == "background_meta":

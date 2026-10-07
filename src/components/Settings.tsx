@@ -5,7 +5,7 @@ import { DUP_CACHE_MAX_GROUPS, fmtScanTime, loadDupCache, saveDupCache } from ".
 import { loadHidden, onAdminOpProgress, onDupProgress, revealInExplorer, scanDuplicates,
          type AdminRequest, type HiddenResult } from "../backend";
 import { SuppressedManager } from "./SuppressedManager";
-import { IcoCaret } from "../icons";
+import { IcoCaret, IcoMonitor } from "../icons";
 import type { ThemeName } from "../theme";
 import { CONFIG_DEFAULTS, SHORTCUT_DEFAULTS, type UserConfig } from "../config";
 import { t } from "../i18n";
@@ -115,6 +115,7 @@ export function Settings({ onClose, config, onSave, runAdmin, onBusyChange }: Pr
 
   /* 편집 중 값 — 원본과 같이 "저장" 을 눌러야 반영된다. */
   const [searchLimit, setSearchLimit] = useState(String(config.searchLimit));
+  const [searchSynonyms, setSearchSynonyms] = useState(config.searchSynonyms);
   const [doubleClickToPlay, setDoubleClickToPlay] = useState(config.doubleClickToPlay);
   const [compactResults, setCompactResults] = useState(config.compactResults);
   const [themeDraft, setThemeDraft] = useState<ThemeName>(config.theme);
@@ -144,6 +145,7 @@ export function Settings({ onClose, config, onSave, runAdmin, onBusyChange }: Pr
 
   const resetAll = () => {
     setSearchLimit(String(CONFIG_DEFAULTS.searchLimit));
+    setSearchSynonyms(CONFIG_DEFAULTS.searchSynonyms);
     setDoubleClickToPlay(CONFIG_DEFAULTS.doubleClickToPlay);
     setCompactResults(CONFIG_DEFAULTS.compactResults);
     setRestartFromZero(CONFIG_DEFAULTS.playbackRestartFromZero);
@@ -230,6 +232,7 @@ export function Settings({ onClose, config, onSave, runAdmin, onBusyChange }: Pr
       ...config,
       theme: themeDraft,
       searchLimit: Math.max(100, Math.min(5000, n)),
+      searchSynonyms,
       doubleClickToPlay,
       compactResults,
       playbackRestartFromZero: restartFromZero,
@@ -477,6 +480,15 @@ export function Settings({ onClose, config, onSave, runAdmin, onBusyChange }: Pr
           </div>
           <div className="form-hint">
             (추천: 1000개 이하 / 최대: 5000개. 값이 클수록 검색 성능에 영향을 줄 수 있습니다.)
+          </div>
+
+          <div className="form-row">
+            <span className="form-label">동의어:</span>
+            <div className="form-radios">
+              <CheckRow checked={searchSynonyms} label="동의어도 함께 찾기"
+                        title={"'glass break' 를 찾으면 shatter · smash 처럼 같은 뜻의 말이 든 파일도 함께 찾습니다.\n붙은 말은 검색 줄 아래에 보이고, 그 자리에서 빼거나 더할 수 있습니다.\n따옴표로 감싼 말에는 붙지 않습니다."}
+                        onToggle={() => setSearchSynonyms((v) => !v)} />
+            </div>
           </div>
 
           <div className="form-sep" />
@@ -835,7 +847,7 @@ export function Settings({ onClose, config, onSave, runAdmin, onBusyChange }: Pr
             const path = dupMenu.path;
             setDupMenu(null);
             void revealInExplorer(path);
-          }}>탐색기에서 보기</button>
+          }}><IcoMonitor size={13} /> PC 탐색기에서 보기</button>
           <button className="ctxitem" onClick={() => {
             const path = dupMenu.path;
             setDupMenu(null);

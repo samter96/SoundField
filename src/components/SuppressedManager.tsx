@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { IcoMonitor } from "../icons";
 import { loadHidden, onAdminOpProgress, revealInExplorer,
          type AdminRequest, type HiddenResult } from "../backend";
 
@@ -242,7 +243,7 @@ export function SuppressedManager({ onClose, runAdmin, onBusyChange }: {
             <div className="ctxmenu" style={{ left: ctxAt.x, top: ctxAt.y }}>
               <button className="ctxitem"
                       onClick={() => { void revealInExplorer(ctxAt.path); setCtxAt(null); }}>
-                탐색기에서 보기
+                <IcoMonitor size={13} /> PC 탐색기에서 보기
               </button>
               <button className="ctxitem"
                       onClick={() => {

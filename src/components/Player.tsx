@@ -1598,10 +1598,15 @@ export function Player({ row, playing, onToggle, onStop, onSeek, onRegionDropped
                /* 사용자 지시 2026-09-04: 선택 영역 **안쪽**을 클릭해도 플레이헤드가
                   옮겨져야 한다. 끌었으면(moved) 영역 내보내기로 처리되므로,
                   '끌지 않았다' 만 보면 된다. 선택 영역은 지우지 않는다. */
+               /* 사용자 지시 2026-10-06: 파형 클릭은 원클릭/더블클릭 재생 모드와
+                  관계없이 **그 지점부터 바로 재생**한다 (예전: 플레이헤드만 이동).
+                  세그먼트 헤더와 같은 이유로 onToggle 이 아니라 onForcePlay 를 쓴다 —
+                  자연 종료 뒤에도 `playing` 이 true 로 남아 토글이 일시정지가 된다. */
                if (!moved) {
                  setPos(start);
                  resetPlayhead(start);
                  onSeek?.(start * durMsNow());
+                 onForcePlay?.();
                }
              };
              window.addEventListener("mousemove", move);
@@ -1639,7 +1644,7 @@ export function Player({ row, playing, onToggle, onStop, onSeek, onRegionDropped
 
                           ── 정책 변경 (사용자 지시 2026-09-03) ────────────────────
                           **세그먼트 헤더 클릭은 정지 상태에서도 바로 재생한다.**
-                          (파형 몸통 클릭은 지금처럼 플레이헤드만 옮긴다 — 재생 안 함.)
+                          (2026-10-06 부터 파형 몸통 클릭도 바로 재생한다.)
 
                           왜 필요했나: 끝부분 헤더를 누르면 실제 파일 끝까지 재생되고
                           자연 종료된다. 그 순간 엔진이 소스를 닫는데(audio_engine

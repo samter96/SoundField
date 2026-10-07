@@ -90,6 +90,12 @@ struct SearchRequest {
     path_prefixes: Option<Vec<String>>,
     precise: bool,
     limit: i64,
+    /* 환경설정 '동의어도 함께 찾기' — 없으면(옛 화면) 파이썬이 켠 것으로 본다 */
+    #[serde(default)]
+    synonyms: Option<bool>,
+    /* 동의어 칩에서 이번 검색에만 뺀/더한 것 {단어: {off: [...], add: [...]}} */
+    #[serde(default)]
+    synonym_overrides: Option<serde_json::Value>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -1254,7 +1260,12 @@ fn search_rows_blocking(req: SearchRequest, inner: &SearchInner, id: u64)
         let rows = value.get("rows").cloned().unwrap_or(serde_json::Value::Array(vec![]));
         let _ = sf_debug(format!("SEARCH {}ms rows={}", __t0.elapsed().as_millis(),
                                  rows.as_array().map(|a| a.len()).unwrap_or(0)));
-        return Ok(rows);
+        /* 행과 함께 이번 검색에 붙은 동의어(화면 칩)와 0건일 때 철자 제안을 넘긴다 */
+        return Ok(serde_json::json!({
+            "rows": rows,
+            "synonyms": value.get("synonyms").cloned().unwrap_or(serde_json::Value::Array(vec![])),
+            "suggestions": value.get("suggestions").cloned().unwrap_or(serde_json::Value::Array(vec![])),
+        }));
     }
 }
 

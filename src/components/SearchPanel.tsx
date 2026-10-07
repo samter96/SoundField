@@ -3,7 +3,7 @@ import { IcoPlus, IcoRefresh, IcoTarget, IcoX } from "../icons";
 import { LibraryPanel } from "./LibraryPanel";
 import { Dropdown } from "./Dropdown";
 import type { Lib } from "../data";
-import type { SearchRequest } from "../backend";
+import type { SearchRequest, SynonymInfo } from "../backend";
 import { t } from "../i18n";
 
 type Logic = "AND" | "OR" | "NOT";
@@ -40,7 +40,12 @@ const FIELD_KEYS: Record<string, string> = {
 const FIELD_LABEL_BY_KEY: Record<string, string> = Object.fromEntries(
   Object.entries(FIELD_KEYS).map(([label, key]) => [key, label]));
 
-/* 원본 multi_search.py:_SEARCH_HELP_TEXT — 전문 그대로 */
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/* 단어 경계로 포함 여부 — 'glass breaking' 안의 'break' 는 아니고 'glass break' 는 맞다 */
+const hasWord = (text: string, word: string) =>
+  new RegExp(`(^|[^a-z0-9])${escapeRe(word)}([^a-z0-9]|$)`).test(text);
+
+/* 원본 multi_search.py:_SEARCH_HELP_TEXT — 2026-10-07 쉼표·빼기·동의어 항목 추가 */
 export const SEARCH_HELP = `필터 단축키
   • Tab/Enter : 필터 추가
   • 빈 검색창 Backspace : 위 필터로 이동 + 제거
@@ -55,7 +60,9 @@ export const SEARCH_HELP = `필터 단축키
 연산자 (대문자만 인식)
   • AND : 둘 다 매칭          예) dark AND magic
   • OR  : 둘 중 하나          예) sword OR knife
+  • 쉼표도 OR                 예) sword, knife
   • NOT : 제외                예) footstep NOT rain
+  • 앞에 - 를 붙여도 제외     예) door -slam
 
 그룹화
   • 괄호로 우선순위 지정
@@ -63,11 +70,16 @@ export const SEARCH_HELP = `필터 단축키
 
 따옴표 phrase
   • "dark magic" → 그 순서로 붙은 결과만
-  • 단어 1개에는 따옴표 의미 없음
+  • 따옴표 안의 말에는 동의어를 붙이지 않음
+
+동의어
+  • 같은 뜻의 말도 함께 찾음   예) break → shatter, smash
+  • 붙은 말은 검색 줄 아래에서 빼거나 더할 수 있음
+  • 환경설정에서 끌 수 있음
 
 비고
   • 1-2글자 짧은 토큰은 매칭 잘 안 됨 (3글자 이상 권장)
-  • 위 문법은 “전체” 필드 검색에서만 적용`;
+  • 위 문법은 “경로” 필드를 뺀 모든 필드에서 적용`;
 
 const PRECISE_HELP = [
   "정확한 검색",
@@ -79,6 +91,8 @@ const PRECISE_HELP = [
   "    'doo' (일부만) → 결과 없음",
   "",
   "끄면(넓게 찾기): 글자 조각으로 찾아 'doo'만 쳐도 나옵니다.",
+  "",
+  "동의어도 단어 단위로 함께 찾습니다 (따옴표로 감싸면 그 말만).",
 ].join("\n");
 
 /* 필터 행 번호를 **지금 있는 행들에서** 뽑는다.
@@ -128,6 +142,12 @@ type Props = {
   searchLimit: number;
   pathPrefixes: string[];
   onSearchChange: (req: SearchRequest) => void;
+  /** 환경설정 '동의어도 함께 찾기' */
+  synonymsEnabled: boolean;
+  /** 마지막 검색에 붙은 동의어 — 검색 줄 아래 칩으로 보인다 */
+  synonymInfo: SynonymInfo[];
+  /** 철자 제안 클릭 — 검색창의 from 단어를 to 로 바꾼다 (n 이 바뀔 때마다 한 번) */
+  replaceSignal: { from: string; to: string; n: number } | null;
   /* 원본 config "filters" 복원 (_restore_filters, main_window.py:4942).
      콤보는 **인덱스**로 저장되므로 목록 순서로 되돌린다. 복원 뒤 검색을 한 번 돌린다. */
   initialFilters?: {
@@ -150,11 +170,17 @@ type Props = {
 export function SearchPanel({ onStatus, addedLibs, libraries, onContext, onHistory, historyOpen,
                              historyToggled,
                               searchLimit, pathPrefixes, onSearchChange,
+                             synonymsEnabled, synonymInfo, replaceSignal,
                              initialFilters, onFiltersChange }: Props) {
   const [filters, setFilters] = useState<Filter[]>([
     { id: 1, logic: null, field: "전체", text: "" },
   ]);
   const [exact, setExact] = useState(false);
+  /* 동의어 칩에서 뺀/더한 말 — **이번 검색에만** (사용자 결정 2026-10-07).
+     검색창에서 그 단어가 사라지면 같이 지운다 (아래 effect). 사전은 바꾸지 않는다. */
+  const [synOverrides, setSynOverrides] = useState<Record<string, { off: string[]; add: string[] }>>({});
+  const [synAdding, setSynAdding] = useState<string | null>(null);
+  const [synAddText, setSynAddText] = useState("");
   const [minDur, setMinDur] = useState("");
   const [maxDur, setMaxDur] = useState("");
   const [sampleRate, setSampleRate] = useState("전체");
@@ -314,8 +340,52 @@ export function SearchPanel({ onStatus, addedLibs, libraries, onContext, onHisto
       path_prefixes: pathPrefixes.length ? pathPrefixes : null,
       precise: exact,
       limit: searchLimit,
+      synonyms: synonymsEnabled,
+      synonym_overrides: Object.keys(synOverrides).length ? synOverrides : null,
     });
-  }, [filters, exact, minDur, maxDur, sampleRate, channels, pathPrefixes, searchLimit, onSearchChange]);
+  }, [filters, exact, minDur, maxDur, sampleRate, channels, pathPrefixes, searchLimit, onSearchChange,
+      synonymsEnabled, synOverrides]);
+
+  /* 검색창에서 사라진 단어의 칩 편집은 버린다 — 같은 단어를 다시 치면 사전대로 시작한다 */
+  useEffect(() => {
+    const text = filters.map((f) => f.text.toLowerCase()).join("\n");
+    setSynOverrides((prev) => {
+      const keep = Object.entries(prev).filter(([term]) => hasWord(text, term));
+      return keep.length === Object.keys(prev).length ? prev : Object.fromEntries(keep);
+    });
+  }, [filters]);
+
+  /* 철자 제안 클릭 — 그 단어만 바꾼다 (단어 경계 기준, 대소문자 무시) */
+  const lastReplace = useRef(0);
+  useEffect(() => {
+    if (!replaceSignal || replaceSignal.n === lastReplace.current) return;
+    lastReplace.current = replaceSignal.n;
+    const rx = new RegExp(`(^|[^A-Za-z0-9])${escapeRe(replaceSignal.from)}(?=[^A-Za-z0-9]|$)`, "gi");
+    setFilters((rows) => rows.map((f) => ({ ...f, text: f.text.replace(rx, (_m, pre) => pre + replaceSignal.to) })));
+  }, [replaceSignal]);
+
+  const setSynWord = (term: string, word: string, on: boolean) => setSynOverrides((prev) => {
+    const cur = prev[term] ?? { off: [], add: [] };
+    let off = cur.off.filter((w) => w !== word);
+    let add = cur.add;
+    if (!on) {
+      if (add.includes(word)) add = add.filter((w) => w !== word);   // 내가 더한 말 → 그냥 지움
+      else off = [...off, word];                                     // 사전의 말 → 이번 검색에서 뺌
+    }
+    const next = { ...prev, [term]: { off, add } };
+    if (!off.length && !add.length) delete next[term];
+    return next;
+  });
+  const addSynWord = (term: string, raw: string) => {
+    const word = raw.trim().toLowerCase().split(/\s+/).filter(Boolean).join(" ");
+    setSynAdding(null);
+    if (!word || word === term) return;
+    setSynOverrides((prev) => {
+      const cur = prev[term] ?? { off: [], add: [] };
+      return { ...prev, [term]: { off: cur.off.filter((w) => w !== word),
+                                  add: cur.add.includes(word) ? cur.add : [...cur.add, word] } };
+    });
+  };
 
   return (
     <div className="search">
@@ -369,6 +439,53 @@ export function SearchPanel({ onStatus, addedLibs, libraries, onContext, onHisto
               <IcoX size={13} /> {t("검색어 비우기")}
             </button>
           </div>
+
+          {/* 동의어 칩 — 이번 검색에 붙은 '같은 뜻' 말. × 로 빼고, 흐린 칩을 누르면
+              다시 넣고, + 로 더한다 (BaseHead 의 T-Blocks 와 같은 역할, 사용자 결정 2026-10-07). */}
+          {synonymsEnabled && synonymInfo.length > 0 && (
+            <div className="syn-row">
+              <span className="syn-label">함께 찾는 말</span>
+              {synonymInfo.map((info) => {
+                const removed = info.available.filter((w) => !info.used.includes(w));
+                return (
+                  <span className="syn-group" key={info.term}>
+                    <span className="syn-term">{info.term}</span>
+                    {info.used.map((word) => (
+                      <span className="syn-chip" key={word}>
+                        {word}
+                        <button className="syn-x" data-tip={t("이 말 빼기")} aria-label={t("이 말 빼기")}
+                                onClick={() => setSynWord(info.term, word, false)}>
+                          <IcoX size={9} />
+                        </button>
+                      </span>
+                    ))}
+                    {removed.map((word) => (
+                      <button className="syn-chip off" key={word} data-tip={t("다시 넣기")}
+                              onClick={() => setSynWord(info.term, word, true)}>
+                        {word}
+                      </button>
+                    ))}
+                    {synAdding === info.term ? (
+                      <input className="syn-input" autoFocus value={synAddText}
+                             placeholder={t("말 입력 후 Enter")}
+                             onChange={(event) => setSynAddText(event.target.value)}
+                             onKeyDown={(event) => {
+                               if (event.key === "Enter") addSynWord(info.term, synAddText);
+                               else if (event.key === "Escape") setSynAdding(null);
+                             }}
+                             onBlur={() => setSynAdding(null)} />
+                    ) : (
+                      <button className="syn-add" data-tip={t("이 검색에 동의어 더하기")}
+                              aria-label={t("이 검색에 동의어 더하기")}
+                              onClick={() => { setSynAdding(info.term); setSynAddText(""); }}>
+                        <IcoPlus size={10} />
+                      </button>
+                    )}
+                  </span>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <LibraryPanel onStatus={onStatus} onContext={onContext} addedLibs={addedLibs} libraries={libraries} />

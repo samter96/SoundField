@@ -9,7 +9,7 @@ a = Analysis(
     ['C:\\Users\\samter96\\Desktop\\SoundField\\src-tauri\\python\\sf_bridge.py'],
     pathex=['C:\\Users\\samter96\\Desktop\\SoundField\\py', 'C:\\Users\\samter96\\Desktop\\SoundField\\src-tauri\\python'],
     binaries=[('C:\\Users\\samter96\\Desktop\\SoundField\\py\\sidecar\\scsearch-monitor-fixed.exe', 'monitor')],
-    datas=[('C:\\Users\\samter96\\Desktop\\SoundField\\py\\app\\data\\ucs_thesaurus.json', 'app\\data')],
+    datas=[('C:\\Users\\samter96\\Desktop\\SoundField\\py\\app\\data\\ucs_thesaurus.json', 'app\\data'), ('C:\\Users\\samter96\\Desktop\\SoundField\\py\\app\\data\\sfx_synonyms.json', 'app\\data'), ('C:\\Users\\samter96\\Desktop\\SoundField\\py\\app\\data\\ucs_codes.json', 'app\\data')],
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},

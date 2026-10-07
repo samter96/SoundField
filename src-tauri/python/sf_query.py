@@ -145,7 +145,10 @@ def _idle_closer():
 
 
 def _run_query(req):
-    return _db.query(
+    """(행 목록, 부가 정보). 부가 정보 = 이번 검색에 붙은 동의어(화면 칩) + 0건일 때 철자 제안."""
+    info = {}
+    synonyms = req.get("synonyms")
+    rows = _db.query(
         matchers=req.get("matchers") or [],
         min_duration=float(req.get("min_duration") or 0),
         max_duration=req.get("max_duration"),
@@ -155,7 +158,12 @@ def _run_query(req):
         path_prefixes=req.get("path_prefixes") or None,
         precise=bool(req.get("precise")),
         limit=int(req.get("limit") or 500),
+        # 환경설정 '동의어도 함께 찾기' — 값이 없으면(옛 화면) 켠 것으로 본다
+        use_thesaurus=True if synonyms is None else bool(synonyms),
+        synonym_overrides=req.get("synonym_overrides") or None,
+        info=info,
     )
+    return rows, info
 
 
 def _respond(payload):
@@ -180,11 +188,13 @@ def _worker():
             continue
         _state["running_id"] = req_id
         try:
-            rows = _run_query(item)
+            rows, info = _run_query(item)
             if req_id < _state["latest_id"]:
                 _respond({"id": req_id, "aborted": True})
             else:
-                _respond({"id": req_id, "rows": rows})
+                _respond({"id": req_id, "rows": rows,
+                          "synonyms": info.get("synonyms") or [],
+                          "suggestions": info.get("suggestions") or []})
         except sqlite3.OperationalError as exc:
             # 취소(progress handler)도 OperationalError("interrupted") 로 온다
             if "interrupt" in str(exc).lower() or req_id < _state["latest_id"]:

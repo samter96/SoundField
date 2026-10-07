@@ -22,6 +22,7 @@ const CURATED_EN: Record<string, string> = {
     "Indexing is in progress. Quitting now will stop it.\n\nQuit SoundField?",
 
   /* ── 공통 짧은 문구 / 자동 번역 보정 ── */
+  "PC 탐색기에서 보기": "Show in File Explorer",
   "새 탭": "New tab",
   "파일 브라우저": "File browser",
   "경로 폴더": "Path folders",
@@ -156,12 +157,23 @@ const CURATED_EN: Record<string, string> = {
   "재생 히스토리 열기/닫기\n단축키: H": "Show or hide playback history\nShortcut: H",
 
   /* 정확한 검색 툴팁 — 원문이 여러 줄을 join 한 것이라 통째로 한 항목이다 */
-  "정확한 검색\n\n단어를 끝까지 입력해야 매칭됩니다. 일부만 치면 안 나옵니다.\n단어 단위라 결과가 더 정확합니다.\n\n예) 'door' → door · doors 함께 나옴\n    'doo' (일부만) → 결과 없음\n\n끄면(넓게 찾기): 글자 조각으로 찾아 'doo'만 쳐도 나옵니다.":
-    "Exact search\n\nA word must be typed in full to match. Partial words return nothing.\nMatching is word-based, so results are more precise.\n\ne.g. 'door' → returns door and doors\n     'doo' (partial) → no results\n\nOff (broad search): matches fragments, so typing just 'doo' returns results.",
+  "정확한 검색\n\n단어를 끝까지 입력해야 매칭됩니다. 일부만 치면 안 나옵니다.\n단어 단위라 결과가 더 정확합니다.\n\n예) 'door' → door · doors 함께 나옴\n    'doo' (일부만) → 결과 없음\n\n끄면(넓게 찾기): 글자 조각으로 찾아 'doo'만 쳐도 나옵니다.\n\n동의어도 단어 단위로 함께 찾습니다 (따옴표로 감싸면 그 말만).":
+    "Exact search\n\nA word must be typed in full to match. Partial words return nothing.\nMatching is word-based, so results are more precise.\n\ne.g. 'door' → returns door and doors\n     'doo' (partial) → no results\n\nOff (broad search): matches fragments, so typing just 'doo' returns results.\n\nSynonyms are searched word by word too (put a word in quotes to search only that word).",
+
+  /* 동의어 칩 · 철자 제안 · 환경설정 동의어 (2026-10-07) */
+  "함께 찾는 말": "Also searching",
+  "이 말 빼기": "Remove this word",
+  "다시 넣기": "Add back",
+  "이 검색에 동의어 더하기": "Add a synonym to this search",
+  "말 입력 후 Enter": "Type a word, then Enter",
+  "혹시 이 단어를 찾으셨나요?": "Did you mean this word?",
+  "동의어:": "Synonyms:",
+  "동의어도 함께 찾기": "Also search synonyms",
+  "'glass break' 를 찾으면 shatter · smash 처럼 같은 뜻의 말이 든 파일도 함께 찾습니다.\n붙은 말은 검색 줄 아래에 보이고, 그 자리에서 빼거나 더할 수 있습니다.\n따옴표로 감싼 말에는 붙지 않습니다.": "Searching 'glass break' also finds files with words of the same meaning, such as shatter and smash.\nThe added words appear under the search row, where you can remove or add them.\nWords in quotes get no synonyms.",
 
   /* 검색 문법 도움말 (Header 의 ? 버튼) — 원본 multi_search.py:_SEARCH_HELP_TEXT */
-  "필터 단축키\n  • Tab/Enter : 필터 추가\n  • 빈 검색창 Backspace : 위 필터로 이동 + 제거\n  • 최소 1개 필터는 유지\n\n검색 문법\n\n기본\n  • 공백 = AND (모두 매칭)\n  • 예: dark magic → 두 단어 모두 어딘가 있는 결과\n\n연산자 (대문자만 인식)\n  • AND : 둘 다 매칭          예) dark AND magic\n  • OR  : 둘 중 하나          예) sword OR knife\n  • NOT : 제외                예) footstep NOT rain\n\n그룹화\n  • 괄호로 우선순위 지정\n  • 예) (sword OR knife) AND fight\n\n따옴표 phrase\n  • \"dark magic\" → 그 순서로 붙은 결과만\n  • 단어 1개에는 따옴표 의미 없음\n\n비고\n  • 1-2글자 짧은 토큰은 매칭 잘 안 됨 (3글자 이상 권장)\n  • 위 문법은 “전체” 필드 검색에서만 적용":
-    "Filter shortcuts\n  • Tab/Enter : add a filter\n  • Backspace in an empty box : move to the filter above and remove it\n  • At least one filter is always kept\n\nSearch syntax\n\nBasics\n  • A space means AND (all terms must match)\n  • e.g. dark magic → results containing both words somewhere\n\nOperators (uppercase only)\n  • AND : both match            e.g. dark AND magic\n  • OR  : either one matches    e.g. sword OR knife\n  • NOT : exclude               e.g. footstep NOT rain\n\nGrouping\n  • Parentheses set precedence\n  • e.g. (sword OR knife) AND fight\n\nQuoted phrase\n  • \"dark magic\" → only results with the words adjacent in that order\n  • Quotes mean nothing around a single word\n\nNotes\n  • One or two character tokens match poorly (three or more recommended)\n  • This syntax applies only to the “All” field search",
+  "필터 단축키\n  • Tab/Enter : 필터 추가\n  • 빈 검색창 Backspace : 위 필터로 이동 + 제거\n  • 최소 1개 필터는 유지\n\n검색 문법\n\n기본\n  • 공백 = AND (모두 매칭)\n  • 예: dark magic → 두 단어 모두 어딘가 있는 결과\n\n연산자 (대문자만 인식)\n  • AND : 둘 다 매칭          예) dark AND magic\n  • OR  : 둘 중 하나          예) sword OR knife\n  • 쉼표도 OR                 예) sword, knife\n  • NOT : 제외                예) footstep NOT rain\n  • 앞에 - 를 붙여도 제외     예) door -slam\n\n그룹화\n  • 괄호로 우선순위 지정\n  • 예) (sword OR knife) AND fight\n\n따옴표 phrase\n  • \"dark magic\" → 그 순서로 붙은 결과만\n  • 따옴표 안의 말에는 동의어를 붙이지 않음\n\n동의어\n  • 같은 뜻의 말도 함께 찾음   예) break → shatter, smash\n  • 붙은 말은 검색 줄 아래에서 빼거나 더할 수 있음\n  • 환경설정에서 끌 수 있음\n\n비고\n  • 1-2글자 짧은 토큰은 매칭 잘 안 됨 (3글자 이상 권장)\n  • 위 문법은 “경로” 필드를 뺀 모든 필드에서 적용":
+    "Filter shortcuts\n  • Tab/Enter : add a filter\n  • Backspace in an empty box : move to the filter above and remove it\n  • At least one filter is always kept\n\nSearch syntax\n\nBasics\n  • A space means AND (all terms must match)\n  • e.g. dark magic → results containing both words somewhere\n\nOperators (uppercase only)\n  • AND : both match            e.g. dark AND magic\n  • OR  : either one matches    e.g. sword OR knife\n  • A comma also means OR      e.g. sword, knife\n  • NOT : exclude               e.g. footstep NOT rain\n  • A leading - also excludes  e.g. door -slam\n\nGrouping\n  • Parentheses set precedence\n  • e.g. (sword OR knife) AND fight\n\nQuoted phrase\n  • \"dark magic\" → only results with the words adjacent in that order\n  • Words in quotes get no synonyms\n\nSynonyms\n  • Words with the same meaning are searched too   e.g. break → shatter, smash\n  • Added words appear under the search row, where you can remove or add them\n  • Can be turned off in Settings\n\nNotes\n  • One or two character tokens match poorly (three or more recommended)\n  • This syntax applies to every field except “Path”",
   /* ── 바이노럴 채널 순서 팝업 (LayoutDialogs.ChannelOrderDialog, 2026-09-16) ──
      본문은 한 텍스트 노드라 파일명·순서 이름을 {0}{1} 자리표로 받는 통짜 열쇠가 필요하다. */
   "채널 순서 확인 필요": "Channel order needs confirmation",

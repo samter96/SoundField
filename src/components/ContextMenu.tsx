@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { IcoBan, IcoCaret, IcoExport, IcoFolder, IcoFolderMinus, IcoRefresh, IcoStar, IcoTrash } from "../icons";
+import { IcoBan, IcoCaret, IcoExport, IcoFolder, IcoFolderMinus, IcoMonitor, IcoRefresh, IcoStar, IcoTrash } from "../icons";
 import { revealInExplorer } from "../backend";
 
 /* 원본 folder_tree.py:_build_context_menu (1979) 와 library_tabs.py:_on_tab_context (1001)
@@ -122,7 +122,7 @@ export function ContextMenu({ ctx, onClose, onRevealInBrowser, onRename, onBlack
         </button>
         <button className="ctxitem"
                 onClick={() => { void revealInExplorer(ctx.path); onClose(); }}>
-          <IcoFolder size={13} /> 탐색기에서 보기
+          <IcoMonitor size={13} /> PC 탐색기에서 보기
         </button>
         <div className="ctxsep" />
         <button className="ctxitem" onClick={() => { copy(ctx.label); onClose(); }}><IcoExport size={13} /> 이 파일 이름 복사</button>

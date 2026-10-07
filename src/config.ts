@@ -37,6 +37,8 @@ export type UiLang = "ko" | "en";
 export type UserConfig = {
   theme: "grey" | "dark" | "light";
   searchLimit: number;
+  /** 동의어도 함께 찾기 (사용자 결정 2026-10-07: 기본 켬, 환경설정에서 끔) */
+  searchSynonyms: boolean;
   doubleClickToPlay: boolean;
   compactResults: boolean;
   playbackRestartFromZero: boolean;
@@ -80,6 +82,7 @@ export type UserConfig = {
 export const CONFIG_DEFAULTS: UserConfig = {
   theme: "grey",
   searchLimit: 500,
+  searchSynonyms: true,
   doubleClickToPlay: false,
   compactResults: false,
   playbackRestartFromZero: true,
@@ -124,6 +127,7 @@ export async function loadUserConfig(): Promise<UserConfig> {
     return {
       theme: normalizeTheme(d.theme),
       searchLimit: Number(d.search_limit ?? CONFIG_DEFAULTS.searchLimit),
+      searchSynonyms: Boolean(d.search_synonyms ?? CONFIG_DEFAULTS.searchSynonyms),
       doubleClickToPlay: Boolean(d.double_click_to_play ?? CONFIG_DEFAULTS.doubleClickToPlay),
       compactResults: Boolean(d.compact_results ?? CONFIG_DEFAULTS.compactResults),
       playbackRestartFromZero: Boolean(d.playback_restart_from_zero ?? CONFIG_DEFAULTS.playbackRestartFromZero),
@@ -202,6 +206,7 @@ export async function saveUserConfig(config: UserConfig,
       ...base,
       theme: config.theme,
       search_limit: config.searchLimit,
+      search_synonyms: config.searchSynonyms,
       double_click_to_play: config.doubleClickToPlay,
       compact_results: config.compactResults,
       playback_restart_from_zero: config.playbackRestartFromZero,

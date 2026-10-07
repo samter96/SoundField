@@ -16,7 +16,7 @@ import { CenterToast, type ToastMessage, type ToastKind } from "./components/Cen
 import { CenterLoader, type LoaderTask } from "./components/CenterLoader";
 
 import { type Lib, type Row, type TreeNode } from "./data";
-import { addBlacklistPath, appLoaded, audioBridge, cancelAdmin, loadFtsStale, loadHidden, setRootOrder, loadBlacklistPaths, loadFolderTree, loadIndexedCount, loadInitialRows, loadLibraryRoots, loadLibraryRootsBasic, loadRowByPath, recordHistory, runAdmin, searchRows, type AdminRequest, type SearchRequest } from "./backend";
+import { addBlacklistPath, appLoaded, audioBridge, cancelAdmin, loadFtsStale, loadHidden, setRootOrder, loadBlacklistPaths, loadFolderTree, loadIndexedCount, loadInitialRows, loadLibraryRoots, loadLibraryRootsBasic, loadRowByPath, recordHistory, runAdmin, searchRows, type AdminRequest, type SearchRequest, type SpellSuggestion, type SynonymInfo } from "./backend";
 import { applyTheme, loadTheme, type ThemeName } from "./theme";
 import { CONFIG_DEFAULTS, loadUserConfig, saveUserConfig, type UserConfig } from "./config";
 import { setLang, useLang } from "./i18n";
@@ -1439,6 +1439,11 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
      40ms 디바운스로 연속 입력을 한 프레임으로 묶는다 (main_window.py:7198).
      PoC 는 effect 의존성만으로 재실행돼 같은 질의를 여러 번 던지고 있었다. */
   const lastQuerySig = useRef("");
+  /* 마지막 검색에 붙은 동의어(검색 줄 아래 칩)와 0건일 때 철자 제안 */
+  const [searchExtras, setSearchExtras] = useState<{ synonyms: SynonymInfo[]; suggestions: SpellSuggestion[] }>(
+    { synonyms: [], suggestions: [] });
+  /* 철자 제안을 누르면 검색창의 그 단어를 바꾼다 — 필터 상태는 SearchPanel 안에 있다 */
+  const [replaceSignal, setReplaceSignal] = useState<{ from: string; to: string; n: number } | null>(null);
 
   useEffect(() => {
     if (searchReq !== null) return;   // 검색 요청이 있으면 초기 목록을 읽지 않는다
@@ -1465,7 +1470,7 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
       /* 원본 _search_busy_timer: 400ms 를 넘길 때만 "검색 중..." 을 띄운다
          (평소엔 깜빡임 없이 조용히, main_window.py:_on_search_busy_timeout) */
       busy = window.setTimeout(() => setStatusOverride("검색 중..."), 400);
-      searchRows(searchReq).then(({ rows: loaded, error }) => {
+      searchRows(searchReq).then(({ rows: loaded, error, synonyms, suggestions }) => {
         window.clearTimeout(busy);
         if (!alive) return;
         if (error) {
@@ -1477,6 +1482,7 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
           return;
         }
         if (loaded) setRows(loaded);
+        setSearchExtras({ synonyms, suggestions });
         /* 원본은 결과 메시지로 상태를 덮어쓴다 — 일회성 메시지를 지운다 */
         setStatusOverride("");
       });
@@ -1782,6 +1788,9 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
             searchLimit={config.searchLimit}
             pathPrefixes={scopePrefixes}
             onSearchChange={setSearchReq}
+            synonymsEnabled={config.searchSynonyms}
+            synonymInfo={searchExtras.synonyms}
+            replaceSignal={replaceSignal}
             /* 원본 _restore_filters — 재시작 후 검색어/길이/SR/채널 복원 */
             initialFilters={config.loadedFromFile ? config.filters : null}
             onFiltersChange={(next) => patchConfig({ filters: next })}
@@ -1824,6 +1833,20 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
                   if (config.stopOnDrag) { setPlaying(false); audioBridge.stop(); }
                 }}
               />
+              {/* 결과 0건 + 철자 제안 — 누르면 검색창의 그 단어를 바꿔 다시 찾는다
+                  (사용자 결정 2026-10-07: 결과표 빈 자리) */}
+              {visibleRows.length === 0 && searchExtras.suggestions.length > 0 && (
+                <div className="spell-suggest">
+                  <span className="spell-label">혹시 이 단어를 찾으셨나요?</span>
+                  {searchExtras.suggestions.map((s) => (
+                    <button key={s.word} className="spell-chip"
+                            onClick={() => setReplaceSignal((prev) =>
+                              ({ from: s.word, to: s.suggestion, n: (prev?.n ?? 0) + 1 }))}>
+                      <s>{s.word}</s> → {s.suggestion}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <HistoryDrawer open={history} initialWidth={config.historyWidth} sessionPlays={sessionPlays}
                            onClear={() => setSessionPlays([])}

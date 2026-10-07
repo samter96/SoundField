@@ -1,5 +1,10 @@
 import json
 import os
+# numpy 의 행렬 계산 부품(OpenBLAS)은 불러오는 순간 CPU 스레드마다 작업 공간을 잡는다.
+#   실측 2026-10-01 (28스레드 PC): numpy 하나로 +781MB → 1스레드면 +42MB.
+#   설치본에 행렬 계산을 쓰는 기능은 없다(유사 검색만 쓰고, 배포에서 빠진다).
+#   numpy 를 부르기 **전에** 정해야 먹는다 — 이 줄을 import 아래로 옮기지 말 것.
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
 import queue
 import sys
 import threading

@@ -74,6 +74,8 @@ export function IcoSegment({ size = 16, className }: P) {
 export const IcoVolume  = S("M4 6.2h2l2.6-2.2v8L6 9.8H4zM10.6 6a2.8 2.8 0 0 1 0 4");
 export const IcoHistory = S("M2.8 8a5.2 5.2 0 1 0 1.6-3.7M2.6 2.4v3h3M8 5.2V8l2 1.4");
 export const IcoFolder  = S("M2.2 12.4V4.2a.8.8 0 0 1 .8-.8h2.6l1.2 1.6h5a.8.8 0 0 1 .8.8v6.6a.8.8 0 0 1-.8.8H3a.8.8 0 0 1-.8-.8z");
+/* PC 탐색기에서 보기 — 모니터(화면 + 아래 턱 + 버튼 점) 와 받침대 (사용자 지시 2026-10-06) */
+export const IcoMonitor = S("M2.9 2.6h10.2a.9.9 0 0 1 .9.9v6.6a.9.9 0 0 1-.9.9H2.9a.9.9 0 0 1-.9-.9V3.5a.9.9 0 0 1 .9-.9zM2 8.8h12M7.4 9.9h1.2M6.8 11l-.9 2.4M9.2 11l.9 2.4M4.8 13.4h6.4");
 export const IcoStar    = S("M8 2.4l1.7 3.5l3.9.5l-2.8 2.7l.7 3.8L8 11.1l-3.5 1.8l.7-3.8L2.4 6.4l3.9-.5z");
 export const IcoTrash   = S("M3.4 4.6h9.2M6.4 4.6V3.2h3.2v1.4M4.6 4.6l.6 8h5.6l.6-8M6.8 6.8v3.6M9.2 6.8v3.6");
 /* 라이브러리 제거 — 목록에서 빼내는 동작. 휴지통(완전 제거)보다 한 단계 약한 표현으로

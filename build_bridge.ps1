@@ -30,6 +30,23 @@ $Thesaurus = Join-Path $PyRoot "app\data\ucs_thesaurus.json"
 if (-not (Test-Path $Thesaurus)) {
   throw "UCS 동의어 사전을 찾을 수 없습니다: $Thesaurus"
 }
+# 2026-10-07 부터 검색어 확장은 아래 '같은 뜻' 사전(sfx_synonyms.json)이 1단계, UCS 가
+# 2단계(남은 자리 채우기)다. UCS 는 철자 제안 후보와 옛 엔진(되돌리기용)에도 쓴다.
+# 위 실측은 옛 엔진 시절 기록이다.
+
+# ── 같은 뜻 사전 (필수) ──────────────────────────────────────────────────────
+# ⚠ 빠지면 UCS 사전과 똑같이 **오류 없이 동의어만 사라진다** (synonyms.py 가 빈 사전으로 동작).
+#   'glass break' 가 Shatter·Smash 를 못 찾는 상태로 돌아간다.
+$Synonyms = Join-Path $PyRoot "app\data\sfx_synonyms.json"
+if (-not (Test-Path $Synonyms)) {
+  throw "같은 뜻 사전을 찾을 수 없습니다: $Synonyms"
+}
+# ── UCS 분류 약어표 (필수) — vehicle → VEH 처럼 약어로만 이름 붙은 파일을 찾는다.
+# 빠지면 역시 오류 없이 약어 확장만 사라진다 (ucs_codes.py 가 빈 표로 동작).
+$UcsCodes = Join-Path $PyRoot "app\data\ucs_codes.json"
+if (-not (Test-Path $UcsCodes)) {
+  throw "UCS 분류 약어표를 찾을 수 없습니다: $UcsCodes"
+}
 
 # ⚠ --version-file / --icon 을 빼지 말 것.
 # 작업 관리자의 "이름" 열은 exe 의 FileDescription 을, 아이콘은 exe 임베드 아이콘을
@@ -48,6 +65,8 @@ python -m PyInstaller --noconfirm --onedir --name sf_bridge `
   --exclude-module app.similarity_search `
   --add-binary "$Sidecar;monitor" `
   --add-data "$Thesaurus;app\data" `
+  --add-data "$Synonyms;app\data" `
+  --add-data "$UcsCodes;app\data" `
   --distpath $DistRoot --workpath $WorkRoot `
   (Join-Path $ProjectRoot "src-tauri\python\sf_bridge.py")
 
@@ -114,6 +133,18 @@ if (Test-Path $BundledThesaurus) {
   Write-Host "동의어 사전 포함 확인: $BundledThesaurus"
 } else {
   throw "UCS 동의어 사전이 번들에 들어가지 않았습니다: $BundledThesaurus"
+}
+$BundledSynonyms = Join-Path $DistRoot "sf_bridge\_internal\app\data\sfx_synonyms.json"
+if (Test-Path $BundledSynonyms) {
+  Write-Host "같은 뜻 사전 포함 확인: $BundledSynonyms"
+} else {
+  throw "같은 뜻 사전이 번들에 들어가지 않았습니다: $BundledSynonyms"
+}
+$BundledUcsCodes = Join-Path $DistRoot "sf_bridge\_internal\app\data\ucs_codes.json"
+if (Test-Path $BundledUcsCodes) {
+  Write-Host "UCS 분류 약어표 포함 확인: $BundledUcsCodes"
+} else {
+  throw "UCS 분류 약어표가 번들에 들어가지 않았습니다: $BundledUcsCodes"
 }
 
 # ── 유사 사운드 검색 격리 검사 (필수) ────────────────────────────────────────
