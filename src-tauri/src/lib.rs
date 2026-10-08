@@ -1161,7 +1161,8 @@ async fn sf_dup_cache_write(json: String) -> Result<(), String> {
    파이썬에서 관련도 정렬). 여기서도 정렬 없이 LIMIT 만 쓴다. hidden/removed 제외. */
 fn initial_rows_blocking(limit: i64) -> Result<Vec<DbRow>, String> {
     let conn = open_readonly()?;
-    let limit = limit.clamp(100, 5000);
+    /* 상한 2만 + 1 — 화면이 한 줄 더 받아 "더 있음" 을 판단한다 (2026-10-08) */
+    let limit = limit.clamp(100, 20001);
     let sql = "
         SELECT id, file_path, file_name,
                COALESCE(file_size,0), COALESCE(duration,0),
@@ -1250,6 +1251,10 @@ fn search_rows_blocking(req: SearchRequest, inner: &SearchInner, id: u64)
         if value.get("aborted").and_then(|v| v.as_bool()).unwrap_or(false) {
             /* 더 새 검색에 밀려 취소됨 — 호출자(backend.ts)는 null 로 받고 무시한다. */
             return Err("검색이 최신 요청으로 대체되었습니다".to_string());
+        }
+        /* 파이썬이 시간 제한(30초)을 넘겨 끊었다 — 화면이 이 문구를 상태줄에 띄운다 */
+        if let Some(secs) = value.get("timeout").and_then(|v| v.as_u64()) {
+            return Err(format!("검색이 {secs}초 안에 끝나지 않아 멈췄습니다 — 검색어나 필터를 좁혀 보세요"));
         }
         if let Some(message) = value.get("error").and_then(|v| v.as_str()) {
             return Err(format!("검색 실패: {message}"));

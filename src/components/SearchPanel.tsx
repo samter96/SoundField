@@ -41,7 +41,8 @@ const FIELD_LABEL_BY_KEY: Record<string, string> = Object.fromEntries(
   Object.entries(FIELD_KEYS).map(([label, key]) => [key, label]));
 
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-/* 원본 multi_search.py:_SEARCH_HELP_TEXT — 2026-10-07 쉼표·빼기·동의어 항목 추가 */
+/* 원본 multi_search.py:_SEARCH_HELP_TEXT — 2026-10-07 빼기·동의어 항목 추가,
+   2026-10-08 쉼표 OR 폐지(OR 는 'OR' 로만 — 쉼표 든 파일명 붙여넣기가 망가졌다) */
 export const SEARCH_HELP = `필터 단축키
   • Tab/Enter : 필터 추가
   • 빈 검색창 Backspace : 위 필터로 이동 + 제거
@@ -56,7 +57,7 @@ export const SEARCH_HELP = `필터 단축키
 연산자 (대문자만 인식)
   • AND : 둘 다 매칭          예) dark AND magic
   • OR  : 둘 중 하나          예) sword OR knife
-  • 쉼표도 OR                 예) sword, knife
+  • 쉼표는 띄어쓰기와 같음    예) door, wood = door wood
   • NOT : 제외                예) footstep NOT rain
   • 앞에 - 를 붙여도 제외     예) door -slam
 
@@ -81,10 +82,12 @@ const PRECISE_HELP = [
   "정확한 검색",
   "",
   "단어를 끝까지 입력해야 매칭됩니다. 일부만 치면 안 나옵니다.",
+  "앞부분만 치려면 끝에 * 를 붙이세요.",
   "단어 단위라 결과가 더 정확합니다.",
   "",
   "예) 'door' → door · doors 함께 나옴",
   "    'doo' (일부만) → 결과 없음",
+  "    'doo*' → door · doorbell 등 doo 로 시작하는 단어",
   "",
   "끄면(넓게 찾기): 글자 조각으로 찾아 'doo'만 쳐도 나옵니다.",
   "",

@@ -37,7 +37,7 @@
   #error app\.brand 가 없습니다. ISCC 를 직접 돌리지 말고 `npm run installer` 를 쓰세요.
 #endif
 
-#define MyAppVersion "2.1.4"
+#define MyAppVersion "2.1.5"
 #define MyAppExe "SoundField.exe"
 
 ; 이름에 접두사를 붙이지 않는다 — 앱 "SoundField" / SoundField_Installer_v*.exe

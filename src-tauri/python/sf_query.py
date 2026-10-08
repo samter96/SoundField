@@ -65,10 +65,15 @@ from app.database import Database  # noqa: E402
 
 DB_PATH = os.path.join(os.environ["LOCALAPPDATA"], "SoundField", "index.db")
 IDLE_CLOSE_SECONDS = 15.0
+# 검색 하나가 이보다 오래 걸리면 끊고 알린다 (사용자 결정 2026-10-08 — 전엔 '검색 중...' 이
+# 끝없이 남았다). 화면(App.tsx)은 이 응답을 받아 상태줄에 사유를 띄운다.
+QUERY_TIMEOUT_SECONDS = 30.0
 
 _state = {
     "latest_id": 0,      # 리더가 받은 가장 최신 요청 id
     "running_id": 0,     # 지금 실행 중인 질의의 id (0 = 없음)
+    "started": 0.0,      # 실행 중인 질의를 시작한 시각 (time.monotonic)
+    "timed_out": False,  # 실행 중인 질의를 시간 초과로 끊었는지
     "last_used": 0.0,
 }
 _lock = threading.Lock()
@@ -101,9 +106,14 @@ _shared = {"conn": None}
 
 
 def _progress_handler():
-    """실행 중인 질의가 더 새 요청에 밀렸으면 SQLite 를 중단시킨다.
+    """실행 중인 질의가 더 새 요청에 밀렸거나 시간 제한을 넘으면 SQLite 를 중단시킨다.
     (0 이 아닌 값을 돌려주면 sqlite3 가 그 질의를 취소한다)"""
-    return 1 if 0 < _state["running_id"] < _state["latest_id"] else 0
+    if 0 < _state["running_id"] < _state["latest_id"]:
+        return 1
+    if _state["running_id"] > 0 and time.monotonic() - _state["started"] > QUERY_TIMEOUT_SECONDS:
+        _state["timed_out"] = True
+        return 1
+    return 0
 
 
 def _connection():
@@ -185,6 +195,8 @@ def _worker():
         if req_id < _state["latest_id"]:
             _respond({"id": req_id, "aborted": True})
             continue
+        _state["started"] = time.monotonic()
+        _state["timed_out"] = False
         _state["running_id"] = req_id
         try:
             rows, info = _run_query(item)
@@ -195,7 +207,11 @@ def _worker():
                           "suggestions": info.get("suggestions") or []})
         except sqlite3.OperationalError as exc:
             # 취소(progress handler)도 OperationalError("interrupted") 로 온다
-            if "interrupt" in str(exc).lower() or req_id < _state["latest_id"]:
+            if req_id < _state["latest_id"]:
+                _respond({"id": req_id, "aborted": True})
+            elif _state["timed_out"]:
+                _respond({"id": req_id, "timeout": int(QUERY_TIMEOUT_SECONDS)})
+            elif "interrupt" in str(exc).lower():
                 _respond({"id": req_id, "aborted": True})
             else:
                 _respond({"id": req_id, "error": str(exc)})

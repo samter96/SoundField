@@ -4,13 +4,13 @@
 문법 (Soundminer · BaseHead 와 같은 관례, 2026-10-07 사용자 확정)
   띄어쓰기        = AND            glass break
   AND / OR / NOT  = 대문자만       sword OR knife,  footstep NOT rain
-  쉼표            = OR             sword, knife
+  쉼표            = 띄어쓰기와 같음 (2026-10-08 사용자 결정 — OR 는 'OR' 로만)
   -단어 / -"구문" / -(묶음)  = 빼기   door -slam
   "구문"          = 그대로 (동의어 없음, 그 순서로 붙은 단어)
   ( )             = 묶기           (sword OR knife) fight
 우선순위는 FTS5 와 같다: NOT > AND > OR (필터 줄을 이어 붙일 때도 같은 규칙).
 
-'경로' 필드는 이 문법을 쓰지 않는다 — 경로에는 괄호·하이픈·쉼표가 흔하다
+'경로' 필드는 이 문법을 쓰지 않는다 — 경로에는 괄호·하이픈이 흔하다
 (예: 'Boom (2019)'). 띄어쓰기로만 나눠 모두 포함(AND)으로 찾는다.
 
 단어 중간의 하이픈('sci-fi')은 빼기가 아니다. 맨 앞의 '-' 만 빼기다.
@@ -19,8 +19,12 @@ import re
 from dataclasses import dataclass, field
 from typing import List, Optional, Union
 
-# 토큰: 괄호 / 쉼표 / (-)"구문" / 나머지 단어. 닫는 따옴표가 없으면 끝까지 구문으로 본다.
-_TOKEN_RE = re.compile(r'\(|\)|,|-?"[^"]*"?|[^\s(),"]+')
+# 토큰: -( 묶음 빼기 / 괄호 / (-)"구문" / 나머지 단어. 닫는 따옴표가 없으면 끝까지 구문으로 본다.
+# ⚠ '-(' 는 붙어 있을 때만 한 토큰이다. 띄어 쓴 ' - '(파일명에 흔함: 'Toyed - Weapon')는
+#   빼기가 아니다 — 예전엔 다음 단어를 빼 버려 파일명을 붙여 넣으면 0건이었다 (2026-10-08 신고).
+# ⚠ 쉼표는 어떤 토큰에도 안 걸려 띄어쓰기처럼 사라진다. 예전엔 OR 였는데, 쉼표 든 파일명
+#   ('1009_59-3 DOOR, WOOD OPEN, SQUEAK')을 붙여 넣으면 엉뚱한 5,000개가 나왔다 (2026-10-08).
+_TOKEN_RE = re.compile(r'-\(|\(|\)|-?"[^"]*"?|[^\s(),"]+')
 _OPS = {"AND", "OR", "NOT"}
 
 
@@ -71,7 +75,7 @@ class _Parser:
         part = self.parse_and()
         if part is not None:
             parts.append(part)
-        while self.peek() in ("OR", ","):
+        while self.peek() == "OR":
             self.take()
             part = self.parse_and()
             if part is not None:
@@ -85,7 +89,7 @@ class _Parser:
         negs: List[Expr] = []
         while True:
             tok = self.peek()
-            if tok is None or tok in (")", "OR", ","):
+            if tok is None or tok in (")", "OR"):
                 break
             if tok == "AND":
                 self.take()
@@ -94,8 +98,8 @@ class _Parser:
             if tok == "NOT":
                 self.take()
                 negate = True
-            elif tok == "-":                      # '-(' 묶음 빼기
-                self.take()
+            elif tok == "-(":                     # '-(' 묶음 빼기 — 괄호는 parse_unit 이 읽는다
+                self.toks[self.i] = "("
                 negate = True
             unit = self.parse_unit()
             if unit is None:
@@ -128,11 +132,13 @@ class _Parser:
         if tok.startswith("-") and len(tok) > 1:
             neg = True
             tok = tok[1:]
+        has_alnum = lambda w: any(ch.isalnum() for ch in w)
         if tok.startswith('"'):
             inner = tok[1:-1] if len(tok) >= 2 and tok.endswith('"') else tok[1:]
-            words = inner.split()
+            words = [w for w in inner.split() if has_alnum(w)]
             return (Term(words, True, self.field), neg) if words else None
-        if tok in _OPS:
+        # 글자·숫자가 없는 토큰(' - ', '&', '/')은 검색어가 아니다 — 버린다
+        if tok in _OPS or not has_alnum(tok):
             return None
         return Term([tok], False, self.field), neg
 

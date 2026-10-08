@@ -140,6 +140,9 @@ class LibraryManager:
     - 삭제는 스캔된 서브트리 안에서만 발생 (다른 폴더 인덱스는 보존)
     """
 
+    # 2단계(메타 읽기)가 검색 색인에 묶어 반영하는 간격 — 메타 있는 파일 기준 (2026-10-08).
+    PHASE2_FTS_FLUSH = 20000
+
     def __init__(self, store_dir: Path,
                  worker_threads: int = 32, batch_size: int = 5000,
                  scan_threads: int = 32):
@@ -1087,20 +1090,50 @@ class LibraryManager:
         from queue import Queue, Empty
         from threading import Thread
 
-        # Phase2 동안 search_fts 쓰기를 defer — 종료 시 1회 bulk INSERT.
+        # Phase2 동안 search_fts 쓰기를 미뤘다가 **2만 개마다** 묶어 반영한다.
         # FTS5 trigram INSERT OR REPLACE 가 일반 INSERT 대비 10~30배 느려서
-        # 5000 묶음 매번 실행 시 누적 비용이 큼. 단점: Phase2 진행 중 메타
-        # 키워드 검색 stale (파일명 검색은 Phase1 entry 로 정상).
-        touched_ids: list = []  # FTS bulk 반영 대상 (메타 있는 파일만)
+        # 5000 묶음 매번 실행하면 누적 비용이 크다 (그래서 미룬다).
+        # ⚠ 예전엔 끝에 한 번만 반영했다 — 도중에 프로세스가 끊기면 이미 읽은 파일의 새 메타가
+        #   색인에 영영 안 들어갔다 (2026-10-08 실측 15.9만 행). 반영 안 된 구간의 시작 시각을
+        #   표식(Database.FTS_SYNC_SINCE_KEY)에 남겨, 끊기면 다음 시작 정비·다음 2단계가 다시 넣는다.
+        # 단점은 그대로: 반영 전 2만 개 구간은 메타 키워드 검색 stale (파일명 검색은 Phase1 entry 로 정상).
+        FTS_FLUSH = self.PHASE2_FTS_FLUSH
+        try:
+            db.recover_fts_sync()                      # 지난번에 끊긴 구간부터
+        except Exception as e:
+            logger.exception(f"색인 동기 복구 실패: {e}")
+        db.set_meta(Database.FTS_SYNC_SINCE_KEY, str(int(time.time()) - 1))
 
-        # DB Writer (Consumer) — 5000 묶음 단일 트랜잭션, FTS 는 defer
+        # DB Writer (Consumer) — 5000 묶음 단일 트랜잭션, FTS 는 2만 개마다
         db_queue = Queue(maxsize=8)
+        writer_state = {"fts_ok": True}
+
+        def flush_fts(ids):
+            if not ids:
+                return
+            mark = int(time.time()) - 1                # 이 시각 뒤에 쓴 행은 다음 반영 대상
+            try:
+                n_fts = db.bulk_fts_upsert_from_audio_files(ids, chunk=5000)
+                db.set_meta(Database.FTS_SYNC_SINCE_KEY, str(mark))
+                logger.info(f"Phase2 색인 반영: {n_fts:,}행")
+            except Exception as e:
+                writer_state["fts_ok"] = False         # 표식을 그대로 둬 다음에 다시 넣게 한다
+                logger.exception(f"FTS 반영 실패: {e}")
+            ids.clear()
+
         def db_writer():
             # OS thread priority BELOW_NORMAL — WAL fsync 가 UI reader 굶기는 거 완화
             _set_thread_priority_below_normal()
+            pending_fts: list = []   # 아직 색인에 안 넣은 id (메타 있는 파일만)
             while True:
                 item = db_queue.get()
                 if item is None:
+                    # 남은 것. 단 취소면 건너뛴다 — 2만 행 반영은 1분 가까이 걸려 '취소 즉시 응답'을
+                    # 깨뜨린다. 표식이 남아 있으므로 다음 시작 정비·다음 2단계가 다시 넣는다.
+                    if not self._cancel.is_set():
+                        flush_fts(pending_fts)
+                    else:
+                        writer_state["fts_ok"] = False
                     break
                 batch_files, failed_map, failed_id_map = item
                 try:
@@ -1108,6 +1141,15 @@ class LibraryManager:
                         db.mark_metadata_failed(failed_map, id_map=failed_id_map)
                     if batch_files:
                         db.upsert_files(batch_files, defer_fts=True)
+                        # 메타 없는 파일(SFX 류)은 Phase1 entry 유지 — 색인 반영 대상 아님
+                        pending_fts.extend(
+                            af.file_id for af in batch_files
+                            if af.title or af.artist or af.album or af.genre or af.comments
+                            or af.description or af.keywords or af.category
+                            or af.sub_category or af.source)
+                        if len(pending_fts) >= FTS_FLUSH:
+                            progress.message = f"검색 인덱스 갱신 중: {len(pending_fts):,}개"
+                            flush_fts(pending_fts)
                 except Exception as e:
                     logger.error(f"DB Writer 오류: {e}")
                 db_queue.task_done()
@@ -1279,11 +1321,6 @@ class LibraryManager:
                 else:
                     current_batch.append(af)
                     progress.indexed += 1
-                    # 메타 있는 파일만 FTS bulk 대상에 추가 (메타 없는 SFX 류는 Phase1 entry 유지)
-                    if af.title or af.artist or af.album or af.genre or af.comments \
-                            or af.description or af.keywords or af.category \
-                            or af.sub_category or af.source:
-                        touched_ids.append(af.file_id)
 
                 if len(current_batch) + len(current_failed) >= CHUNK_FLUSH:
                     db_queue.put((current_batch, current_failed, current_failed_ids))
@@ -1330,34 +1367,20 @@ class LibraryManager:
                     except Exception:
                         pass
             db_queue.put(None)
-            writer_thread.join(timeout=30)
+            # 정상 종료면 writer 의 마지막 색인 반영(최대 2만 행, 1분 안팎)까지 기다린다.
+            # 취소면 writer 가 반영을 건너뛰므로 짧게 기다린다.
+            writer_thread.join(timeout=30 if self._cancel.is_set() else 900)
             elapsed = time.monotonic() - progress.meta_start_time
             rate = progress.indexed / elapsed if elapsed > 0 else 0
             logger.info(
                 f"Phase2 종료 — 처리 {progress.indexed:,}, "
                 f"오류 {progress.errors:,} ({elapsed:.1f}s, {rate:.0f} f/s)"
             )
-            # defer 된 FTS bulk 반영 — cancel 여부와 무관, 이미 audio_files 에는
-            # 메타가 들어가 있으므로 검색 정합성 회복 필요.
-            if touched_ids:
-                t0 = time.monotonic()
-                progress.message = f"검색 인덱스 갱신 중: {len(touched_ids):,}개"
-                if progress_cb:
-                    progress_cb(progress)
-                try:
-                    def _fts_cb(done, total):
-                        progress.message = f"검색 인덱스 갱신 {done:,}/{total:,}"
-                        if progress_cb:
-                            progress_cb(progress)
-                    n_fts = db.bulk_fts_upsert_from_audio_files(
-                        touched_ids, chunk=5000, progress_cb=_fts_cb
-                    )
-                    logger.info(
-                        f"Phase2 FTS bulk 반영 완료: {n_fts:,}행 "
-                        f"({time.monotonic()-t0:.1f}s)"
-                    )
-                except Exception as e:
-                    logger.exception(f"FTS bulk 반영 실패: {e}")
+            # 색인 반영은 writer 가 2만 개마다 + 끝(None)에 했다. writer 가 정상으로 끝났으면
+            # 반영 안 된 구간이 없으므로 표식을 지운다. 끝나지 못했으면(대기 초과·반영 실패·취소)
+            # 표식을 남겨 다음 시작 정비가 다시 넣게 한다.
+            if not writer_thread.is_alive() and writer_state["fts_ok"]:
+                db.set_meta(Database.FTS_SYNC_SINCE_KEY, "")
             run_id = getattr(progress, "phase2_run_id", "") or ""
             if run_id and not self._cancel.is_set():
                 conn = db._connect()

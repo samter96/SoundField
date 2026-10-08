@@ -231,7 +231,7 @@ export function Settings({ onClose, config, onSave, runAdmin, onBusyChange }: Pr
     onSave({
       ...config,
       theme: themeDraft,
-      searchLimit: Math.max(100, Math.min(5000, n)),
+      searchLimit: Math.max(100, Math.min(20000, n)),
       searchSynonyms,
       doubleClickToPlay,
       compactResults,
@@ -475,11 +475,11 @@ export function Settings({ onClose, config, onSave, runAdmin, onBusyChange }: Pr
                    onChange={(event) => setSearchLimit(event.target.value.replace(/[^0-9]/g, ""))}
                    onBlur={() => {
                      const n = Number(searchLimit || CONFIG_DEFAULTS.searchLimit);
-                     setSearchLimit(String(Math.max(100, Math.min(5000, n))));
+                     setSearchLimit(String(Math.max(100, Math.min(20000, n))));
                    }} />
           </div>
           <div className="form-hint">
-            (추천: 1000개 이하 / 최대: 5000개. 값이 클수록 검색 성능에 영향을 줄 수 있습니다.)
+            (추천: 1000개 이하 / 최대: 20000개. 값이 클수록 검색 성능에 영향을 줄 수 있습니다.)
           </div>
 
           <div className="form-row">

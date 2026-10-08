@@ -384,7 +384,7 @@ export default function App() {
     lastQuerySig.current = "";
     if (searchReq) setSearchReq({ ...searchReq });
     else {
-      const loaded = await loadInitialRows(config.searchLimit);
+      const loaded = await loadInitialRows(config.searchLimit + 1);   // +1 = 더 있는지 (hasMoreRows)
       if (loaded) setRows(loaded);
     }
   };
@@ -805,6 +805,9 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
       ? ` [기준: ${scopePrefixes[0]}]`
       : "";
   const visibleRows = useMemo(() => rows.slice(0, config.searchLimit), [rows, config.searchLimit]);
+  /* 검색·초기 목록은 상한보다 **한 줄 더** 받는다 — 그 한 줄이 오면 상한에 걸려 더 있다는 뜻이다
+     (사용자 결정 2026-10-08: 상태줄에 "— 더 있음"). 표에는 상한까지만 보인다. */
+  const hasMoreRows = rows.length > config.searchLimit;
   /* 원본 _update_meta_indicator 에 넘기는 값은 count_incomplete_total() —
      **대기(pending) + 실패(failed)** 합계다 (main_window.py:5930 total_incomplete).
      PoC 는 pending 만 더해 실패만 남은 상태에서 표시가 안 떴다. */
@@ -813,7 +816,9 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
   const metadataPendingTotal = libraryRoots.reduce(
     (sum, lib) => sum + Math.max(0, lib.pending ?? 0), 0);
 
-  const statusText = statusOverride || `결과 ${visibleRows.length.toLocaleString()}개${scopeSuffix}`;
+  const statusText = statusOverride || (hasMoreRows
+    ? `결과 ${visibleRows.length.toLocaleString()}개 — 더 있음${scopeSuffix}`
+    : `결과 ${visibleRows.length.toLocaleString()}개${scopeSuffix}`);
 
   /* 단축키 → 플레이어 동작 트리거 (원본은 QShortcut 이 player 메서드 직접 호출) */
   const [cmdLoop, setCmdLoop] = useState(0);
@@ -1450,7 +1455,7 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
     if (lastQuerySig.current === sig) return;
     lastQuerySig.current = sig;
     let alive = true;
-    loadInitialRows(config.searchLimit).then((loaded) => {
+    loadInitialRows(config.searchLimit + 1).then((loaded) => {   // +1 = 더 있는지 (hasMoreRows)
       markSplash("rows");
       if (alive && loaded) setRows(loaded);
     });
@@ -1469,15 +1474,17 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
       /* 원본 _search_busy_timer: 400ms 를 넘길 때만 "검색 중..." 을 띄운다
          (평소엔 깜빡임 없이 조용히, main_window.py:_on_search_busy_timeout) */
       busy = window.setTimeout(() => setStatusOverride("검색 중..."), 400);
-      searchRows(searchReq).then(({ rows: loaded, error, suggestions }) => {
+      /* +1 = 상한보다 한 줄 더 — 더 있는지 판단용 (hasMoreRows) */
+      searchRows({ ...searchReq, limit: searchReq.limit + 1 }).then(({ rows: loaded, error, suggestions }) => {
         window.clearTimeout(busy);
         if (!alive) return;
         if (error) {
           /* 실패 — 사유를 알리고, **이 검색을 했다는 기록을 지운다** (조사 S02).
              그래야 같은 조건으로 다시 검색할 수 있다 (원본과 같은 정책).
-             결과 목록은 건드리지 않는다 — 원본도 실패 시 목록을 비우지 않는다. */
+             결과 목록은 건드리지 않는다 — 원본도 실패 시 목록을 비우지 않는다.
+             시간 초과(검색 서비스가 30초에서 끊음)는 오류가 아니라 안내라 앞말 없이 띄운다. */
           if (lastQuerySig.current === sig) lastQuerySig.current = "";
-          setStatusOverride("오류: " + error);
+          setStatusOverride(/^검색이 \d+초 안에/.test(error) ? error : "오류: " + error);
           return;
         }
         if (loaded) setRows(loaded);

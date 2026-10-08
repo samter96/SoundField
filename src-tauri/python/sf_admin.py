@@ -297,9 +297,26 @@ def run(req):
         # 정확 검색·동의어용 단어 색인. 지금 규칙(쪼갠 파일명, Database.TERM_NAME_MODE)으로
         # 이미 있으면 쓰기 없이 즉시 끝난다. 없거나 옛 규칙이면 새로 만든다 — 실측 5.4분
         # (158만 행, 2026-10-07). 그동안 정확한 검색·동의어 결과는 일부 빠진다 (사용자 결정 B).
-        if db.term_index_current():
-            return {"success": True, "built": False}
-        return {"success": bool(db.build_term_index()), "built": True}
+        built = False
+        ok = True
+        if not db.term_index_current():
+            ok = bool(db.build_term_index())
+            built = True
+        # 넓게 찾기 색인 메타 동기 (2026-10-08) — 시작 정비에 함께 한다.
+        #  ① 지난 2단계가 끊겨 색인에 못 넣은 구간(표식 fts_sync_since)을 다시 넣는다.
+        #  ② 1회만: 색인 내용을 audio_files 와 대조해 어긋난 행을 다시 넣는다. 그 전 판들이
+        #     남긴 누락(실측 15.9만 행)을 고친다. 끊기면 표식을 안 남겨 다음 실행이 이어서 한다.
+        recovered = fixed = 0
+        try:
+            recovered = db.recover_fts_sync()
+            if db.get_meta(Database.FTS_META_SYNC_KEY) != Database.FTS_META_SYNC_VERSION:
+                cancel = getattr(manager, "_cancel", None)
+                fixed = db.sync_fts_meta(cancel_event=cancel)
+                if cancel is None or not cancel.is_set():
+                    db.set_meta(Database.FTS_META_SYNC_KEY, Database.FTS_META_SYNC_VERSION)
+        except Exception as exc:                       # noqa: BLE001 — 다음 실행에서 다시
+            print(f"[sf_admin] 색인 메타 동기 실패: {exc}", file=sys.stderr, flush=True)
+        return {"success": ok, "built": built, "fts_recovered": recovered, "fts_fixed": fixed}
     if op == "background_meta":
         # 원본 MainWindow._ensure_background_meta_running 이 호출하는 전용 경로.
         # 실패 항목을 임의로 pending 으로 되돌리지 않고, 현재 meta_extracted=0 큐만

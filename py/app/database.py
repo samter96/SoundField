@@ -1,6 +1,7 @@
 import sqlite3
 import logging
 import hashlib
+import json
 import os
 import re
 import time
@@ -2245,6 +2246,83 @@ class Database:
             
         return total
 
+    # ── 메타 → 검색 색인 동기 (2026-10-08) ─────────────────────────────────────
+    # 2단계(메타 읽기)는 색인 쓰기를 미뤘다가 끝에 한 번 반영했다. 그 사이 프로세스가 끊기면
+    # (앱 종료·작업 중지) 이미 읽은 파일은 meta_extracted=1 로 끝난 것으로 남고 새 설명이
+    # 색인에 영영 안 들어갔다 — 실측 넓게 찾기 색인 15.9만 행(보이는 파일 약 4.9만)의 설명·
+    # 코멘트가 비어 있었다 (단어색인은 10-07 전체 재구성 덕에 0행).
+    # 이제 2단계가 2만 개마다 반영하고(library_manager), 반영 안 된 구간의 시작 시각을
+    # 아래 표식에 남긴다. 표식이 남아 있으면 = 끊겼다 → 다음 시작 정비가 그 뒤 행을 다시 넣는다.
+    FTS_SYNC_SINCE_KEY = "fts_sync_since"
+    # 색인 내용 전수 대조(1회) 표식 — 값이 다르면 시작 정비가 sync_fts_meta() 를 돌린다.
+    FTS_META_SYNC_KEY = "fts_meta_sync"
+    FTS_META_SYNC_VERSION = "1"
+    _FTS_SYNC_COLS = ("file_name", "title", "artist", "album", "genre", "comments",
+                      "description", "keywords", "category", "sub_category", "source")
+
+    def recover_fts_sync(self, progress_cb=None) -> int:
+        """표식(fts_sync_since) 이후 메타가 바뀐 행을 색인에 다시 넣는다. 반환: 넣은 행 수."""
+        since = self.get_meta(self.FTS_SYNC_SINCE_KEY)
+        if not since:
+            return 0
+        conn = self._connect()
+        try:
+            ids = [r[0] for r in conn.execute(
+                "SELECT id FROM audio_files WHERE meta_extracted = 1 AND indexed_at >= ?",
+                (float(since),))]
+        finally:
+            conn.close()
+        n = self.bulk_fts_upsert_from_audio_files(ids, progress_cb=progress_cb) if ids else 0
+        self.set_meta(self.FTS_SYNC_SINCE_KEY, "")
+        logger.info(f"색인 동기 복구: 표식 {since} 이후 {len(ids):,}행 대상, {n:,}행 반영")
+        return n
+
+    def sync_fts_meta(self, progress_cb=None, cancel_event=None) -> int:
+        """넓게 찾기 색인(search_fts)의 파일명·메타 칸이 audio_files 와 다른 행을 찾아 다시 넣는다.
+        경로 칸은 대조하지 않는다 — 옛 행(전체 경로)과 새 행(폴더까지만)이 섞여 있는 게 정상이다.
+        묶음마다 커밋하므로 도중에 끊겨도 고친 부분은 남고, 다시 돌리면 남은 것만 찾는다.
+        반환: 다시 넣은 행 수."""
+        diff = " OR ".join(f"IFNULL(a.{c},'') <> IFNULL(f.{c},'')" for c in self._FTS_SYNC_COLS)
+        conn = self._connect()
+        conn.isolation_level = None          # 묶음마다 직접 BEGIN/COMMIT
+        try:
+            conn.create_function("sf_rowid", 1, Database._sf_rowid_udf, deterministic=True)
+            # CROSS JOIN = audio_files 를 바깥으로 — 색인은 rowid 로만 찾는다
+            ids = [r[0] for r in conn.execute(
+                "SELECT a.id FROM audio_files a CROSS JOIN search_fts f "
+                f"ON f.rowid = sf_rowid(a.id) WHERE {diff}")]
+            total = len(ids)
+            done = 0
+            for i in range(0, total, 5000):
+                if cancel_event is not None and cancel_event.is_set():
+                    break
+                chunk = ids[i:i + 5000]
+                rows = conn.execute(
+                    "SELECT a.id, a.file_name, a.file_path, a.title, a.artist, a.album, a.genre, "
+                    "a.comments, a.description, a.keywords, a.category, a.sub_category, a.source "
+                    "FROM json_each(?) j CROSS JOIN audio_files a ON a.id = j.value",
+                    (json.dumps(chunk),)).fetchall()
+                fts_rows = [Database._fts_row(r[0], r[1], r[2], tuple((v or "") for v in r[3:]))
+                            for r in rows]
+                conn.execute("BEGIN IMMEDIATE")
+                try:
+                    conn.executemany(
+                        "INSERT OR REPLACE INTO search_fts "
+                        "(rowid, file_id, file_name, file_name_norm, file_path, title, artist, album, "
+                        " genre, comments, description, keywords, category, sub_category, source) "
+                        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", fts_rows)
+                    conn.execute("COMMIT")
+                except Exception:
+                    conn.execute("ROLLBACK")
+                    raise
+                done += len(fts_rows)
+                if progress_cb:
+                    progress_cb(min(i + len(chunk), total), total)
+            logger.info(f"색인 내용 대조: 어긋남 {total:,}행, 다시 넣음 {done:,}행")
+            return done
+        finally:
+            conn.close()
+
     def delete_files(self, file_paths: List[str],
                      progress_cb: Optional[Callable[[int, int], None]] = None):
         """파일 삭제. FTS DELETE 는 rowid 인덱스 사용.
@@ -2653,6 +2731,13 @@ class Database:
         tok = esc_like(token)
         return (f"{column} LIKE ? ESCAPE '\\' COLLATE NOCASE", [f"%{tok}%"])
 
+    def _direct_fts(self, tokens: List[str]) -> str:
+        """_direct_filter_clause 와 같은 단어·칸을 search_fts(trigram) MATCH 문자열로.
+        trigram 은 대소문자 무시 글자 일부 일치라 LIKE '%단어%' 를 빠짐없이 덮는다 (더 넓을 수는 있다)."""
+        tokens = [t for t in tokens[:3] if t and len(t) >= 3]
+        cols = "{file_name title keywords category sub_category description comments}"
+        return cols + ": (" + " OR ".join(f'"{self._fts_escape(t)}"' for t in tokens) + ")"
+
     def _direct_filter_clause(self, tokens: List[str]) -> Tuple[str, List[str]]:
         tokens = [t for t in tokens[:3] if t and len(t) >= 3]
         if not tokens:
@@ -2885,7 +2970,7 @@ class Database:
             else:
                 clauses = []
                 for f in fields:
-                    clause, p = self._short_token_like(f"a.{f}", word)
+                    clause, p = self._short_token_like(f"IFNULL(a.{f},'')", word)   # NULL 칸 — _like_only 주석
                     clauses.append(clause)
                     like_params.extend(p)
                 likes.append("(" + " OR ".join(clauses) + ")")
@@ -2910,11 +2995,30 @@ class Database:
         for word in words:
             ors = []
             for f in fields:
-                clause, p = self._short_token_like(f"a.{f}", word)
+                # ⚠ IFNULL 필수 — 빈 칸(NULL)이 있으면 'x LIKE ? OR ...' 가 NULL 이 되고, 빼기(NOT)로
+                #   뒤집으면 NOT NULL = NULL 이라 **모든 행이 탈락**했다 ('ui -hd' 0건, 2026-10-08 검수).
+                clause, p = self._short_token_like(f"IFNULL(a.{f},'')", word)
                 ors.append(clause)
                 params.extend(p)
             clauses.append("(" + " OR ".join(ors) + ")")
         return "(" + " AND ".join(clauses) + ")", params
+
+    def _like_pred(self, expr) -> Optional[Tuple[str, List]]:
+        """짧은 단어로만 된 단위 **또는 묶음**('ui', '(ui OR fx)', 'ui -hd')이면 a 행에 대한
+        LIKE 조건. 하나라도 3글자 이상 단어가 섞이면 None. 묶음까지 봐야 하는 이유:
+        '(ui OR fx) laser' 에서 괄호 묶음을 따로 집합으로 만들면 158만 행을 두 번 훑었다(실측 4.9초)."""
+        if isinstance(expr, sq.Term):
+            return self._like_only(expr)
+        parts = [self._like_pred(e) for e in expr.items]
+        negs = [self._like_pred(e) for e in expr.negs]
+        if not expr.items or any(p is None for p in parts + negs):
+            return None
+        sql = "(" + (" OR " if expr.kind == "or" else " AND ").join(s for s, _ in parts) + ")"
+        params = [p for _, ps in parts for p in ps]
+        for s, ps in negs:
+            sql = f"({sql} AND NOT {s})"
+            params.extend(ps)
+        return sql, params
 
     def _set_sql(self, expr, precise: bool) -> Tuple[str, List]:
         """식 → rowid 집합 SQL ('r' 한 열). AND=INTERSECT, OR=UNION, 빼기=EXCEPT.
@@ -2932,13 +3036,13 @@ class Database:
         # 1~2글자 단어('ui')만으로 된 단위는 LIKE 라 혼자 집합을 만들면 158만 행을 다 훑는다
         # (실측 'ui click' 2.3초). 다른 단위로 좁힌 행 안에서 거르는 조건으로 바꾼다 —
         # 예전 엔진이 LIKE 를 FTS 결과에 덧붙이던 것과 같은 방식.
-        short = [e for e in expr.items if not precise and self._like_only(e)]
+        short = [e for e in expr.items if not precise and self._like_pred(e)]
         long_ = [e for e in expr.items if all(e is not s for s in short)]
         if short and long_:
             driver = [self._set_sql(e, precise) for e in long_]
             conds, params = [], []
             for term in short:
-                like_sql, like_params = self._like_only(term)
+                like_sql, like_params = self._like_pred(term)
                 conds.append(like_sql)
                 params.extend(like_params)
             inner = " INTERSECT ".join(f"SELECT r FROM ({s})" for s, _ in driver)
@@ -2972,9 +3076,11 @@ class Database:
             return self._like_only(expr) is not None
         if expr.kind == "or":
             return any(self._needs_scan(e, precise) for e in expr.items)
-        long_ = [e for e in expr.items if self._like_only(e) is None]
+        long_ = [e for e in expr.items if self._like_pred(e) is None]
         if expr.items and not long_:
             return True
+        # 짧은 단어 빼기('laser -hd')도 행 훑기로 — 좁힌 집합 안에서 NOT LIKE 로 거르는 방식을
+        # 시험했으나 드문 필터와 겹치면 더 느렸다 ('door -ui' + 5.1: 0.06초 → 7초).
         return any(self._needs_scan(e, precise) for e in long_ + expr.negs)
 
     def _pred_sql(self, expr, precise: bool = False) -> Tuple[str, List]:
@@ -3251,14 +3357,59 @@ class Database:
             else:
                 fts = self._fts_string(expr) if precise else None
                 if fts is not None:
-                    # 정확한 검색 — 단어색인 MATCH 하나 + bm25 전역 정렬 (예전 _query_term 과 같은 모양)
+                    # 정확한 검색 — 단어색인 MATCH 하나 + bm25 전역 정렬 (예전 _query_term 과 같은 순서)
                     wts = ", ".join(str(w) for w in self._TERM_BM25_WEIGHTS)
-                    # CROSS JOIN = 단어색인을 먼저 (아래 hit 주석과 같은 이유)
-                    run(f"{with_sql}SELECT a.* FROM search_fts_term "
-                        "CROSS JOIN audio_files a ON a.id = search_fts_term.file_id "
-                        f"WHERE search_fts_term MATCH ? AND {where} "
-                        f"ORDER BY bm25(search_fts_term, {wts})",
-                        [fts] + cond_params, int(limit))
+                    # ⚠ 점수 순위는 단어색인 안에서 먼저 매기고, audio_files 는 **위쪽 후보만** 붙인다.
+                    #   예전처럼 붙인 뒤 정렬하면 거의 모든 파일에 든 말('wav' 153만, 'library' 129만,
+                    #   'a*' 98만)에서 행마다 audio_files 를 찾아 15초가 걸렸다 — 순위 매기기는 1초.
+                    #   (실측 2026-10-08: 같은 검색 색인만 0.96초 / 붙인 뒤 정렬 15.3초)
+                    #   숨김·필터로 후보가 걸러져 limit 를 못 채우면 후보를 늘려 다시 한다.
+                    #   그래도 못 채우면 아래 마지막 단계 — 어느 단계든 결과와 순서는 예전과 같다.
+                    #   ⚠ 후보 목록을 SQL 안(CTE)에서 붙이면 점수를 열로 꺼내는 순간 1.3초 → 3.1초가
+                    #     된다(실측). 그래서 순위 순 file_id 만 꺼내 JSON 배열로 다시 넘긴다.
+                    #   ⚠ 행 읽기는 `a.id IN (...)` 로 쓰지 말 것 — 채널 필터가 있으면 SQLite 가
+                    #     idx_channels 로 스테레오 83만 행을 묶음마다 훑었다(500개당 1초, 'wav'+STEREO
+                    #     24초). 후보 → audio_files 를 CROSS JOIN 으로 고정해 id 키로만 찾고,
+                    #     후보 배열 순서(= 점수 순)대로 나오는 행을 limit 에서 끊는다.
+                    want = int(limit)
+                    rank_sql = ("SELECT file_id FROM search_fts_term WHERE search_fts_term MATCH ? "
+                                f"ORDER BY bm25(search_fts_term, {wts})")
+                    done = False
+                    for cand in (want * 3, want * 30):
+                        ids = [r[0] for r in conn.execute(f"{rank_sql} LIMIT {int(cand)}", [fts])]
+                        results.clear()
+                        seen_paths.clear()
+                        run(f"{with_sql}SELECT a.* FROM json_each(?) j "
+                            f"CROSS JOIN audio_files a ON a.id = j.value WHERE {where}",
+                            [json.dumps(ids)] + cond_params, want)
+                        # 다 채웠거나, 후보가 cand 개보다 적었으면(= 전부 봤다) 끝
+                        if len(results) >= want or len(ids) < cand:
+                            done = True
+                            break
+                        # 후보 10배로도 못 채울 비율이면(드문 필터) 다음 후보 단계를 건너뛴다
+                        # — 실측 'wav'+5.1: 건너뛰지 않으면 헛도는 두 단계가 6초를 더 썼다.
+                        if len(results) * 10 < want:
+                            break
+                    if not done:
+                        # 위쪽 후보로 못 채움 = 필터를 통과하는 파일이 드물다 (5.1·7채널 이상 등).
+                        # 통과하는 id 를 먼저 모으고, 전체 순위를 따라가며 그 안의 것만 고른다.
+                        # 실측 'wav'+5.1: 예전 전체 붙이기 15.5초 → 4.0초, 결과·순서 같음.
+                        # ⚠ 단어색인에 `rowid IN (통과 목록)` 을 거는 길은 쓰지 말 것 — 442초.
+                        elig = {r[0] for r in conn.execute(
+                            f"{with_sql}SELECT a.id FROM audio_files a WHERE {where}", cond_params)}
+                        picked = []
+                        if elig:
+                            for (fid,) in conn.execute(rank_sql, [fts]):
+                                if fid in elig:
+                                    picked.append(fid)
+                                    if len(picked) >= want:
+                                        break
+                        results.clear()
+                        seen_paths.clear()
+                        run(f"{with_sql}SELECT a.* FROM json_each(?) j "
+                            f"CROSS JOIN audio_files a ON a.id = j.value WHERE {where}",
+                            [json.dumps(picked)] + cond_params, want)
+                    del results[want:]
                     ordered = True
                 elif self._needs_scan(expr, precise):
                     # 짧은 단어만으로 된 검색('ui', 'a')·빼기만 있는 검색('-slam') —
@@ -3285,7 +3436,21 @@ class Database:
                     # 모은다 — 예전 엔진의 direct pass 와 같은 이유 (LIMIT 이 아무 행이나 자름).
                     direct_clause, direct_params = self._direct_filter_clause(rank_tokens)
                     if direct_clause:
-                        run(f"{base} AND {direct_clause}", params + direct_params, int(limit))
+                        # ⚠ 결과 전체(hit)에 LIKE 를 하나씩 대지 말 것 — 폴더 이름에 흔한 말('library',
+                        #   '[Library]')은 hit 가 130만 행이라 10~15초 걸렸다(예전 엔진도 같았다).
+                        #   이름·제목 등 칸에 그 말이 든 행을 trigram 색인으로 먼저 좁히고(dhit),
+                        #   그 위에 예전 LIKE 를 그대로 다시 건다 — trigram 은 LIKE 를 빠짐없이 덮으므로
+                        #   결과는 예전과 같다. 실측 2026-10-08 'library' 15.1→?초.
+                        direct_fts = self._direct_fts(rank_tokens)
+                        # ⚠ INTERSECT 로 쓰지 말 것 — 순서가 바뀌어 limit 에서 잘리는 행이 달라진다
+                        #   (25검색어 × 필터 4종 중 20건이 1~55행씩 달랐다). hit 순서 그대로 거른다.
+                        ctes_d = ctes + [f"hit(r) AS MATERIALIZED ({set_sql})",
+                                         "dhit(r) AS MATERIALIZED (SELECT r FROM hit WHERE r IN "
+                                         "(SELECT rowid FROM search_fts WHERE search_fts MATCH ?))"]
+                        run("WITH " + ", ".join(ctes_d) + " SELECT a.* FROM dhit "
+                            f"CROSS JOIN {table} f ON f.rowid = dhit.r "
+                            f"CROSS JOIN audio_files a ON a.id = f.file_id WHERE {where} AND {direct_clause}",
+                            set_params + [direct_fts] + cond_params + direct_params, int(limit))
                     if cancel_check is None or not cancel_check():
                         remaining = max(0, int(limit) - len(results))
                         if remaining > 0:
