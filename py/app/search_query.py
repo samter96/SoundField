@@ -8,7 +8,10 @@
   -단어 / -"구문" / -(묶음)  = 빼기   door -slam
   "구문"          = 그대로 (동의어 없음, 그 순서로 붙은 단어)
   ( )             = 묶기           (sword OR knife) fight
-우선순위는 FTS5 와 같다: NOT > AND > OR (필터 줄을 이어 붙일 때도 같은 규칙).
+OR 는 **바로 옆 단어끼리만** 묶는다 (베이스헤드와 같음, 2026-10-12 사용자 결정):
+  sword OR knife metal = (sword OR knife) AND metal  — '금속인 칼이나 검'
+  예전(FTS5 규칙 NOT > AND > OR)은 sword OR (knife AND metal) 이라 금속 아닌 sword 가 전부 나왔다.
+빼기(-단어·NOT 단어)는 전체에서 뺀다. 필터 줄을 이어 붙일 때도 같은 규칙 (combine_rows).
 
 '경로' 필드는 이 문법을 쓰지 않는다 — 경로에는 괄호·하이픈이 흔하다
 (예: 'Boom (2019)'). 띄어쓰기로만 나눠 모두 포함(AND)으로 찾는다.
@@ -71,27 +74,14 @@ class _Parser:
         return tok
 
     def parse_or(self) -> Optional[Expr]:
-        parts = []
-        part = self.parse_and()
-        if part is not None:
-            parts.append(part)
-        while self.peek() == "OR":
-            self.take()
-            part = self.parse_and()
-            if part is not None:
-                parts.append(part)
-        if not parts:
-            return None
-        return parts[0] if len(parts) == 1 else Node("or", parts)
-
-    def parse_and(self) -> Optional[Expr]:
+        """식 하나 (맨 위·괄호 안 공통): 'OR 로 이어진 묶음' 들을 AND 로 잇는다. 빼기는 negs 로."""
         items: List[Expr] = []
         negs: List[Expr] = []
         while True:
             tok = self.peek()
-            if tok is None or tok in (")", "OR"):
+            if tok is None or tok == ")":
                 break
-            if tok == "AND":
+            if tok in ("AND", "OR"):              # 맨 앞·연속 연산자는 무시
                 self.take()
                 continue
             negate = False
@@ -107,8 +97,18 @@ class _Parser:
             unit_expr, unit_neg = unit
             if negate or unit_neg:
                 negs.append(unit_expr)
-            else:
-                items.append(unit_expr)
+                continue
+            alts = [unit_expr]
+            while self.peek() == "OR":
+                self.take()
+                nxt = self.peek()
+                # OR 뒤가 끝·닫는 괄호·빼기면 OR 를 버린다 (빼기는 다음 바퀴에서 negs 로)
+                if nxt is None or nxt == ")" or nxt in ("NOT", "-(") or (nxt.startswith("-") and len(nxt) > 1):
+                    break
+                more = self.parse_unit()
+                if more is not None:
+                    alts.append(more[0])
+            items.append(alts[0] if len(alts) == 1 else Node("or", alts))
         items = self._merge_phrases(items)
         if not items and not negs:
             return None
@@ -181,30 +181,26 @@ def parse(value: str, field: str = "any", phrase_lookup=None) -> Optional[Expr]:
 
 def combine_rows(rows) -> Optional[Expr]:
     """필터 줄들 [(op, 식)] → 하나의 식. 첫 줄의 op 는 무시한다.
-    우선순위 NOT > AND > OR (예전 FTS5 문자열 이어붙이기와 같은 결과)."""
+    검색창 안과 같은 규칙 (2026-10-12): OR 줄은 바로 앞 줄과 한 묶음, AND 줄은 새 묶음, NOT 줄은
+    전체에서 뺀다. 예) sword / OR knife / AND metal = (sword OR knife) AND metal.
+    맨 앞 줄이 비어 NOT 줄이 첫째가 되면 그 NOT 은 버린다 (예전과 같음)."""
     seq = [(op if i else None, e) for i, (op, e) in enumerate(rows) if e is not None]
-    if not seq:
-        return None
-    # 1) NOT — 바로 앞 항목에서 뺀다. 맨 앞 줄이 사라져 NOT 이 첫째가 되면 버린다 (예전과 같음).
-    folded = []
+    groups: List[List[Expr]] = []
+    negs: List[Expr] = []
     for op, e in seq:
         if op == "NOT":
-            if not folded:
-                continue
-            prev_op, prev = folded[-1]
-            folded[-1] = (prev_op, Node("and", [prev], [e]))
+            if groups:
+                negs.append(e)
+        elif op == "OR" and groups:
+            groups[-1].append(e)
         else:
-            folded.append((op, e))
-    if folded and folded[0][0] is not None:
-        folded[0] = (None, folded[0][1])
-    # 2) AND 로 이어진 구간을 묶고 3) 구간끼리 OR
-    segments: List[List[Expr]] = [[]]
-    for op, e in folded:
-        if op == "OR":
-            segments.append([])
-        segments[-1].append(e)
-    ors = [s[0] if len(s) == 1 else Node("and", s) for s in segments if s]
-    return ors[0] if len(ors) == 1 else Node("or", ors)
+            groups.append([e])
+    items = [g[0] if len(g) == 1 else Node("or", g) for g in groups]
+    if not items:
+        return None
+    if len(items) == 1 and not negs:
+        return items[0]
+    return Node("and", items, negs)
 
 
 def positive_terms(expr: Optional[Expr]) -> List[Term]:

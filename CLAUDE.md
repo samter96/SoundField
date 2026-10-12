@@ -149,6 +149,36 @@ comments, description, keywords, category, sub_category, source.
   `sync_fts_meta`(표식 `fts_meta_sync`)가 옛 누락을 고친다 — 실측 대조 21초 + 19.2만 행 107초, +0.52GB.
   취소 시엔 마지막 반영을 건너뛴다(취소 즉시 응답) — 표식이 남아 다음 시작에 다시 넣는다.
   ⚠ 기존 '색인 어긋남' 검사(fts_stale)는 **개수만** 본다 — 내용 누락은 못 잡는다.
+- **정확한 검색 = 4글자 이상은 앞부분 일치** (2026-10-12 사용자 결정): `apocalyp` → apocalypse ·
+  apocalyptic. 3글자 이하(car·cat·ui)는 그대로(cartoon·catch 안 섞임), `*` 를 붙이면 앞부분.
+  따옴표·여러 조각 말('sci-fi')은 그대로. 빼기(-단어)도 같은 규칙.
+  ⚠ 단어색인은 porter 줄기만 저장해 `"p"*` 만으로는 앞부분 입력의 10.5% 를 놓친다(explosi→explosion).
+  그래서 **원래 단어 목록 표 `term_words(word, stem)`** 를 둔다 (`_prefix_fts`). 줄기가 p 그대로면
+  `"p"*` + 빠진 꼴, 바뀌면(acce→acc 는 accordion 까지 잡음) 목록 단어만 OR.
+  숫자가 들어 있고 줄기가 그대로인 말은 목록에서 뺀다(사용자 결정 ①: 163만→42만 단어, +97→+25MB).
+  시작 정비(`ensure_term_index`)가 표식 `term_words` 를 보고 만든다(49초), 이후 `_term_fts_insert`
+  가 새 단어를 더한다(처음부터 만든 목록과 같음 확인).
+  ⚠ `_porter_stems` 는 임시 fts5 표로 SQLite porter 를 직접 쓴다 — 파이썬으로 흉내 내지 말 것.
+    자동 확정 연결에서 묶지 않으면 103초(묶으면 7초). 상주 검색 연결에 트랜잭션을 남기지 않는다.
+- **OR 는 바로 옆 단어끼리** (2026-10-12, 베이스헤드와 같게): `sword OR knife metal` = (sword OR knife)
+  AND metal. 필터 줄 조합(combine_rows)도 같다 — OR 줄은 앞 줄과 한 묶음, NOT 줄은 전체에서 뺀다.
+  예전 FTS5 규칙(NOT > AND > OR)으로 되돌리지 말 것. `|` 기호는 쓰지 않는다 (사용자 결정 — 다중 필터).
+- **동의어 = UCS 보완 규칙, 넓게·정확 모두** (`thesaurus.related`): 그 단어가 묶음 이름이고 그 이름의
+  묶음이 하나뿐이면 묶음 전체, 묶음 안의 말이면 묶음 이름만(4개 이상 대분류에 되풀이되는 MISC·IMPACT 등
+  은 빼고, 6개 넘는 묶음에 걸친 말은 안 붙임). 그냥 펼치면 door → Helicopter (UCS 묶음은 '그 분류 소리를
+  설명하는 말' 이지 동의어 사전이 아니다). **원래 친 단어로 찾은 파일이 항상 먼저** — 두 모드 모두 1단계
+  동의어 없이 → 상한을 못 채우면 2단계 동의어 포함으로 채운다 (with_syns). 한 식으로 섞으면 동의어 파일이
+  앞서고, 넓게 찾기는 동의어 60개 OR 로 3~5초가 걸렸다.
+- 넓게 찾기 정렬 3단: 원래 단어가 파일 정보에 → 폴더 이름에만 → 동의어로만 (order_key).
+- **업데이트 정비 화면**: sf_admin `maintenance_plan` → 할 일이 있을 때만 `maintenance_run` (단어색인·
+  단어 목록·색인 누락 채우기·끊긴 색인 반영). 몇 분짜리만 여기 넣는다. 제목줄은 덮지 않는다(닫기 가능,
+  다음 실행에 이어서). 새로 DB 를 고쳐 쓰는 작업이 생기면 `maintenance_steps` 에 단계를 더할 것.
+- **파일 정보 보강 (메타 분석기 v3)**: WAV 는 소리 데이터 **뒤** LIST·bext 와 iXML 까지 읽는다
+  (`metadata._read_riff_tail`·`_apply_ixml`, 빈 칸만 채움, 베이스헤드의 칸 대응을 따름). 예전엔 data 에서
+  멈춰 표본의 72% 가 키워드·UCS 분류·제목을 못 읽었다. 이미 읽은 WAV 는 `audio_files.meta_ver < 3` 이면
+  보강 대기 → 앱이 **쉴 때만**(30초 무입력·재생 없음, 설정과 무관) `reparse_meta` 로 다시 읽고, 만지면 바로
+  멈춘다. 다시 읽다 실패해도 실패로 바꾸지 않는다(`set_meta_ver`). 진행 분모는 `meta_reparse_total`.
+  실측 이 PC 111만 개, 시험 608개 6.4초. 파일당 +14ms(처음 여는 기준).
 - 되돌리기: 환경변수 `SOUNDFIELD_SEARCH_ENGINE=legacy` 면 옛 엔진(`_query_legacy`)이 돈다.
 
 ⚠ UCS 사전(`ucs_thesaurus.json`)이 번들에서 빠지면 **아무 오류

@@ -33,6 +33,7 @@ class Thesaurus:
     def __init__(self, path: str = _DATA_PATH):
         self._groups: List[List[str]] = []
         self._term_map: Dict[str, List[int]] = {}
+        self._head_count = None      # 묶음 이름이 되풀이되는 횟수 (related 가 처음 쓸 때 셈)
         try:
             with open(path, encoding="utf-8") as f:
                 self._groups = json.load(f)["groups"]
@@ -74,6 +75,50 @@ class Thesaurus:
                     break
             iters = nxt
         return out
+
+
+    def related(self, token: str, cap: int = 40) -> List[str]:
+        """같이 찾을 말 (2026-10-12 사용자 결정 — 넓게·정확 모두에 쓴다).
+          · token 이 묶음 **이름**이면(예: SWORD) → 그 묶음 전체 (Machete, Dagger, Katana …)
+          · token 이 묶음 **안의 말**이면(예: Machete ∈ SWORD·KNIFE) → 그 묶음들의 **이름만** (SWORD, KNIFE)
+        묶음 전체를 다 펼치지 않는 이유: sword 는 STAB 묶음 안에도 있어서, 그 묶음을 펼치면
+        Behead·Syringe·Needle 까지 붙는다 (10-07 'UCS 전부' 를 되돌린 이유와 같다).
+        영어 검색만 쓰므로 한글 용어는 붙이지 않는다."""
+        t = (token or "").strip().lower()
+        gids = self._term_map.get(t)
+        if not gids:
+            return []
+        if self._head_count is None:
+            from collections import Counter
+            self._head_count = Counter(g[0].lower() for g in self._groups if g)
+        heads = [gi for gi in gids if self._groups[gi] and self._groups[gi][0].lower() == t]
+        members = [gi for gi in gids if self._groups[gi] and self._groups[gi][0].lower() != t]
+        out: List[str] = []
+        seen: Set[str] = {t}
+
+        def add(term: str):
+            tl = term.lower()
+            if tl in seen or not term.isascii():
+                return
+            seen.add(tl)
+            out.append(term)
+
+        # 보완 규칙 (사용자 결정 2026-10-12, 자주 쓰는 말 100개 실측: 그냥 펼치면 평균 25.6개·
+        # door → Airplane·Helicopter, 보완하면 평균 4.8개)
+        #  ① 이름인 묶음이 **하나뿐**일 때만 펼친다 — UCS 묶음은 '대분류-하위분류' 단위라 DOOR 같은
+        #     하위분류 이름이 비행기·차·건물 등 여러 대분류에 되풀이된다. 그 묶음 안의 말은 동의어가
+        #     아니라 '그 분류 소리를 설명하는 말'(비행기 문 → Airplane, Cockpit)이다.
+        if len(heads) == 1:
+            for term in self._groups[heads[0]][1:]:
+                add(term)
+        #  ② 묶음 이름은 그 말이 걸친 묶음이 6개 이하일 때만, 그리고 4개 이상 대분류에 되풀이되는
+        #     이름(MISC·IMPACT·MOVEMENT·TONAL …)은 뜻이 없으므로 빼고 붙인다.
+        if len(members) <= 6:
+            for gi in members:
+                head = self._groups[gi][0]
+                if self._head_count[head.lower()] < 4:
+                    add(head)
+        return out[:cap]
 
 
 _inst = None

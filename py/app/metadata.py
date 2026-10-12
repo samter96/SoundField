@@ -1,5 +1,7 @@
+import html
 import os
 import logging
+import re
 import struct
 from dataclasses import dataclass
 from io import BytesIO
@@ -45,7 +47,10 @@ WAVE_FORMAT_EXTENSIBLE = 0xFFFE
 
 # 메타 분석기 버전 — 올리면 시작 시 이전 실패분(meta_extracted=2)을 1회 자동 재분석.
 # v2: 확장자만 .wav 인 AIFF 내용 인식 + 잘린 data 청크 실제 크기로 계산 + 사유 세분화.
-META_PARSER_VERSION = 2
+# v3 (2026-10-12): WAV 의 소리 데이터 **뒤** LIST·bext 와 iXML(앞·뒤)까지 읽는다 — 키워드·UCS 분류·제목.
+#     이미 읽은 WAV 는 audio_files.meta_ver < 3 이면 '보강 대기' 로 보고 쉬는 동안 다시 읽는다
+#     (LibraryManager.reparse_metadata). 성공한 파일을 실패/대기로 되돌리지 않는다.
+META_PARSER_VERSION = 3
 
 # 실패 사유 — UI(현황/재시도 결과 팝업)에 그대로 노출되므로 한글.
 _KIND_AIFF = "\x00aiff"  # 사유 아님 — 내부 신호(내용이 AIFF)
@@ -388,6 +393,11 @@ def _read_riff_metadata(file_path: str, size: int) -> tuple[Optional[_WavState],
                     if chunk_size < 0:
                         return None, ERR_CHUNK_BROKEN
                     state.data_size = min(chunk_size, avail)
+                    # ⚠ 여기서 멈추면 안 된다 (2026-10-12). 사운드마이너·베이스헤드 등으로 메타를
+                    #   고친 파일은 설명·키워드·UCS 분류를 **소리 데이터 뒤**에 붙인다 — 예전엔 여기서
+                    #   break 해서 라이브러리 WAV 의 71%(표본 300)가 키워드·분류·제목을 못 읽었다.
+                    #   데이터 뒤는 덤으로 읽는다: 무엇이 깨져 있어도 파일을 실패로 만들지 않는다.
+                    _read_riff_tail(f, chunk_data_start + chunk_size + (chunk_size & 1), stream_len, state)
                     break
 
                 if chunk_size < 0 or chunk_size > avail:
@@ -417,6 +427,9 @@ def _read_riff_metadata(file_path: str, size: int) -> tuple[Optional[_WavState],
                     elif chunk_id == b"bext":
                         if not _read_riff_bext(src, chunk_size, state):
                             return None, ERR_CHUNK_BROKEN
+                    elif chunk_id == b"iXML":
+                        if chunk_size <= MAX_METADATA_CHUNK_BYTES:
+                            _apply_ixml(state, _read_exact(src, chunk_size))
                     # else: 알 수 없는 청크 — 본문 skip (pos += chunk_size 로 처리)
                 except (ValueError, struct.error):
                     return None, ERR_CHUNK_BROKEN
@@ -431,6 +444,85 @@ def _read_riff_metadata(file_path: str, size: int) -> tuple[Optional[_WavState],
         return None, ERR_IO
     except (ValueError, struct.error):
         return None, ERR_CHUNK_BROKEN
+
+
+_TAIL_WANT = (b"LIST", b"bext", b"iXML")
+_TAIL_MAX_CHUNKS = 128          # 데이터 뒤 청크 수 상한 (깨진 파일에서 헛돌지 않게)
+
+
+def _read_riff_tail(f: BinaryIO, pos: int, size: int, state: _WavState):
+    """소리 데이터 뒤의 메타 청크(LIST·bext·iXML)만 읽는다. 다른 청크는 머리 8바이트만 보고 건너뛴다
+    (ID3 의 앨범 그림·사운드마이너 SMED 처럼 큰 것은 본문을 읽지 않는다 — 표본 평균 2.6KB).
+    무엇이 깨져 있어도 조용히 멈춘다 — 앞에서 읽은 소리 정보로 파일은 정상이다."""
+    try:
+        for _ in range(_TAIL_MAX_CHUNKS):
+            if pos + CHUNK_HEADER_SIZE > size:
+                return
+            f.seek(pos)
+            hd = f.read(CHUNK_HEADER_SIZE)
+            if len(hd) < CHUNK_HEADER_SIZE:
+                return
+            cid = hd[:4]
+            ln = struct.unpack_from("<I", hd, 4)[0]
+            start = pos + CHUNK_HEADER_SIZE
+            if ln > size - start:
+                return
+            if cid in _TAIL_WANT and ln <= MAX_METADATA_CHUNK_BYTES:
+                body = f.read(ln)
+                if len(body) == ln:
+                    if cid == b"LIST":
+                        _read_riff_list(BytesIO(body), ln, state)
+                    elif cid == b"bext":
+                        _read_riff_bext(BytesIO(body), ln, state)
+                    else:
+                        _apply_ixml(state, body)
+            pos = start + ln + (ln & 1)
+    except (OSError, ValueError, struct.error):
+        return
+
+
+_IXML_ATTR_RE = re.compile(
+    r"<ATTR>\s*(?:<TYPE>[^<]*</TYPE>\s*)?<NAME>([^<]*)</NAME>\s*"
+    r"(?:<TYPE>[^<]*</TYPE>\s*)?<VALUE>([^<]*)</VALUE>")
+
+
+def _apply_ixml(state: _WavState, raw: bytes):
+    """iXML → 빈 칸만 채운다. 대응은 베이스헤드가 같은 파일에서 보여 준 것을 따른다 (2026-10-12 실측):
+      <USER>  DESCRIPTION·KEYWORDS·CATEGORY·SUBCATEGORY·CATEGORYFULL(분류-하위)·TRACKTITLE/FXNAME·
+              ARTIST/DESIGNER·LIBRARY  (UCS·사운드마이너 표준 칸)
+      <BWF_DESCRIPTION>
+      <STEINBERG> 속성  MediaComment(설명)·MusicalInstrument(키워드)·MediaCategoryPost(분류)·
+              MusicalCategory(하위분류)·SmfSongName(제목)·MediaArtist·MediaLibrary/MediaAlbum
+    정규식으로 읽는다 — 깨진 XML 이 흔해서 XML 파서는 통째로 실패한다."""
+    try:
+        text = raw.decode("utf-8", "replace")
+    except Exception:
+        return
+    user_m = re.search(r"<USER>(.*?)</USER>", text, re.S)
+    user = user_m.group(1) if user_m else ""
+
+    def tag(src: str, name: str) -> Optional[str]:
+        m = re.search(rf"<{name}>([^<]*)</{name}>", src)
+        v = html.unescape(m.group(1)).strip() if m else ""
+        return v or None
+
+    attrs = {}
+    for name, value in _IXML_ATTR_RE.findall(text):
+        value = html.unescape(value).strip()
+        if value:
+            attrs[name.strip()] = value
+    full = tag(user, "CATEGORYFULL")
+    cat_full = full.split("-", 1) if full and "-" in full else None
+    state.description = state.description or tag(user, "DESCRIPTION") or tag(text, "BWF_DESCRIPTION") \
+        or attrs.get("MediaComment")
+    state.keywords = state.keywords or tag(user, "KEYWORDS") or attrs.get("MusicalInstrument")
+    state.category = state.category or tag(user, "CATEGORY") or (cat_full[0] if cat_full else None) \
+        or attrs.get("MediaCategoryPost")
+    state.sub_category = state.sub_category or tag(user, "SUBCATEGORY") \
+        or (cat_full[1] if cat_full else None) or attrs.get("MusicalCategory")
+    state.title = state.title or tag(user, "TRACKTITLE") or tag(user, "FXNAME") or attrs.get("SmfSongName")
+    state.artist = state.artist or tag(user, "ARTIST") or tag(user, "DESIGNER") or attrs.get("MediaArtist")
+    state.album = state.album or tag(user, "LIBRARY") or attrs.get("MediaLibrary") or attrs.get("MediaAlbum")
 
 
 def _read_riff_fmt(stream: BinaryIO, chunk_size: int, state: _WavState) -> bool:

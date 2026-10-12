@@ -1,6 +1,6 @@
 [package]
 name = "soundfield"
-version = "2.1.5"
+version = "2.1.6"
 description = "SoundField"
 edition = "2021"
 

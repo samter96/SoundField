@@ -229,7 +229,8 @@ export type AdminRequest = {
   op: "add_index" | "index" | "remove_roots" | "repair_fts" | "backfill_fts" | "detect" | "parser_upgrade" |
       "ensure_term_index" | "background_meta" | "retry_paths" |
       "retry_scope" | "delete_paths" | "delete_scope" | "hide_paths" |
-      "unhide_paths" | "unhide_all" | "unhide_ids" | "mark_dup_orphans";
+      "unhide_paths" | "unhide_all" | "unhide_ids" | "mark_dup_orphans" |
+      "maintenance_plan" | "maintenance_run" | "reparse_meta";
   path?: string;
   paths?: string[];
   force?: boolean;
@@ -591,7 +592,9 @@ export async function scanDuplicates(): Promise<DupGroupRow[] | null> {
 
 /* 관리 작업(검색 제외 등) 진행 상황 — 인덱싱 진행(index-event)과 **다른 통로**다.
    섞으면 메인 창의 인덱싱 표시가 잘못 켜진다 (sf_admin.emit_op_progress 주석). */
-export type AdminOpProgress = { op: string; done: number; total: number };
+/* 정비 화면(op "maintenance")은 단계 번호·이름도 함께 온다 (sf_admin.run_maintenance) */
+export type AdminOpProgress = { op: string; done: number; total: number;
+                                step?: number; steps?: number; label?: string };
 
 export function onAdminOpProgress(cb: (value: AdminOpProgress) => void): () => void {
   let stop = () => {};

@@ -89,6 +89,55 @@ def emit_fts_progress(done, total):
     }}, ensure_ascii=False), flush=True)
 
 
+
+def maintenance_steps(db):
+    """지금 필요한 정비 단계 [{key, label}] — 없으면 빈 목록 (정비 화면을 띄우지 않는다)."""
+    steps = []
+    term_ok = db.term_index_current()
+    if not term_ok:
+        steps.append({"key": "term_index", "label": "정확한 검색 단어색인 다시 만들기"})
+    if not term_ok or not db.term_words_current():
+        steps.append({"key": "term_words", "label": "단어 목록 만들기"})
+    if db.get_meta(Database.FTS_META_SYNC_KEY) != Database.FTS_META_SYNC_VERSION:
+        steps.append({"key": "fts_meta", "label": "검색 색인 누락 채우기"})
+    if db.get_meta(Database.FTS_SYNC_SINCE_KEY):
+        steps.append({"key": "fts_recover", "label": "지난번 끊긴 검색 색인 이어서 반영"})
+    return steps
+
+
+def run_maintenance(db, manager):
+    """정비 단계를 차례로 — 각 단계 진행률을 op_progress 로 보낸다."""
+    steps = maintenance_steps(db)
+    cancel = getattr(manager, "_cancel", None)
+    done_keys = []
+    for i, step in enumerate(steps):
+        key, label = step["key"], step["label"]
+
+        def cb(done, total, _i=i, _label=label):
+            print(json.dumps({"type": "op_progress", "data": {
+                "op": "maintenance", "step": _i + 1, "steps": len(steps), "label": _label,
+                "done": int(done or 0), "total": int(total or 0)}}, ensure_ascii=False), flush=True)
+        cb(0, 0)
+        try:
+            if key == "term_index":
+                if not db.build_term_index(progress_cb=cb, cancel_event=cancel):
+                    break
+            elif key == "term_words":
+                db.build_term_words(progress_cb=cb, cancel_event=cancel)
+            elif key == "fts_meta":
+                db.sync_fts_meta(progress_cb=cb, cancel_event=cancel)
+                if cancel is None or not cancel.is_set():
+                    db.set_meta(Database.FTS_META_SYNC_KEY, Database.FTS_META_SYNC_VERSION)
+            elif key == "fts_recover":
+                db.recover_fts_sync(progress_cb=cb)
+        except Exception as exc:                       # noqa: BLE001 — 다음 실행에서 다시
+            print(f"[sf_admin] 정비 실패 ({key}): {exc}", file=sys.stderr, flush=True)
+            return {"success": False, "message": f"{label} 실패: {exc}", "done": done_keys}
+        if cancel is not None and cancel.is_set():
+            break
+        done_keys.append(key)
+    return {"success": True, "done": done_keys, "remaining": [s["key"] for s in maintenance_steps(db)]}
+
 def clean_result(value):
     if not isinstance(value, dict):
         return value
@@ -293,30 +342,33 @@ def run(req):
         reset = db.reset_all_failed_metadata()
         db.set_meta("meta_parser_version", current)
         return {"success": True, "reset": reset, "restored": restored}
-    if op == "ensure_term_index":
-        # 정확 검색·동의어용 단어 색인. 지금 규칙(쪼갠 파일명, Database.TERM_NAME_MODE)으로
-        # 이미 있으면 쓰기 없이 즉시 끝난다. 없거나 옛 규칙이면 새로 만든다 — 실측 5.4분
-        # (158만 행, 2026-10-07). 그동안 정확한 검색·동의어 결과는 일부 빠진다 (사용자 결정 B).
-        built = False
-        ok = True
-        if not db.term_index_current():
-            ok = bool(db.build_term_index())
-            built = True
-        # 넓게 찾기 색인 메타 동기 (2026-10-08) — 시작 정비에 함께 한다.
-        #  ① 지난 2단계가 끊겨 색인에 못 넣은 구간(표식 fts_sync_since)을 다시 넣는다.
-        #  ② 1회만: 색인 내용을 audio_files 와 대조해 어긋난 행을 다시 넣는다. 그 전 판들이
-        #     남긴 누락(실측 15.9만 행)을 고친다. 끊기면 표식을 안 남겨 다음 실행이 이어서 한다.
-        recovered = fixed = 0
+    if op == "maintenance_plan":
+        # 업데이트 뒤 DB 를 고쳐 써야 하는 정비 목록 (화면이 이걸 보고 정비 화면을 띄운다 — 있을 때만).
+        # 몇 분 안에 끝나는 것만 여기 넣는다. 파일 정보 보강(수 시간)은 화면을 막지 않고 쉬는 동안
+        # 뒤에서 한다 (사용자 결정 2026-10-12) — 남은 수만 같이 알려 준다.
+        return {"success": True, "steps": maintenance_steps(db),
+                "reparse_remaining": db.reparse_remaining(META_PARSER_VERSION),
+                # 보강 진행 분모 (앱을 껐다 켜도 처음 기준 — library_manager.META_REPARSE_TOTAL_KEY)
+                "reparse_total": int(db.get_meta("meta_reparse_total") or 0)}
+    if op in ("maintenance_run", "ensure_term_index"):
+        # 정비 실행 — 단계마다 op_progress(op="maintenance") 로 진행률을 보낸다.
+        # 도중에 앱이 꺼지면 각 단계의 표식이 안 남아 다음 실행이 그 단계부터 다시 한다.
+        return run_maintenance(db, manager)
+    if op == "reparse_meta":
+        # 파일 정보 보강 (분석기 v3 으로 이미 읽은 WAV 다시 읽기) — 화면이 쉬는 동안에만 부르고,
+        # 사용자가 앱을 만지면 cancel 로 바로 멈춘다. 멈춘 데까지 저장되고 다음에 이어서 한다.
+        def reparse_cb(progress):
+            emit_op_progress("reparse",
+                             int(getattr(progress, "base_done", 0) or 0)
+                             + int(getattr(progress, "indexed", 0) or 0)
+                             + int(getattr(progress, "errors", 0) or 0),
+                             int(getattr(progress, "total", 0) or 0))
+        result = clean_result(manager.reparse_metadata(progress_cb=reparse_cb))
         try:
-            recovered = db.recover_fts_sync()
-            if db.get_meta(Database.FTS_META_SYNC_KEY) != Database.FTS_META_SYNC_VERSION:
-                cancel = getattr(manager, "_cancel", None)
-                fixed = db.sync_fts_meta(cancel_event=cancel)
-                if cancel is None or not cancel.is_set():
-                    db.set_meta(Database.FTS_META_SYNC_KEY, Database.FTS_META_SYNC_VERSION)
-        except Exception as exc:                       # noqa: BLE001 — 다음 실행에서 다시
-            print(f"[sf_admin] 색인 메타 동기 실패: {exc}", file=sys.stderr, flush=True)
-        return {"success": ok, "built": built, "fts_recovered": recovered, "fts_fixed": fixed}
+            db.checkpoint()
+        except Exception:
+            pass
+        return result
     if op == "background_meta":
         # 원본 MainWindow._ensure_background_meta_running 이 호출하는 전용 경로.
         # 실패 항목을 임의로 pending 으로 되돌리지 않고, 현재 meta_extracted=0 큐만

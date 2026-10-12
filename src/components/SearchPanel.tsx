@@ -57,6 +57,7 @@ export const SEARCH_HELP = `필터 단축키
 연산자 (대문자만 인식)
   • AND : 둘 다 매칭          예) dark AND magic
   • OR  : 둘 중 하나          예) sword OR knife
+  • OR 는 바로 옆 단어끼리     예) sword OR knife metal → 금속인 칼이나 검
   • 쉼표는 띄어쓰기와 같음    예) door, wood = door wood
   • NOT : 제외                예) footstep NOT rain
   • 앞에 - 를 붙여도 제외     예) door -slam
@@ -70,8 +71,9 @@ export const SEARCH_HELP = `필터 단축키
   • 따옴표 안의 말에는 동의어를 붙이지 않음
 
 동의어
-  • 비슷한 말도 함께 찾음 (UCS 사전, 단어마다 최대 3개)
-  • 4글자 이상 단어에만 붙음 / 정확한 검색에는 붙지 않음
+  • 비슷한 말도 함께 찾음 (UCS 사전)  예) sword → machete · dagger · katana
+  • 원래 친 단어로 찾은 파일이 먼저, 비슷한 말로 찾은 파일은 그 뒤
+  • 4글자 이상 단어에만 붙음 (넓게·정확 모두)
   • 환경설정에서 끌 수 있음
 
 비고
@@ -81,17 +83,18 @@ export const SEARCH_HELP = `필터 단축키
 const PRECISE_HELP = [
   "정확한 검색",
   "",
-  "단어를 끝까지 입력해야 매칭됩니다. 일부만 치면 안 나옵니다.",
-  "앞부분만 치려면 끝에 * 를 붙이세요.",
-  "단어 단위라 결과가 더 정확합니다.",
+  "단어 단위로 찾습니다. 4글자 이상은 앞부분만 쳐도",
+  "그 말로 시작하는 단어를 찾습니다.",
   "",
-  "예) 'door' → door · doors 함께 나옴",
-  "    'doo' (일부만) → 결과 없음",
-  "    'doo*' → door · doorbell 등 doo 로 시작하는 단어",
+  "예) 'apocalyp' → apocalypse · apocalyptic",
+  "    'door' → door · doors · doorbell",
+  "    'car' (3글자 이하) → car · cars 만 (cartoon 은 안 나옴)",
   "",
-  "끄면(넓게 찾기): 글자 조각으로 찾아 'doo'만 쳐도 나옵니다.",
+  "3글자 이하도 앞부분으로 찾으려면 끝에 * 를 붙이세요. 예) 'car*'",
   "",
-  "정확한 검색에는 동의어를 붙이지 않습니다.",
+  "끄면(넓게 찾기): 단어 중간의 글자 조각으로도 찾습니다.",
+  "",
+  "동의어도 붙습니다 — 원래 친 단어로 찾은 파일이 먼저 나옵니다.",
 ].join("\n");
 
 /* 필터 행 번호를 **지금 있는 행들에서** 뽑는다.

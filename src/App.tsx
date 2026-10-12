@@ -16,7 +16,7 @@ import { CenterToast, type ToastMessage, type ToastKind } from "./components/Cen
 import { CenterLoader, type LoaderTask } from "./components/CenterLoader";
 
 import { type Lib, type Row, type TreeNode } from "./data";
-import { addBlacklistPath, appLoaded, audioBridge, cancelAdmin, loadFtsStale, loadHidden, setRootOrder, loadBlacklistPaths, loadFolderTree, loadIndexedCount, loadInitialRows, loadLibraryRoots, loadLibraryRootsBasic, loadRowByPath, recordHistory, runAdmin, searchRows, type AdminRequest, type SearchRequest, type SpellSuggestion } from "./backend";
+import { addBlacklistPath, appLoaded, audioBridge, cancelAdmin, loadFtsStale, onAdminOpProgress, loadHidden, setRootOrder, loadBlacklistPaths, loadFolderTree, loadIndexedCount, loadInitialRows, loadLibraryRoots, loadLibraryRootsBasic, loadRowByPath, recordHistory, runAdmin, searchRows, type AdminRequest, type SearchRequest, type SpellSuggestion } from "./backend";
 import { applyTheme, loadTheme, type ThemeName } from "./theme";
 import { CONFIG_DEFAULTS, loadUserConfig, saveUserConfig, type UserConfig } from "./config";
 import { setLang, useLang } from "./i18n";
@@ -61,6 +61,9 @@ const ADMIN_OP_LABEL: Record<string, string> = {
   repair_fts: "검색 색인 수리",
   backfill_fts: "검색 정리",
   ensure_term_index: "단어 색인 만들기",
+  maintenance_plan: "업데이트 정비 확인",
+  maintenance_run: "업데이트 정비",
+  reparse_meta: "파일 정보 보강",
   parser_upgrade: "메타 파서 업그레이드",
   retry_paths: "미완료 재시도",
   retry_scope: "미완료 재시도",
@@ -296,6 +299,23 @@ export default function App() {
      ⚠ 여기서 다시 셈하지 말 것. 예전에 JS 로 따로 누적했다가 파이썬이 주는 값과
        두 출처가 갈렸다. 단일 출처는 파이썬이다. */
   const [metaRemaining, setMetaRemaining] = useState<number | null>(null);
+  /* ── 업데이트 정비 화면 (사용자 결정 2026-10-12) ─────────────────────────────
+     업데이트 뒤 DB 를 고쳐 써야 하는 작업(단어색인·단어 목록·검색 색인 누락 채우기 등,
+     몇 분짜리)이 **있을 때만** 띄우고, 끝날 때까지 앱 사용을 막는다. 제목줄은 덮지 않는다 —
+     닫아도 다음 실행 때 그 단계부터 이어서 한다 (sf_admin.maintenance_plan/run). */
+  const [maint, setMaint] = useState<null | {
+    step: number; steps: number; label: string; done: number; total: number }>(null);
+  /* ── 파일 정보 보강 (메타 분석기 v3 으로 이미 읽은 WAV 다시 읽기, 2026-10-12) ──────
+     몇 시간짜리라 화면을 막지 않는다. **쉴 때만**(30초 이상 입력 없음·재생 없음) 뒤에서 하고,
+     만지거나 재생하면 바로 멈춘다 — 쓰는 동안 속도에 영향이 없게 (사용자 지시).
+     'Idle 시에만 분석' 설정과 상관없이 늘 이 규칙이다. */
+  const [reparse, setReparse] = useState<{
+    remaining: number; total: number; running: boolean; etaSec: number | null }>(
+    { remaining: 0, total: 0, running: false, etaSec: null });
+  const reparseRef = useRef(reparse);
+  reparseRef.current = reparse;
+  const reparseActiveRef = useRef(false);
+  const reparseRateRef = useRef<{ t: number; done: number; rate: number } | null>(null);
   const [foregroundAdminActive, setForegroundAdminActive] = useState(false);
   const foregroundCancelRequestedRef = useRef(false);
   /* ── 취소 직후 정책 (조사 I02) ────────────────────────────────────────────
@@ -732,16 +752,36 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
       }
       if (alive) setStartupMaintenanceDone(true);
     };
-    void runParserUpgrade();
-    /* ⚠ 위 runParserUpgrade 와 같은 이유로 가드 없음 (시작 정비, 재시도 자체 처리). */
-    const ensureTerms = async () => {
+    /* 업데이트 정비 (2026-10-12) — 파서 업그레이드·메타 분석보다 **먼저** 한다.
+       할 일이 있을 때만 정비 화면을 띄운다. 예전엔 단어색인을 2.5초 뒤 조용히 만들어
+       그동안(5분) 정확한 검색 결과가 빠졌다. ⚠ 가드 없음 — 위와 같은 이유. */
+    const runStartup = async () => {
       if (!alive) return;
-      const result = await runAdmin({ op: "ensure_term_index" });
-      if (alive && result.success === false && String(result.message || "").includes("이미 인덱싱")) {
-        termTimer = window.setTimeout(ensureTerms, 10_000);
+      try {
+        const plan = await runAdmin({ op: "maintenance_plan" });
+        if (!alive) return;
+        if (plan.success === false && String(plan.message || "").includes("이미 인덱싱")) {
+          termTimer = window.setTimeout(runStartup, 10_000);
+          return;
+        }
+        const remaining = Number(plan.reparse_remaining || 0);
+        setReparse((r) => ({ ...r, remaining,
+          total: Math.max(Number(plan.reparse_total || 0), remaining) }));
+        const steps = (plan.steps as { key: string; label: string }[] | undefined) ?? [];
+        if (steps.length) {
+          setMaint({ step: 1, steps: steps.length, label: steps[0].label, done: 0, total: 0 });
+          await runAdmin({ op: "maintenance_run" });
+          if (!alive) return;
+          setMaint(null);
+          await refreshIndexState(true);
+        }
+      } catch {
+        /* 브리지 실패 — 정비 없이 계속한다 (다음 실행에서 다시 확인) */
+        setMaint(null);
       }
+      await runParserUpgrade();
     };
-    termTimer = window.setTimeout(ensureTerms, 2500);
+    void runStartup();
     return () => {
       alive = false;
       window.clearTimeout(termTimer);
@@ -905,6 +945,71 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
     backgroundAdminRef.current = task;
   };
 
+  /* 파일 정보 보강 시작 — 정비·2단계 메타 분석이 다 끝났고, 재생 중이 아니며, 30초 이상
+     입력이 없을 때만. 사용자가 분석을 멈춰 뒀으면 같이 쉰다. 같은 writer 를 쓰므로
+     backgroundAdminRef 를 같이 쓴다 (전경 작업이 오면 기존 규칙대로 먼저 멈춘다). */
+  const startReparse = () => {
+    if (reparseRef.current.remaining <= 0 || metaPausedRef.current) return;
+    if (!startupMaintenanceDone || metadataPendingTotal > 0) return;
+    if (foregroundAdminRef.current || backgroundAdminRef.current || playingRef.current) return;
+    if (Date.now() - lastInputAtRef.current < 30_000) return;
+    backgroundCancelReasonRef.current = "";
+    reparseActiveRef.current = true;
+    reparseRateRef.current = null;
+    setReparse((r) => ({ ...r, running: true }));
+    const task = (async () => {
+      try {
+        const res = await runAdmin({ op: "reparse_meta" });
+        if (res.success !== false) {
+          setReparse((r) => ({ ...r,
+            remaining: Number(res.remaining ?? r.remaining),
+            total: Math.max(r.total, Number(res.total || 0)) }));
+        }
+      } catch {
+        /* 다음 쉬는 때에 다시 */
+      } finally {
+        reparseActiveRef.current = false;
+        setReparse((r) => ({ ...r, running: false, etaSec: null }));
+        backgroundAdminRef.current = null;
+      }
+    })();
+    backgroundAdminRef.current = task;
+  };
+
+  /* 정비·보강 진행률 (sf_admin op_progress — 인덱싱 표시와 다른 통로) */
+  useEffect(() => onAdminOpProgress((p) => {
+    if (p.op === "maintenance") {
+      setMaint({ step: p.step ?? 1, steps: p.steps ?? 1, label: p.label ?? "",
+                 done: p.done, total: p.total });
+      return;
+    }
+    if (p.op !== "reparse" || p.total <= 0) return;
+    /* 남은 시간 — 이번에 도는 동안의 속도로 (멈췄다 다시 돌면 새로 잰다) */
+    const now = Date.now();
+    const prev = reparseRateRef.current;
+    let rate = prev?.rate ?? 0;
+    if (prev && p.done > prev.done && now > prev.t) {
+      const inst = (p.done - prev.done) / ((now - prev.t) / 1000);
+      rate = prev.rate > 0 ? prev.rate * 0.85 + inst * 0.15 : inst;
+    }
+    reparseRateRef.current = { t: now, done: p.done, rate };
+    const remaining = Math.max(0, p.total - p.done);
+    setReparse((r) => ({ ...r, remaining, total: Math.max(r.total, p.total),
+                         etaSec: rate > 0 ? remaining / rate : null }));
+  }), []);
+
+  /* 정비 화면이 떠 있는 동안 키보드 단축키를 막는다 (Alt+F4 로 닫기는 허용) */
+  useEffect(() => {
+    if (!maint) return;
+    const block = (e: KeyboardEvent) => {
+      if (e.altKey && e.key === "F4") return;
+      e.stopPropagation();
+      e.preventDefault();
+    };
+    window.addEventListener("keydown", block, true);
+    return () => window.removeEventListener("keydown", block, true);
+  }, [maint !== null]);
+
   /* 원본 _pause_meta_analysis (main_window.py:4188) — 돌고 있으면 중단시키고
      '사용자 정지' 로 표시를 고정한다. */
   const pauseMetaAnalysis = () => {
@@ -934,6 +1039,12 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
   useEffect(() => {
     const activity = () => {
       lastInputAtRef.current = Date.now();
+      /* 파일 정보 보강은 설정과 상관없이 만지면 바로 멈춘다 (쓰는 동안 속도 영향 없게) */
+      if (reparseActiveRef.current && backgroundAdminRef.current) {
+        backgroundCancelReasonRef.current = "idle";
+        void cancelAdmin();
+        return;
+      }
       if (config.indexOnIdle && backgroundAdminRef.current) {
         backgroundCancelReasonRef.current = "idle";
         void cancelAdmin();
@@ -970,7 +1081,11 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
           resumeMetaAnalysis("5분간 앱 미사용 — 자동 재개");
         return;
       }
-      if (metadataPendingTotal <= 0 || foregroundAdminRef.current || backgroundAdminRef.current) return;
+      if (metadataPendingTotal <= 0) {
+        startReparse();          // 2단계가 다 끝났으면 쉬는 동안 파일 정보 보강
+        return;
+      }
+      if (foregroundAdminRef.current || backgroundAdminRef.current) return;
       if (playingRef.current && !focusIndex) return;
       if (config.indexOnIdle && Date.now() - lastInputAtRef.current <= 30_000) return;
       startBackgroundMeta();
@@ -981,6 +1096,12 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
   /* 집중 모드가 아니면 재생 시작 즉시 자동 메타 분석만 양보한다. 재생이 멈춘 뒤
      1.5초 기다렸다 재개하여 여러 소리를 연속 미리듣기할 때 중단/재시작 churn을 막는다. */
   useEffect(() => {
+    /* 파일 정보 보강은 집중 모드여도 재생하면 바로 멈춘다 */
+    if (playing && reparseActiveRef.current && backgroundAdminRef.current) {
+      backgroundCancelReasonRef.current = "playback";
+      void cancelAdmin();
+      return;
+    }
     if (focusIndex) {
       if (metadataPendingTotal > 0) startBackgroundMeta();
       return;
@@ -1672,6 +1793,29 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
       {/* 표시 언어 토글은 창 제어줄 안에 있다 (LangToggle 주석 참고).
           바뀐 값은 다른 설정과 같은 1초 디바운스로 저장된다. */}
       <WindowChrome onLangChange={(lang) => patchConfig({ lang })} />
+      {/* 업데이트 정비 화면 — 할 일이 있을 때만. 제목줄은 덮지 않는다 (닫기 가능). */}
+      {maint && (
+        <div className="maint-overlay" role="dialog" aria-modal="true">
+          <div className="maint-box">
+            <div className="maint-title">업데이트 마무리 중</div>
+            <div className="maint-sub">검색 데이터를 새 버전에 맞게 정리하고 있습니다. 끝나면 자동으로 닫힙니다.</div>
+            <div className="maint-step">
+              <span className="maint-step-no">{`단계 ${maint.step}/${maint.steps}`}</span>
+              <span className="maint-step-label">{maint.label}</span>
+            </div>
+            <div className="maint-bar">
+              <span className={"maint-bar-fill" + (maint.total > 0 ? "" : " indet")}
+                    style={maint.total > 0
+                      ? { width: `${Math.min(100, Math.floor(maint.done / maint.total * 100))}%` }
+                      : undefined} />
+            </div>
+            <div className="maint-pct">
+              {maint.total > 0 ? `${Math.min(100, Math.floor(maint.done / maint.total * 100))}%` : " "}
+            </div>
+            <div className="maint-note">앱을 닫아도 다음 실행 때 이어서 합니다.</div>
+          </div>
+        </div>
+      )}
       {/* 힌트글이 검색 필터 열과 세로로 맞도록 왼쪽 위치를 넘긴다.
           사이드바 폭 + 분할바(11px, app.css .resizer-v) + 검색 칸 왼쪽 여백(10px,
           .search padding-left) = 첫 필터의 [전체] 드롭다운 왼쪽 끝.
@@ -1962,6 +2106,27 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
               : `미완료  ${pendingTotal.toLocaleString()}`}
           </span>
         )}
+        {/* 파일 정보 보강 — 남은 게 있을 때만. 도는 중이면 남은 시간, 아니면 '쉬는 동안 진행'. */}
+        {reparse.remaining > 0 && (() => {
+          const pct = reparse.total > 0
+            ? Math.min(99, Math.floor((reparse.total - reparse.remaining) / reparse.total * 100)) : 0;
+          const eta = reparse.running && reparse.etaSec != null && isFinite(reparse.etaSec)
+            ? Math.max(1, Math.round(reparse.etaSec / 60)) : null;
+          return (
+            <span className="meta-indicator reparse-indicator"
+                  data-tip={"파일 정보 보강 — 새 분석기로 WAV 파일의 키워드·분류·제목을 다시 읽습니다.\n"
+                    + "앱을 쓰지 않을 때(30초 이상 입력 없음)만 진행하고, 만지거나 재생하면 바로 멈춥니다."}>
+              {reparse.running
+                ? <>
+                    <span>{`파일 정보 보강 중 ${pct}%`}</span>
+                    {eta != null && <span>{eta >= 60
+                      ? ` · 남은 약 ${Math.floor(eta / 60)}시간 ${eta % 60}분`
+                      : ` · 남은 약 ${eta}분`}</span>}
+                  </>
+                : <span>{`파일 정보 보강 ${pct}% — 쉬는 동안 진행`}</span>}
+            </span>
+          );
+        })()}
         {/* 원본 progress_bar — 상태바 **우측 고정**(addPermanentWidget), 폭 360~420,
             텍스트가 게이지 안에 표시된다 (main_window.py:4718). */}
         {indexUI.label && (

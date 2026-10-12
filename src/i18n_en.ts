@@ -157,8 +157,8 @@ const CURATED_EN: Record<string, string> = {
   "재생 히스토리 열기/닫기\n단축키: H": "Show or hide playback history\nShortcut: H",
 
   /* 정확한 검색 툴팁 — 원문이 여러 줄을 join 한 것이라 통째로 한 항목이다 */
-  "정확한 검색\n\n단어를 끝까지 입력해야 매칭됩니다. 일부만 치면 안 나옵니다.\n앞부분만 치려면 끝에 * 를 붙이세요.\n단어 단위라 결과가 더 정확합니다.\n\n예) 'door' → door · doors 함께 나옴\n    'doo' (일부만) → 결과 없음\n    'doo*' → door · doorbell 등 doo 로 시작하는 단어\n\n끄면(넓게 찾기): 글자 조각으로 찾아 'doo'만 쳐도 나옵니다.\n\n정확한 검색에는 동의어를 붙이지 않습니다.":
-    "Exact search\n\nA word must be typed in full to match. Partial words return nothing.\nTo match only the start of a word, end it with *.\nMatching is word-based, so results are more precise.\n\ne.g. 'door' → returns door and doors\n     'doo' (partial) → no results\n     'doo*' → words starting with doo, such as door and doorbell\n\nOff (broad search): matches fragments, so typing just 'doo' returns results.\n\nExact search adds no synonyms.",
+  "정확한 검색\n\n단어 단위로 찾습니다. 4글자 이상은 앞부분만 쳐도\n그 말로 시작하는 단어를 찾습니다.\n\n예) 'apocalyp' → apocalypse · apocalyptic\n    'door' → door · doors · doorbell\n    'car' (3글자 이하) → car · cars 만 (cartoon 은 안 나옴)\n\n3글자 이하도 앞부분으로 찾으려면 끝에 * 를 붙이세요. 예) 'car*'\n\n끄면(넓게 찾기): 단어 중간의 글자 조각으로도 찾습니다.\n\n동의어도 붙습니다 — 원래 친 단어로 찾은 파일이 먼저 나옵니다.":
+    "Exact search\n\nMatches whole words. For words of 4+ letters, typing the start\nfinds every word that begins with it.\n\ne.g. 'apocalyp' → apocalypse, apocalyptic\n     'door' → door, doors, doorbell\n     'car' (3 letters or fewer) → car, cars only (no cartoon)\n\nFor 3 letters or fewer, add * to match the start. e.g. 'car*'\n\nOff (broad search): also matches letter fragments inside words.\n\nSynonyms are added too — files found by the word you typed come first.",
 
   /* 검색 상한 · 시간 제한 (2026-10-08) */
   "결과 {0}개 — 더 있음{1}": "{0} results — more available{1}",
@@ -167,15 +167,30 @@ const CURATED_EN: Record<string, string> = {
   "(추천: 1000개 이하 / 최대: 20000개. 값이 클수록 검색 성능에 영향을 줄 수 있습니다.)":
     "(Recommended: 1000 or less / Maximum: 20000. Larger values may affect search performance.)",
 
+  /* 업데이트 정비 화면 · 파일 정보 보강 (2026-10-12) */
+  "업데이트 마무리 중": "Finishing the update",
+  "검색 데이터를 새 버전에 맞게 정리하고 있습니다. 끝나면 자동으로 닫힙니다.": "Updating the search data for the new version. This closes automatically when done.",
+  "단계 {0}/{1}": "Step {0}/{1}",
+  "정확한 검색 단어색인 다시 만들기": "Rebuilding the exact-search word index",
+  "단어 목록 만들기": "Building the word list",
+  "검색 색인 누락 채우기": "Filling gaps in the search index",
+  "지난번 끊긴 검색 색인 이어서 반영": "Resuming the interrupted search index update",
+  "앱을 닫아도 다음 실행 때 이어서 합니다.": "If you close the app, it continues next time.",
+  "파일 정보 보강 중 {0}%": "Enhancing file info {0}%",
+  "· 남은 약 {0}시간 {1}분": "· about {0}h {1}m left",
+  "· 남은 약 {0}분": "· about {0}m left",
+  "파일 정보 보강 {0}% — 쉬는 동안 진행": "Enhancing file info {0}% — runs while idle",
+  "파일 정보 보강 — 새 분석기로 WAV 파일의 키워드·분류·제목을 다시 읽습니다.\n앱을 쓰지 않을 때(30초 이상 입력 없음)만 진행하고, 만지거나 재생하면 바로 멈춥니다.": "File info enhancement — re-reads keywords, categories and titles of WAV files with the new reader.\nRuns only while the app is idle (no input for 30+ seconds) and stops as soon as you use it or play a sound.",
+
   /* 철자 제안 · 환경설정 동의어 (2026-10-07) */
   "혹시 이 단어를 찾으셨나요?": "Did you mean this word?",
   "동의어:": "Synonyms:",
   "동의어도 함께 찾기": "Also search synonyms",
-  "검색어와 비슷한 말(UCS 동의어 사전, 단어마다 최대 3개)이 든 파일도 함께 찾습니다.\n4글자 이상 단어에만 붙고, 따옴표로 감싼 말과 정확한 검색에는 붙지 않습니다.": "Also finds files containing similar words (UCS thesaurus, up to 3 per word).\nOnly words of 4+ letters get them; quoted words and exact search do not.",
+  "검색어와 비슷한 말(UCS 동의어 사전)이 든 파일도 함께 찾습니다. 원래 단어로 찾은 파일이 먼저 나옵니다.\n4글자 이상 단어에만 붙고, 따옴표로 감싼 말에는 붙지 않습니다.": "Also finds files containing similar words (UCS thesaurus). Files found by the word you typed come first.\nOnly words of 4+ letters get them; quoted words do not.",
 
   /* 검색 문법 도움말 (Header 의 ? 버튼) — 원본 multi_search.py:_SEARCH_HELP_TEXT */
-  "필터 단축키\n  • Tab/Enter : 필터 추가\n  • 빈 검색창 Backspace : 위 필터로 이동 + 제거\n  • 최소 1개 필터는 유지\n\n검색 문법\n\n기본\n  • 공백 = AND (모두 매칭)\n  • 예: dark magic → 두 단어 모두 어딘가 있는 결과\n\n연산자 (대문자만 인식)\n  • AND : 둘 다 매칭          예) dark AND magic\n  • OR  : 둘 중 하나          예) sword OR knife\n  • 쉼표는 띄어쓰기와 같음    예) door, wood = door wood\n  • NOT : 제외                예) footstep NOT rain\n  • 앞에 - 를 붙여도 제외     예) door -slam\n\n그룹화\n  • 괄호로 우선순위 지정\n  • 예) (sword OR knife) AND fight\n\n따옴표 phrase\n  • \"dark magic\" → 그 순서로 붙은 결과만\n  • 따옴표 안의 말에는 동의어를 붙이지 않음\n\n동의어\n  • 비슷한 말도 함께 찾음 (UCS 사전, 단어마다 최대 3개)\n  • 4글자 이상 단어에만 붙음 / 정확한 검색에는 붙지 않음\n  • 환경설정에서 끌 수 있음\n\n비고\n  • 1-2글자 짧은 토큰은 매칭 잘 안 됨 (3글자 이상 권장)\n  • 위 문법은 “경로” 필드를 뺀 모든 필드에서 적용":
-    "Filter shortcuts\n  • Tab/Enter : add a filter\n  • Backspace in an empty box : move to the filter above and remove it\n  • At least one filter is always kept\n\nSearch syntax\n\nBasics\n  • A space means AND (all terms must match)\n  • e.g. dark magic → results containing both words somewhere\n\nOperators (uppercase only)\n  • AND : both match            e.g. dark AND magic\n  • OR  : either one matches    e.g. sword OR knife\n  • A comma is just a space    e.g. door, wood = door wood\n  • NOT : exclude               e.g. footstep NOT rain\n  • A leading - also excludes  e.g. door -slam\n\nGrouping\n  • Parentheses set precedence\n  • e.g. (sword OR knife) AND fight\n\nQuoted phrase\n  • \"dark magic\" → only results with the words adjacent in that order\n  • Words in quotes get no synonyms\n\nSynonyms\n  • Similar words are searched too (UCS thesaurus, up to 3 per word)\n  • Only words of 4+ letters / not in exact search\n  • Can be turned off in Settings\n\nNotes\n  • One or two character tokens match poorly (three or more recommended)\n  • This syntax applies to every field except “Path”",
+  "필터 단축키\n  • Tab/Enter : 필터 추가\n  • 빈 검색창 Backspace : 위 필터로 이동 + 제거\n  • 최소 1개 필터는 유지\n\n검색 문법\n\n기본\n  • 공백 = AND (모두 매칭)\n  • 예: dark magic → 두 단어 모두 어딘가 있는 결과\n\n연산자 (대문자만 인식)\n  • AND : 둘 다 매칭          예) dark AND magic\n  • OR  : 둘 중 하나          예) sword OR knife\n  • OR 는 바로 옆 단어끼리     예) sword OR knife metal → 금속인 칼이나 검\n  • 쉼표는 띄어쓰기와 같음    예) door, wood = door wood\n  • NOT : 제외                예) footstep NOT rain\n  • 앞에 - 를 붙여도 제외     예) door -slam\n\n그룹화\n  • 괄호로 우선순위 지정\n  • 예) (sword OR knife) AND fight\n\n따옴표 phrase\n  • \"dark magic\" → 그 순서로 붙은 결과만\n  • 따옴표 안의 말에는 동의어를 붙이지 않음\n\n동의어\n  • 비슷한 말도 함께 찾음 (UCS 사전)  예) sword → machete · dagger · katana\n  • 원래 친 단어로 찾은 파일이 먼저, 비슷한 말로 찾은 파일은 그 뒤\n  • 4글자 이상 단어에만 붙음 (넓게·정확 모두)\n  • 환경설정에서 끌 수 있음\n\n비고\n  • 1-2글자 짧은 토큰은 매칭 잘 안 됨 (3글자 이상 권장)\n  • 위 문법은 “경로” 필드를 뺀 모든 필드에서 적용":
+    "Filter shortcuts\n  • Tab/Enter : add a filter\n  • Backspace in an empty box : move to the filter above and remove it\n  • At least one filter is always kept\n\nSearch syntax\n\nBasics\n  • A space means AND (all terms must match)\n  • e.g. dark magic → results containing both words somewhere\n\nOperators (uppercase only)\n  • AND : both match            e.g. dark AND magic\n  • OR  : either one matches    e.g. sword OR knife\n  • OR binds only its neighbours e.g. sword OR knife metal → a metal sword or knife\n  • A comma is just a space    e.g. door, wood = door wood\n  • NOT : exclude               e.g. footstep NOT rain\n  • A leading - also excludes  e.g. door -slam\n\nGrouping\n  • Parentheses set precedence\n  • e.g. (sword OR knife) AND fight\n\nQuoted phrase\n  • \"dark magic\" → only results with the words adjacent in that order\n  • Words in quotes get no synonyms\n\nSynonyms\n  • Similar words are searched too (UCS thesaurus)  e.g. sword → machete · dagger · katana\n  • Files found by the word you typed come first, then files found by similar words\n  • Only words of 4+ letters (broad and exact search)\n  • Can be turned off in Settings\n\nNotes\n  • One or two character tokens match poorly (three or more recommended)\n  • This syntax applies to every field except “Path”",
   /* ── 바이노럴 채널 순서 팝업 (LayoutDialogs.ChannelOrderDialog, 2026-09-16) ──
      본문은 한 텍스트 노드라 파일명·순서 이름을 {0}{1} 자리표로 받는 통짜 열쇠가 필요하다. */
   "채널 순서 확인 필요": "Channel order needs confirmation",

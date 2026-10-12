@@ -13,7 +13,7 @@ except ImportError:
 
 from app.database import Database, AudioFile
 from app.sync import LocalStore, IndexBusy
-from app.metadata import extract, SUPPORTED_EXTS
+from app.metadata import extract, SUPPORTED_EXTS, META_PARSER_VERSION
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +23,7 @@ MTIME_TOL = 2.0
 # 세션이 자연 완료되면(대기 0) 지운다. 라이브러리 제거/완전삭제도 지운다 —
 # 대기수가 줄어드는데 분모가 남으면 완료 수가 실제보다 커 보인다.
 META_SESSION_TOTAL_KEY = "meta_session_total"
+META_REPARSE_TOTAL_KEY = "meta_reparse_total"     # 파일 정보 보강(분석기 v3) 진행 분모 — 2단계와 따로 센다
 
 
 def _norm(p: str) -> str:
@@ -444,6 +445,23 @@ class LibraryManager:
             except Exception:
                 logger.exception("WAL checkpoint 실패")
             self._busy.release()
+
+    def reparse_metadata(self, progress_cb: Optional[Callable[[IndexProgress], None]] = None) -> Dict:
+        """파일 정보 보강 — 분석기 v3 으로 이미 읽은 WAV 를 다시 읽는다 (화면이 쉬는 동안에만 부른다).
+        취소되면 거기까지 저장되고 다음에 이어서 한다. 반환에 남은 수를 싣는다."""
+        self._cancel.clear()
+        progress = IndexProgress()
+        progress.phase2_reparse = True
+        self.current_progress = progress
+        try:
+            db = Database(str(self.db_path))
+            self._phase2_metadata(db, progress, progress_cb)
+            remaining = db.reparse_remaining(META_PARSER_VERSION)
+            return {"success": True, "remaining": remaining, "total": int(progress.total or 0),
+                    "indexed": int(progress.indexed or 0), "progress": progress}
+        except Exception as e:
+            logger.exception("파일 정보 보강 실패")
+            return {"success": False, "message": f"파일 정보 보강 오류: {e}", "progress": progress}
 
     def update_metadata_background(self,
                                    progress_cb: Optional[Callable[[IndexProgress], None]] = None) -> Dict:
@@ -1037,6 +1055,11 @@ class LibraryManager:
                         chunk,
                     )
                     work_pool.extend((r[0], r[1], r[2], r[3]) for r in cur.fetchall())
+            elif getattr(progress, "phase2_reparse", False):
+                # 파일 정보 보강 (분석기 v3) — 이미 읽은 WAV 를 다시 읽는다
+                cur.execute("SELECT id, file_path, file_size, modified_at FROM audio_files "
+                            f"WHERE {db.reparse_where(META_PARSER_VERSION)}")
+                work_pool = [(r[0], r[1], r[2], r[3]) for r in cur.fetchall()]
             elif getattr(progress, "phase2_restrict_to_run", False):
                 work_pool = []
             else:
@@ -1060,15 +1083,17 @@ class LibraryManager:
         # ⚠ 라이브러리를 제거하면 대기수가 줄어드는데 분모는 그대로여서 완료 수가
         #   실제보다 커 보인다. 제거/완전삭제 경로에서 이 키를 지운다
         #   (clear_meta_session_total).
+        reparse = bool(getattr(progress, "phase2_reparse", False))
+        total_key = META_REPARSE_TOTAL_KEY if reparse else META_SESSION_TOTAL_KEY
         try:
-            saved_total = int(db.get_meta(META_SESSION_TOTAL_KEY) or 0)
+            saved_total = int(db.get_meta(total_key) or 0)
         except (TypeError, ValueError):
             saved_total = 0
         if saved_total > 0 and pending_total <= saved_total:
             session_total = saved_total
         else:
             session_total = pending_total
-            db.set_meta(META_SESSION_TOTAL_KEY, str(session_total))
+            db.set_meta(total_key, str(session_total))
         progress.total = session_total
         progress.base_done = max(0, session_total - pending_total)
         progress.indexed = 0
@@ -1083,7 +1108,7 @@ class LibraryManager:
             if run_id and (db.get_meta("active_phase2_run_id") or "") == run_id:
                 db.set_meta("active_phase2_run_id", "")
             # 대기 0 = 세션 자연 완료 → 다음 세션이 옛 분모를 물려받지 않게 지운다
-            db.set_meta(META_SESSION_TOTAL_KEY, "")
+            db.set_meta(total_key, "")
             logger.info("Phase2 즉시 종료 — pending 0")
             return
 
@@ -1138,9 +1163,16 @@ class LibraryManager:
                 batch_files, failed_map, failed_id_map = item
                 try:
                     if failed_map:
-                        db.mark_metadata_failed(failed_map, id_map=failed_id_map)
+                        if reparse:
+                            # 보강 중 실패 — 이미 성공했던 파일이다. 실패로 바꾸지 않고 기존 정보를
+                            # 그대로 둔 채 '이 버전으로 시도함' 만 남긴다 (NAS 순간 오류로 멀쩡한
+                            # 파일이 실패 목록에 들어가지 않게).
+                            db.set_meta_ver([failed_id_map.get(p) or Database.generate_id(p)
+                                             for p in failed_map], META_PARSER_VERSION)
+                        else:
+                            db.mark_metadata_failed(failed_map, id_map=failed_id_map)
                     if batch_files:
-                        db.upsert_files(batch_files, defer_fts=True)
+                        db.upsert_files(batch_files, defer_fts=True, meta_ver=META_PARSER_VERSION)
                         # 메타 없는 파일(SFX 류)은 Phase1 entry 유지 — 색인 반영 대상 아님
                         pending_fts.extend(
                             af.file_id for af in batch_files
