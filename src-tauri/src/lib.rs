@@ -322,14 +322,20 @@ struct SearchState {
 fn ensure_search_service(inner: &SearchInner) -> Result<(), String> {
     let mut child_guard = inner.child.lock().map_err(|_| "검색 상태 잠금 실패".to_string())?;
     let mut in_guard = inner.stdin.lock().map_err(|_| "검색 입력 잠금 실패".to_string())?;
-    let mut out_guard = inner.stdout.lock().map_err(|_| "검색 출력 잠금 실패".to_string())?;
     let dead = child_guard.as_mut()
         .map(|c| c.try_wait().ok().flatten().is_some())
         .unwrap_or(true);
-    if !dead && in_guard.is_some() && out_guard.is_some() {
+    /* ⚠ 살아 있으면 출력(stdout) 잠금은 잡지 않는다. 앞선 검색이 응답을 기다리는 내내 그 잠금을
+       쥐고 있어서, 여기서 기다리면 새 요청이 파이썬에 **전달조차 안 돼** 앞 검색을 끊지 못하고
+       검색이 줄줄이 끝까지 돈다 — 실측 2026-10-13 'spark/energy/sci-fi' 입력 중 4→5→7→9→13초로
+       쌓여 '검색 중...' 이 20초 넘게 남았다 (검색 하나가 0.5초 안이던 시절엔 드러나지 않았다).
+       죽었을 때만 아래에서 출력 잠금을 잡는다 — 읽던 쪽은 파이프가 닫혀(EOF) 곧 놓는다. */
+    if !dead && in_guard.is_some() {
         return Ok(());
     }
+    /* 옛 프로세스를 먼저 끝낸다 — 그래야 응답을 기다리던 쪽이 EOF 로 출력 잠금을 놓는다 */
     if let Some(mut old) = child_guard.take() { let _ = old.kill(); }
+    let mut out_guard = inner.stdout.lock().map_err(|_| "검색 출력 잠금 실패".to_string())?;
     let mut child = python_bridge("query", "sf_query.py")
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())

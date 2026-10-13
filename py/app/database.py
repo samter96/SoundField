@@ -3014,6 +3014,17 @@ class Database:
         likes: List[str] = []
         like_params: List[str] = []
         fields = self.SEARCHABLE_FIELDS if field == "any" else [field]
+        syns = getattr(term, "legacy_syns", None) if with_syns else None
+        if syns and len(term.words) == 1 and len(term.words[0].rstrip("*")) >= 3:
+            # 동의어는 **단어로** 찾는다 (단어색인, 뿌리 꼴 — 정확한 검색과 같다). 원래 친 단어만 글자 일부.
+            # 사용자 결정 2026-10-13: 글자 일부로 찾으면 짧은 동의어가 남의 단어 속에 걸렸다
+            #   (spark 의 ARC → search·march 37만 행, energy 의 shield → windshield) — 결과도 지저분하고
+            #   이 단계가 2~5초 걸려 타이핑 중 검색이 밀렸다. 뿌리 꼴이라 뜻이 바뀌는 묶음
+            #   (shorting → short, rocking → rock)이 섞이는 것은 감수한다 — "혼입이 누락보다 낫다".
+            #   붙여 쓴 이름 속 동의어(Lightsaber 의 saber)는 못 찾는다.
+            orig_sql, orig_params = self._orig_term_sql(term, with_syns=False)
+            return (f"{orig_sql} UNION SELECT rowid FROM search_fts_term WHERE search_fts_term MATCH ?",
+                    orig_params + ["(" + " OR ".join(self._phrase([s]) for s in syns) + ")"])
         for word in term.words:
             word = word.rstrip("*") or word          # 넓게 찾기는 이미 글자 일부 — '*' 무의미
             if len(word) >= 3:
@@ -3023,12 +3034,7 @@ class Database:
                         f'(file_name:"{esc}" OR file_name_norm:"{esc}")' if field == "file_name"
                         else f'{field}:"{esc}"'))
                 else:
-                    expr = self._fts_term(field, word)
-                    # 예전 방식 동의어 (UCS, 단어마다 최대 3개) — 원래 단어와 OR 로 묶는다
-                    syns = getattr(term, "legacy_syns", None) if with_syns else None
-                    if syns:
-                        expr = "(" + " OR ".join([expr] + [self._fts_term("any", s) for s in syns]) + ")"
-                    fts_parts.append(expr)
+                    fts_parts.append(self._fts_term(field, word))
             else:
                 clauses = []
                 for f in fields:
