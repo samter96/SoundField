@@ -1,0 +1,1823 @@
+# SoundField 게임 사운드 동의어 사전 — 베이스헤드 형식 (ID<TAB>말<TAB>말…). 생성: merge.py
+1	blast	xplo	bang
+2	heavy	hard
+3	whoosh	woosh	swish	swoosh	whsh	swipe
+4	fast	quick	zip	whiz
+5	movement	mvt	mvmt
+6	car	auto	sedan	coupe
+7	boom	sub	subsonic
+8	thump	whoomph
+9	window	windshield	glass	windscreen
+10	break	shatter	crack	fracture	split	snap
+11	soft	light	gentle
+12	little	tiny	small	sml
+13	warble	wobble	flutter
+14	cartoon	comedy	comical	crt	comedic	funny
+15	crash	smash	collide	impact	collision
+16	gun	revolver	pistol	9mm
+17	deep	sub	low
+18	residential	suburban	suburbs
+19	shimmer	glimmer	gleem	sparkle
+20	monster	creature	beast
+21	whop	thwop
+22	voice	vox	vocal	talk
+23	harbor	harbour	port
+24	spell	magic	cast
+25	sweetner	sweetener
+26	crickets	crix
+27	theater	theatre
+28	cloth	sheets	flag	fabric
+29	ghost	spirit
+30	debris	fragment	pieces
+31	impact	hit	strike	collision
+32	slide	scrape	scuff	drag
+33	concrete	cement	asphalt	pavement
+34	macadam	tarmacadam	bitumen
+35	rock	stone	brick	pebble
+36	gritty	crunchy	gravel	rough
+37	shoot	gunfire	shot	gunshot
+38	walla	wlla	wallah
+39	scrape	slide	drag
+40	ext	exterior	out	outside	outdoor
+41	footstep	ftstp	feet	step	foot	fs
+42	scuff	shuffle	scrape	slide
+43	wronk	wonk	ronk	strain	bend	stress
+44	subjective	subj
+45	dirt	earth	mud	soil
+46	box	carton	cardboard
+47	flap	flutter	rustle
+48	growl	snarl	sneer
+49	tweet	chirp
+50	branch	twig	bough	stick
+51	clunk	clank	thunk
+52	bite	chomp	chew	eat	munch
+53	pipe	pole	scaffold	beam
+54	gore	gross
+55	close	shut	secure	cls
+56	scream	yell	shout	shriek	screech
+57	voices	talk	conversation	crowd
+58	gurgle	gargle
+59	sharp	harsh	pointy
+60	large	huge	big	massive	lge	lrg
+61	wind	breeze	air	gust	wnd
+62	dog	hound	puppy	wolf
+63	vehicle	car	truck	auto
+64	engine	motor
+65	bell	gong	ring	ding
+66	twist	fold
+67	football	soccer	rugby
+68	punch	blow	impact	hit
+69	spray	squirt	gush
+70	squeak	creak
+71	lfe	sub	low	deep
+72	airy	ary
+73	amb	ambiance	ambience	tone	environment
+74	eerie	scary	spooky	horror	evil
+75	squish	squirt	splat
+76	groan	moan
+77	brush	foliage	vegetation	tree
+78	mouse	mice
+79	electric	arc	spark	voltage
+80	stadium	arena
+81	fall	drop
+82	bike	bicycle
+83	gravel	dirt
+84	buzz	hum
+85	tv	television
+86	boat	ship
+87	antique	old	ancient	vintage
+88	men	male	man
+89	wolf	wolves
+90	laptop	notebook
+91	goose	geese
+92	straw	hay
+93	hummer	humvee
+94	buzzing	humming
+95	stove	oven
+96	leaf	leaves
+97	woman	female	women
+98	kids	children
+99	kid	child
+100	highway	freeway	expressway
+101	int	interior
+102	field	prairie
+103	knife	dagger
+104	morning	dawn
+105	evening	dusk
+106	vomit	puke	barf
+107	tarmac	runway
+108	shed	cabin
+109	cupboard	cabinet
+110	jail	prison	cell
+111	cemetary	graveyard
+112	sink	faucet	basin
+113	lite	light
+114	shake	rattle	jitter
+115	swamp	marsh	wetlands
+116	tropical	tropics	rainforest
+117	button	btn	buttons
+118	rollover	mouseover	mouse over	roll over
+119	confirm	accept	confirmation	okay
+120	cancel	decline	cancellation
+121	notification	notif	notify	notifications
+122	popup	pop up	pop-up	popups
+123	tooltip	tool tip	tooltips
+124	checkbox	check box	tickbox	tick box
+125	dropdown	drop down	drop-down
+126	scrollbar	scroll bar
+127	menu	submenu
+128	interface	ui	gui	user interface	hud
+129	inventory	inv	backpack
+130	deselect	unselect
+131	navigate	navigation	nav
+132	error	errors	invalid
+133	denied	deny	access denied
+134	warning	warn	caution
+135	purchase	buy	buying	purchased
+136	sell	selling	sold
+137	countdown	count down	count-down
+138	loading	loader	load screen	loading screen
+139	transition	transitions	screen transition
+140	typing	typewriting	keystroke	keystrokes
+141	keypress	key press	keystroke
+142	map	minimap	mini map
+143	quest	quests	missions
+144	objective	objectives	goal
+145	checkpoint	check point	save point	savepoint
+146	autosave	auto save
+147	achievement	achievements	trophy	trophies	accolade
+148	reward	rewards	prize	prizes
+149	bonus	bonuses
+150	win	winner	winning
+151	defeat	defeated	lose	losing	game over	gameover
+152	fail	failed	failure
+153	level up	levelup	level-up	lvl up	lvlup
+154	rank up	rankup	promotion
+155	experience	exp	xp
+156	health	hit points	health bar
+157	mana	magic points
+158	stamina	endurance
+159	coin	coins	coin pickup
+160	pickup	pick up	pick-up	pickups
+161	loot	looting	drop loot
+162	treasure chest	loot box	lootbox
+163	zoom in	zoomin
+164	zoom out	zoomout
+165	open menu	menu open
+166	close menu	menu close
+167	resume	unpause
+168	start game	game start
+169	respawn	respawning	revive	resurrect	resurrection
+170	teleport	teleporting	teleportation	warp	warping
+171	portal	portals	rift
+172	power up	powerup	power-up	powerups	pwrup
+173	power down	powerdown	power-down
+174	charge up	chargeup	charge-up	charging up
+175	cooldown	cool down	cool-down
+176	blip	blips	bloop
+177	beep	beeps	bleep	bleeps
+178	tock	ticktock	tick tock
+179	fanfares	flourish
+180	stinger	stingers	sting	stings	stngr
+181	sfx	fx	sound effect	sound effects
+182	magic	magical	magik	sorcery	wizardry
+183	spell	spells	incantation	enchantment
+184	spellcast	spell cast	spellcasting
+185	summon	summoning	conjure	conjuring	conjuration
+186	heal	healing	heals	regen	regeneration	restore
+187	buff	buffs	empower	empowered
+188	debuff	debuffs	hex	hexes	curse	cursed
+189	poison	poisoned	venomous
+190	holy	divine	sacred	celestial
+191	dark magic	black magic	necromancy	necromantic
+192	arcane	mystic	mystical	occult
+193	fireball	fire ball	fire balls	fireballs
+194	frosty	frostbite	icy
+195	lightning	lightning bolt
+196	shockwave	shock wave	shock waves	shockwaves
+197	aoe	area of effect
+198	energy ball	plasma ball	energy orb
+199	orb	orbs	sphere
+200	force field	forcefield	energy shield	shield bubble
+201	freeze	frozen	freezing
+202	implode	implosion	imploding
+203	materialize	materialise	materializing
+204	dematerialize	dematerialise	dematerializing
+205	shapeshift	shape shift	shapeshifting
+206	invisible	invisibility	cloak	cloaking	stealth
+207	potion	potions	elixir	elixirs
+208	rune	runes	runic
+209	glyph	glyphs	sigil	sigils
+210	druid	druidic
+211	witch	witches	witchcraft
+212	wizard	wizards	sorcerer	sorcerers	mage	mages
+213	earth magic	earth spell
+214	water magic	water spell
+215	wind magic	wind spell
+216	sparkle	sparkles	sparkling	glitter	glittering	twinkle
+217	fairy dust	pixie dust	magic dust
+218	sanctify	consecrate
+219	gunshot	gunshots	gun shot	gun shots	gunfire	gun fire
+220	handgun	handguns	pistol	pistols
+221	revolver	revolvers	six shooter
+222	assault rifle	assault rifles
+223	sniper	sniper rifle	sniper rifles	snipers
+224	shotgun	shotguns	scattergun
+225	submachine gun	sub machine gun	smg	smgs
+226	machine gun	machinegun	machine guns
+227	light machine gun	lmg
+228	minigun	gatling	gatling gun
+229	rocket launcher	rpg
+230	grenade launcher	grenade launchers
+231	grenade	grenades	nade
+232	flashbang	flash bang	stun grenade
+233	landmine	land mine	mine explosion
+234	c4	plastic explosive
+235	silencer	suppressor	suppressed	silenced
+236	dry fire	dryfire	empty chamber
+237	bolt action	bolt-action
+238	semi auto	semi automatic	semiautomatic
+239	full auto	fullauto	full automatic
+240	burst fire	three round burst
+241	muzzle	muzzle blast
+242	recoil	kickback
+243	shell casing	shell casings	casing	casings	brass casing
+244	bullet	bullets	bllt
+245	ricochet	ricochets	richochet
+246	bullet whiz	bullet whizz	whizby	whiz by	bullet flyby	bullet pass
+247	bullet impact	bullet hit	bullet hits
+248	ammo	ammunition
+249	artillery	artl
+250	tank shell	tank fire
+251	laser	lasers	lazer	lasr
+252	raygun	ray gun	ray guns	rayguns	blaster	blasters
+253	plasma gun	plasma rifle
+254	railgun	rail gun
+255	flamethrower	flame thrower
+256	bow and arrow	longbow	shortbow
+257	arrow impact	arrow hit
+258	arrow whoosh	arrow flyby
+259	sword	swords	swrd	blade	saber	sabre	katana	longsword	broadsword	claymore	cutlass	scimitar	rapier	machete	machetes	dagger	knife	knives
+260	dagger	knife	knives
+261	axe	axes	hatchet	hatchets
+262	maces	flail	morning star	warhammer	war hammer
+263	spear	spears	lances	javelin
+264	halberd	polearm	glaive
+265	shield	shields	buckler
+266	unsheathe	unsheath	sword draw	draw sword	blade draw
+267	sheathe	sheath	sword sheath
+268	sword clash	sword hit	blade clash
+269	parry	parries	deflect	deflection
+270	whip	whips	bullwhip	bull whip
+271	chain weapon	chains swing
+272	shuriken	throwing star
+273	sling	slingshot
+274	catapult	trebuchet
+275	punch	punches	jab	jabs	uppercut	uppercuts
+276	body hit	body blow	body impact
+277	grab	grabbing	grabs	grapple
+278	fight	fighting	brawl	brawling	fistfight	melee
+279	hand to hand	hand-to-hand	martial arts
+280	dodge	dodging	evade	evading
+281	bodyfall	body fall	bodyfalls	body falls	body drop
+282	footstep	footsteps	foot step	foot steps	footfall	footfalls	ftstp
+283	sneak	sneaking	tiptoe	tip toe
+284	jump	jumps	jumping	leap	leaping
+285	cloth	clothes	clothing	fabric	garment	garments
+286	leather	lethr
+287	armor	armour	armoured
+288	chainmail	chain mail	mail armor
+289	plate armor	plate armour
+290	gear rattle	equipment rattle
+291	movement	mvmt	movements
+292	effort	efforts	exertion	efrt
+293	pain	painful	hurt
+294	death	dying	death cry	death scream
+295	breath	breathing	breaths	breathe	brth
+296	heartbeat	heart beat	heartbeats	heart beats
+297	laugh	laughs	laughing	laughter	chuckle	chuckles	giggle	giggles
+298	cry	crying	sob	sobbing	weep	weeping
+299	scream	screams	screaming	scrm
+300	shout	shouts	yell	yells	yelling	holler
+301	groan	groans	groaning	moan	moans	moaning
+302	applause	clapping	claps	ovation
+303	cheer	cheers	cheering	hooray	hurrah
+304	walla	crowd walla	crowd murmur
+305	crowd	crowds	crwd
+306	dialog	dialogue	dialogs	dialogues
+307	voice over	voiceover	vo
+308	eat	eating	chew	chewing	munching
+309	drink	drinking	sip	sipping	gulp	gulping
+310	burp	burps	belch
+311	fart	farts	flatulence
+312	creature	creatures	monster	monsters	beast	beasts	crea
+313	growl	growls	growling	snarl	snarls	snarling
+314	roar	roars	roaring	bellow	bellows
+315	sniff	sniffs	sniffing
+316	chomp	chomps	chomping	bite	bites	biting
+317	attack vocal	attack vox
+318	death vocal	death vox
+319	idle vocal	idle vox
+320	vocalization	vocalizations	vocalisations	vocals
+321	dragon	dragons	wyvern	wyverns
+322	zombie	zombies	undead	ghoul	ghouls
+323	ghost	ghosts	spirit	spirits	phantoms	specter	spectre	wraith	wraiths
+324	demon	demons	demonic	daemon
+325	werewolf	werewolves	lycan
+326	alien	aliens	extraterrestrial	xeno
+327	insect	insects	bug	bugs	insc
+328	spider	spiders	arachnid
+329	slime	slimy	ooze	oozing
+330	robot	robots	robotic	droid	droids	android	robt	robo
+331	dog	dogs	canine	hound	hounds	puppy	pup
+332	cat	cats	feline	kitten	kittens
+333	meow	meows	miaow
+334	purr	purrs	purring
+335	horse	horses	equine	stallion	mare	pony
+336	whinny	whinnies	whinnying	neigh	neighs
+337	hooves	hoof	hoofs
+338	cow	cows	cattle	bovine
+339	pig	pigs	hog	hogs	swine
+340	oink	oinks	grunting pig
+341	sheep	lamb	lambs
+342	chicken	chickens	hen	hens	rooster
+343	crow call	rooster crow	cock a doodle doo
+344	bird	birds	avian	songbird	songbirds
+345	birdsong	bird song	birdsongs	bird songs
+346	chirp	chirps	chirping	tweet	tweets	tweeting
+347	wing flap	wing flaps	wings flap	flapping wings	wingflap
+348	crow	crows	raven	ravens
+349	seagull	seagulls	gull	gulls
+350	frog	frogs	toad	toads
+351	croak	croaks	croaking	ribbit
+352	snake	snakes	serpent	serpents
+353	rattlesnake	rattle snake
+354	wolf	wolves	wlvs
+355	trumpet call	elephant trumpet
+356	monkey	monkeys	ape	apes	primate
+357	rat	rats	rodent	rodents	rdnt
+358	dolphin	dolphins	dolph
+359	wasps	hornet	hornets
+360	grasshopper	locust	locusts
+361	dinosaur	dinosaurs	dino	t-rex	trex
+362	ambience	ambiance	ambiences	ambiances	amb	atmos	atmo	atmosphere	atmospheres
+363	room tone	roomtone	room tones
+364	wind	winds	windy
+365	breeze	breezes	breezy
+366	rain	raining	rainfall	rainy	downpour
+367	raindrop	raindrops	rain drop	rain drops
+368	thunder	thunders	thunderclap	thunder clap	thunderclaps	thunder crack
+369	thunderstorm	thunder storm	thunderstorms
+370	storm	storms	stormy	strm
+371	hail	hailstorm	hail storm
+372	snow	snowfall
+373	blizzard	snowstorm	snow storm
+374	water	h2o	h20	watr
+375	splash	splashes	splashing	splsh	splosh
+376	drip	drips	dripping	droplet	droplets
+377	stream	streams	creek	creeks	brook	brooks
+378	waterfall	waterfalls	water fall	cascade
+379	lake	lakes	lakeside
+380	oceans	sea	seas
+381	shore	shoreline	beach
+382	harbor	harbour	harbors	harbours
+383	swamp	swamps	marsh	marshes	bog	wetland	wetlands	swmp
+384	forest	forests	woods	woodland	woodlands
+385	jungle	jungles	rainforest	rain forest
+386	desert	deserts	dsrt
+387	cave	caves	cavern	caverns	grotto
+388	dungeon	dungeons	crypt	crypts	catacomb
+389	city	cities	urban	urbn	downtown
+390	town	towns	village	villages
+391	traffic	traf
+392	market	markets	marketplace	bazaar	mrkt
+393	tavern	taverns	pub
+394	factory	industrial
+395	school	schools	classroom
+396	church	churches	cathedral	chapel
+397	temple	temples	shrine
+398	spaceship interior	ship interior
+399	night	nighttime	night time
+400	day	daytime	day time
+401	dawn	sunrise	daybreak
+402	dusk	sunset	twilight
+403	flame	flames	flaming	blaze	blazes	blazing	inferno
+404	campfire	camp fire	campfires	bonfire
+405	torch	torches	trch
+406	fireplace	fire place	hearth
+407	lava	magma
+408	earthquake	quake	tremor	quakes
+409	volcano	volcanoes	eruption
+410	landslide	rockslide
+411	tornado	twister	cyclone
+412	hurricane	typhoon
+413	explosion	explosions	expl	explosive	explosives	detonation	detonate	detonations	kaboom	blast	blasts
+414	debris	rubble	fragments	shrapnel
+415	destruction	destroy	destr
+416	break	breaks	breaking	brk
+417	impact	impacts	impt	hit	hits
+418	thud	thuds	thump	thumps
+419	jingle keys	keys jingle
+420	scuff	scuffs	scuffing
+421	squeak	squeaky	squeaking
+422	creak	creaks	creaking	creaky
+423	groan metal	metal groan	metal stress
+424	squish	squishes	squishing	squishy
+425	splat	splats	splatter	splattering
+426	gore	gory	gruesome
+427	blood	bloody
+428	flesh	fleshy
+429	bone	bones	bone break	bone crack
+430	metal	metallic	metl	metals
+431	steel	steely
+432	wood	wooden	wood impact	timber
+433	glass	glas
+434	ceramic	ceramics	porcelain	cerm
+435	plastic	plas
+436	rubber	rubr
+437	paper	papr	papers
+438	cardboard	card board	carton
+439	stone	stones	rock	rocks
+440	gravel	pebbles	pebble
+441	sand	sandy
+442	mud	muddy
+443	concrete	cement	conc
+444	window	windows	wndw
+445	drawer	drawers	drwr
+446	cabinet	cabinets	cupboard	cupboards
+447	furniture	furn
+448	box	boxes	crate	crates
+449	bag	bags	sack	sacks
+450	unlock door	door unlock
+451	handle rattle	door handle
+452	lever	levers	lvr
+453	switch	switches	flip switch
+454	cog	cogwheel	cogwheels	gearwheel
+455	ratchet	ratchets	rtch
+456	clock work	wind up	windup
+457	servo	servos	srvo	actuator	actuators
+458	hydraulic	hydraulics	hydr
+459	motor	motors	motr
+460	machine	machines	mach
+461	wrench	wrenches	spanner
+462	screwdriver	screw driver
+463	chainsaw	chain saw	chainsaws
+464	anvil	anvils	blacksmith	forge	forging
+465	car	cars	autos	automobile	automobiles	sedan	coupe
+466	truck	lorry
+467	bus	buses	busses
+468	motorcycle	motorcycles	motorbike	motorbikes
+469	bicycle	bicycles	cyclist
+470	scooter	scooters	moped
+471	train	trains	trn	locomotive	locomotives
+472	subway	metro	underground train	sbwy
+473	tram	trams	streetcar
+474	helicopter	helicopters	chopper	heli	helo
+475	airplane	airplanes	aeroplane	aeroplanes	aircraft	aero
+476	jet	jets	jet engine
+477	propeller	prop plane	propellor
+478	quadcopter	quad copter
+479	spaceship	spaceships	space ship	space ships	spacecraft	starships
+480	ufo	ufos	flying saucer
+481	boat	boats	ship	ships	vessel
+482	speedboat	speed boat	speedboats	motorboat	motor boat
+483	sailboat	sail boat	yacht
+484	submarine	submarines	sub marine
+485	hovercraft	hover craft
+486	hoverbike	hover bike
+487	pass by	passby	pass-by	pass bys	passbys	drive by	driveby	drive-by
+488	fly by	flyby	fly-by	flybys	fly bys
+489	accelerate	acceleration	accel	accelerating
+490	decelerate	deceleration	decel
+491	tire squeal	tyre squeal	tire screech
+492	honk	honks	honking	car horn
+493	engine start	start up	startup
+494	engine stop	shut down	shutdown
+495	exhaust	tailpipe
+496	gear shift	gearshift	gear change
+497	exterior	ext
+498	onboard	on board	on-board
+499	sci-fi	scifi	sci fi	science fiction
+500	futuristic	future	hi tech	hitech	high tech
+501	cyber punk	cyber
+502	electric	electrical	electricity	elec
+503	spark	sparks	sparking	sparky
+504	zap	zaps	zapping	zapper
+505	arc	arcs	electric arc
+506	buzz electric	electric buzz
+507	static	radio static
+508	noise	noisy
+509	glitch	glitches	glitchy	glitching
+510	bitcrush	bit crush	bitcrushed
+511	distortion	distorted	dist
+512	computer	computers	cmpt
+513	mouse click	mouse clicks
+514	terminal	console
+515	hologram	holograms	holographic
+516	scanner	scanning	scan
+517	robot voice	robotic voice	vocoder
+518	power on	poweron	switch on	turn on
+519	power off	poweroff	switch off	turn off
+520	boot up	bootup	booting
+521	shut off	shutoff
+522	energy	energies	enrg
+523	gravity	gravitational
+524	warp drive	warpdrive	hyperdrive	hyper drive	hyperspace	hyper space
+525	engine hum	engine drone
+526	airlock	air lock	airlocks
+527	door hydraulic	hydraulic door
+528	sliding door	slide door
+529	alarm	alarms	alrm
+530	klaxon	emergency alarm
+531	laser beam	laser beams
+532	teleporters	transporter
+533	shield hit	shield impact
+534	mecha	exosuit	exo suit
+535	whoosh	whooshes	whooshing	woosh	swoosh	swooshes	swish	swishes	whsh	swsh
+536	riser	risers	uplifter	uplifters	up lifter	build up
+537	downer	downers	downlifter	downlifters	down lifter	faller	fallers
+538	braam	braams	braaam	brahm	bwaam	bwaaam
+539	hit	hits	trailer hit
+540	impact designed	designed impact
+541	tonal	tonl
+542	atonal	non tonal
+543	pitch up	pitched up	pitch rise
+544	pitch down	pitched down	pitch drop
+545	slowmo	slow mo	slow motion	slow-mo
+546	time stop	time freeze
+547	tape stop	tapestop	tape stops
+548	vinyl stop	record scratch
+549	tension	tense	suspenseful
+550	horror	scary	creepy	spooky
+551	eerie	eery	uncanny
+552	ominous	foreboding
+553	ethereal	ethr	otherworldly
+554	epic	grandiose
+555	heroic	heroism
+556	sad	sadness	melancholic
+557	happy	joyful	cheerful
+558	cute	adorable	kawaii
+559	cartoon	cartoony	toon
+560	comedy	comical	funny	humorous
+561	oldschool	old school	vintage
+562	chip tune	8bit	8 bit	8-bit
+563	lofi	lo fi	lo-fi	low fi
+564	hifi	hi fi	hi-fi
+565	one shot	oneshot	one-shot
+566	designed	dsgn	sound design
+567	foley	foly
+568	field recording	field recordings
+569	mono	monophonic
+570	stereo	stereophonic
+571	surround	5.1	7.1
+572	distant	far	faraway	far away	distance	dst
+573	outdoor	outside
+574	big	large	huge	massive	lrg
+575	small	tiny
+576	heavy	hard	strong
+577	fast	quick	rapid
+578	slow	slowly
+579	long	longer
+580	deep	low
+581	bright	brilliant
+582	dull	muffled	muted
+583	close up	closeup	close-up	cu
+584	hydrophone	hydrophones	hydro
+585	contact mic	contact microphone	contact mics
+586	electromagnetic	electro magnetic	emf	electromagnetic field
+587	suckback	suck back	suckbacks	suck backs
+588	power down	powerdown	power downs
+589	swell	swells	reverse swell
+590	pass by	passby	pan with
+591	acoustic guitar	acoustic gtr
+592	electric guitar	electric gtr	e-guitar
+593	bass guitar	bass gtr
+594	piano	pianos	pianoforte
+595	keyboard instrument	keys instrument
+596	synthesizer	synthesiser	synthesizers	synthesisers	synth	synths
+597	organ	pipe organ	church organ
+598	harpsichord	clavichord
+599	violin	violins	fiddle	fiddles
+600	cello	cellos	violoncello
+601	contrabass	double bass	upright bass
+602	saxophone	saxophones	sax
+603	french horn	french horns
+604	harmonica	mouth organ
+605	drum kit	drumkit	drum set	drumset
+606	snare	snare drum	snares
+607	kick drum	bass drum
+608	tom tom	tomtom	toms	floor tom
+609	hi hat	hihat	hi-hat	hihats
+610	crash cymbal	crash cymbals
+611	ride cymbal	ride cymbals
+612	timpani	kettledrum	kettledrums
+613	gong	gongs	tam tam	tamtam
+614	vibraphone	vibes
+615	celesta	celeste
+616	chimes	tubular bells
+617	maraca	maracas	shaker	shakers
+618	woodblock	wood block	woodblocks
+619	taiko	taiko drum
+620	didgeridoo	didjeridu
+621	kalimba	thumb piano	mbira
+622	ukulele	ukuleles	uke
+623	music box	musicbox	music boxes
+624	choirs	chorus
+625	orchestra	orchestral	symphonic
+626	percussion	perc	percussive
+627	strings	string section
+628	brass section	horns section
+629	arpeggio	arpeggios	arp
+630	tempo	bpm
+631	decrescendo	diminuendo
+632	pizzicato	pizz
+633	tremolo	trem
+634	vibrato	vib
+635	fade in	fadein	fade-in
+636	fade out	fadeout	fade-out
+637	intro	introduction
+638	outro	ending
+639	victory jingle	win jingle	victory fanfare
+640	lose jingle	fail jingle	defeat jingle
+641	cutlery	silverware	flatware
+642	plate	plates	dish	dishes
+643	cup	cups	mug	mugs
+644	pot	pots	cookware
+645	kettle	kettles	teakettle
+646	microwave	microwave oven
+647	refrigerator	fridge	fridges
+648	washing machine	washer	laundry machine
+649	dryer	tumble dryer
+650	vacuum cleaner	vacuum	hoover
+651	faucet	tap water
+652	toilet	toilets	lavatory
+653	toilet flush	flush	flushing
+654	bathtub	bath tub	tub
+655	doorbell	door bell	doorbells
+656	telephone	phone	phones	telephones
+657	cellphone	cell phone	mobile phone
+658	ringtone	ring tone	ringtones
+659	alarm clock	alarm clocks
+660	wristwatch	wrist watch
+661	camera shutter	shutter	shutter click
+662	flashbulb	flash bulb
+663	eraser	rubber eraser
+664	marker	markers	felt pen	feltpen
+665	chalk	chalkboard	blackboard
+666	page turn	page flip	turning page
+667	paper rustle	paper rustling
+668	zipper	zip	zippers	zipr
+669	velcro	hook and loop
+670	button press	press button
+671	keychain	key ring	keyring
+672	coins	loose change
+673	wallet	wallets	purse
+674	backpack	rucksack	knapsack
+675	suitcase	luggage	suitcases
+676	lighter	cigarette lighter	zippo
+677	match strike	match striking	striking match
+678	light switch	lightswitch
+679	flashlight	flash light	torch light
+680	plug	plugs	plug in
+681	socket	outlet	wall socket
+682	cable	cords
+683	remote control	remote
+684	television	tv set	telly
+685	radio	radios	wireless set
+686	headphones	headphone	earphones
+687	vinyl	record player
+688	cassette	cassettes	tape deck
+689	vhs	videotape
+690	computer mouse	mouse click
+691	electric fan	desk fan	ceiling fan
+692	air conditioner	air conditioning	aircon
+693	heater	heaters	radiator
+694	blanket	blankets	duvet
+695	curtain	curtains	drapes
+696	blinds	window blinds
+697	carpet	rug	rugs
+698	floorboard	floorboards	floor board
+699	stairs	stairway
+700	elevator	lift car
+701	leaves	foliage
+702	leaf rustle	leaves rustle	rustling leaves
+703	branch	branches	bough
+704	tree fall	falling tree	timber fall
+705	bush	bushes	shrub	shrubs
+706	mushroom	mushrooms	fungus	fungi
+707	moss	mossy
+708	pinecone	pine cone	pinecones
+709	sea shell	seashell	seashells
+710	sand dune	dunes
+711	meadow	meadows	field of grass
+712	tundra	arctic
+713	frost crack	ice crack	cracking ice
+714	mud splash	muddy splash
+715	hot spring	hot springs
+716	steam	steaming	vapour	vapor
+717	fog	haze
+718	dew	dewdrop
+719	sunny	sunshine
+720	cloudy	overcast
+721	night insects	night bugs
+722	dawn chorus	morning birds
+723	lightning strike	lightning crack	thunder strike
+724	rumble thunder	distant thunder
+725	windstorm	wind storm
+726	sandstorm	sand storm	dust storm
+727	whirlwind	dust devil
+728	drought	dry spell
+729	tsunami	tidal wave
+730	rockfall	rock fall	falling rocks
+731	mudslide	mud slide
+732	ball bounce	bouncing ball	ball bouncing
+733	basketball	basketballs	hoops
+734	baseball bat	bat hit
+735	soccer ball	soccer
+736	tennis	tennis ball
+737	golf	golf ball	golf swing
+738	hockey	ice hockey	hockey puck
+739	bowling	bowling ball	bowling pins
+740	billiards	pool table	snooker
+741	ping pong	table tennis	pingpong
+742	boxing glove	boxing gloves
+743	wrestling	wrestle	wrestler
+744	fencing sword	foil sword	epee
+745	archery	archer
+746	skateboard	skateboarding	skate board
+747	skates	ice skates	rollerblades	roller skates
+748	surfboard	surf board
+749	swimming pool	pool splash
+750	whistle referee	referee whistle
+751	stadium	arena	stadiums
+752	scoreboard	score board
+753	buzzer	buzzers	buzr
+754	starting gun	starter pistol
+755	finish line	finishing line
+756	playground	play ground
+757	swing set	swingset
+758	seesaw	see saw	teeter totter
+759	slide playground	playground slide
+760	wind up toy	windup toy	clockwork toy
+761	rubber duck	rubber ducky
+762	squeaky toy	squeak toy	dog toy
+763	dice	die roll	dice roll
+764	cards	card shuffle	shuffling cards
+765	poker chips	casino chips
+766	slot machine	slot machines	fruit machine
+767	arcade machine	arcade cabinet
+768	pinball	pinball machine
+769	board game	boardgame
+770	chess	chess piece	chess pieces
+771	construction site	building site
+772	jackhammer	jack hammer	pneumatic drill
+773	bulldozer	bulldozers	dozer
+774	forklift	fork lift	forklifts
+775	cement mixer	concrete mixer
+776	nail gun	nailgun
+777	power drill	electric drill	cordless drill
+778	angle grinder	grinder	grinders
+779	circular saw	buzz saw
+780	table saw	tablesaw
+781	sander	sanding	sandpaper
+782	welding	welder	weld
+783	blowtorch	blow torch	torch flame
+784	compressor	air compressor
+785	generator	generators	genset
+786	conveyor	conveyor belt	conveyors
+787	assembly line	production line
+788	press machine	hydraulic press
+789	furnace	furnaces	kiln
+790	smelting	smelter
+791	steam engine	steam locomotive
+792	pump	pumps	water pump
+793	pipe hit	pipe impact
+794	sheet metal	metal sheet
+795	corrugated metal	corrugated iron	corrugated
+796	rebar	steel bar
+797	girder	girders	i-beam
+798	manhole	manhole cover
+799	sewer	sewers	sewage
+800	drainpipe	drain pipe	downpipe
+801	vent	vents	air vent	ventilation
+802	duct	ducts	ductwork
+803	car door	vehicle door
+804	car horn	vehicle horn
+805	seatbelt	seat belt	safety belt
+806	handbrake	hand brake	parking brake	e brake
+807	steering wheel	steering
+808	windshield wiper	wiper	wipers	windscreen wiper
+809	turn signal	blinker	blinkers
+810	headlight	headlights	head light
+811	engine bay	engine compartment
+812	hood slam	bonnet slam
+813	trunk open	boot lid
+814	tire	tires	tyre	tyres
+815	tire roll	rolling tire	tyre roll
+816	gravel road	dirt road
+817	tarmac	asphalt road
+818	offroad	off road	off-road
+819	burnout	burn out	wheelspin
+820	crash car	car crash	car accident
+821	traffic jam	gridlock
+822	highway	freeway	motorway	expressway
+823	intersection	crossroads
+824	parking lot	car park	parking garage
+825	gas station	petrol station	filling station
+826	fuel	petrol
+827	race car	racecar	racing car	racecars
+828	formula one	f1
+829	rally	rally car
+830	go kart	gokart	go-kart	kart
+831	police car	cop car	patrol car
+832	fire truck	firetruck	fire engine
+833	school bus	schoolbus
+834	taxi	taxis	cabs
+835	limousine	limo
+836	pickup truck	pick-up truck
+837	semi truck	18 wheeler	big rig	tractor trailer
+838	motor scooter	vespa
+839	dirt bike	dirtbike	motocross
+840	quad bike	atv	four wheeler
+841	snowmobile	snow mobile	skidoo
+842	jet ski	jetski	personal watercraft
+843	canoe	kayak	canoes	kayaks
+844	rowboat	row boat	rowing boat
+845	paddle	paddling	oar	oars
+846	foghorn	fog horn	ship horn
+847	airship	blimp	zeppelin
+848	hot air balloon	balloon flight
+849	glider	gliders	sailplane
+850	fighter jet	jet fighter	fighter plane
+851	airliner	passenger jet	jetliner
+852	landing gear	undercarriage
+853	takeoff	take off	lift off	liftoff
+854	sonic boom	sonicboom
+855	afterburner	after burner
+856	anger	angry	rage	furious
+857	fear	afraid	scared	frightened
+858	panic	panicked
+859	surprise	surprised	shocked
+860	disgust	disgusted	gross
+861	joy	joyous	delight
+862	calm	calming	peaceful	tranquil
+863	mysterious	mystery	enigmatic
+864	magical moment	enchanted
+865	dramatic	drama
+866	chaotic	chaos	mayhem
+867	loneliness	desolate
+868	romantic	romance
+869	nostalgic	nostalgia
+870	stealthy	stealth
+871	mechanical feel	mechanized
+872	alien feel	otherworldly
+873	underwater feel	submerged	muffled underwater
+874	slow motion	slowmotion	bullet time
+875	jump scare	jumpscare
+876	heartbeat tension	tension heartbeat
+877	ticking clock	clock ticking
+878	countdown beep	countdown beeps
+879	impact hit	hit impact
+880	transition whoosh	whoosh transition
+881	logo	logo sting	logo reveal
+882	title	title card	title hit
+883	menu music	title music
+884	aircraft	aero
+885	ambience	amb
+886	animals	animal	anml
+887	cartoon	toon
+888	ceramics	ceramic	cerm
+889	chemicals	chemical	chem
+890	creatures	creature	crea
+891	designed	dsgn
+892	destruction	destr
+893	explosions	explosion	expl
+894	fight	fght
+895	fireworks	firework	frwk
+896	lasers	laser	lasr
+897	metal	metl
+898	musical	musc
+899	natural disaster	natd
+900	objects	object	obj
+901	paper	papr
+902	robots	robot	robt
+903	sports	sport	sprt
+904	swooshes	swoosh	swsh
+905	swooshes	swoosh	whsh
+906	trains	train	trn
+907	user interface	ui
+908	vegetation	vege
+909	vehicles	vehicle	veh
+910	voices	voice	vox
+911	water	watr
+912	weapons	weapon	weap
+913	weather	wthr
+914	whistles	whistle	whst
+915	burst	brst
+916	helicopter	heli
+917	mechanism	mechanics	mechanic	mechanical	mech
+918	military	mil
+919	rocket	rckt
+920	buzzer	buzr
+921	clock	clok
+922	electric	elec
+923	siren	sirn
+924	alpine	alpn
+925	amusement	amus
+926	celebration	cele
+927	construction	cnst
+928	desert	dsrt
+929	emergency	emrg
+930	fantasy	fant
+931	forest	forst
+932	grass	grassland	gras
+933	historical	hist
+934	hospital	hosp
+935	industrial	ind
+936	insect	insectoid	insc
+937	market	mrkt
+938	nautical	naut
+939	office	offc
+940	prison	prisn
+941	protest	prtst
+942	public place	publ
+943	religious	religiou	rlgn
+944	rural	rurl
+945	school	schl
+946	suburban	subn
+947	swamp	swmp
+948	tropical	trop
+949	tundra	tndra
+950	underground	undr
+951	underwater	undwtr
+952	urban	urbn
+953	amphibian	amph
+954	aquatic	aqua
+955	cat domestic	cat
+956	cat wild	wcat
+957	dog wild	wdog
+958	horse	hors
+959	reptile	reptilian	rept
+960	rodent	rdnt
+961	appliance	appl
+962	large	lrg
+963	sailboat	sail
+964	steam	stm
+965	impact	impt
+966	ricochet	rico
+967	shell	shel
+968	pluck	pluk
+969	splat	splt
+970	squeak	sqk
+971	stretch	strch
+972	warble	warb
+973	whistle	whis
+974	break	brk
+975	friction	fric
+976	handle	hndl
+977	reaction	reac
+978	chime	chim
+979	flap	flp
+980	camera	cam
+981	phonograph	phono
+982	telemetry	telm
+983	telephone	telph
+984	dinosaur	dino
+985	dragon	drgn
+986	elemental	elem
+987	ethereal	ethr
+988	human	hmn
+989	monster	mnstr
+990	angry	angr
+991	applause	apls
+992	battle	batl
+993	child	children	chld
+994	conversation	conv
+995	laugh	laughter	laff
+996	braam	bram
+997	drone	dron
+998	eerie	erie
+999	rumble	rmbl
+1000	rhythmic	rythm
+1001	stinger	stngr
+1002	vocal	vocl
+1003	collapse	clpse
+1004	antique	antq
+1005	dungeon	dungn
+1006	hardware	hdwr
+1007	knock	knck
+1008	revolving	revl
+1009	sliding	slid
+1010	stone	ston
+1011	swinging	swng
+1012	electromagnetic	emf
+1013	sparks	spark	sprk
+1014	tactical	tact
+1015	cloth	clth
+1016	crackle	crkl
+1017	ignite	ign
+1018	sizzle	sizz
+1019	torch	trch
+1020	commercial	comr
+1021	drinking	drnk
+1022	glassware	gware
+1023	ingredients	ingredient	ingr
+1024	kitchenware	kware
+1025	tableware	tware
+1026	arcade	arcd
+1027	mud pots	mudpot
+1028	flesh	flsh
+1029	squish	sqsh
+1030	cannon	cano
+1031	rifle	rif
+1032	shotgun	shotg
+1033	suppressed	supr
+1034	traditional	trad
+1035	breath	brth
+1036	snore	snor
+1037	bubbles	bubble	bubl
+1038	suction	suct
+1039	escalator	escl
+1040	garden	grdn
+1041	spell	spel
+1042	click	clik
+1043	latch	ltch
+1044	lever	lvr
+1045	pulley	puly
+1046	ratchet	rtch
+1047	roller	rolr
+1048	switch	swtch
+1049	servo	srvo
+1050	activity	actv
+1051	choral	chor
+1052	experimental	expr
+1053	keyed	keyd
+1054	percussion	perc
+1055	percussion tuned	tnprc
+1056	performance	prfm
+1057	sample	smpl
+1058	avalanche	aval
+1059	earthquake	quak
+1060	tsunami	tsun
+1061	typhoon	thyp
+1062	volcano	volc
+1063	fashion	fash
+1064	household	hsehld
+1065	jewelry	jewl
+1066	umbrella	umbr
+1067	wheeled	whled
+1068	zipper	zipr
+1069	flutter	fltr
+1070	energy	enrg
+1071	indoor	indor
+1072	winter	wntr
+1073	pneumatic	pneu
+1074	power	powr
+1075	clack	clak
+1076	diesel	diesl
+1077	high speed	hspd
+1078	subway	sbwy
+1079	freight	frght
+1080	jalopy	jalop
+1081	motorcycle	moto
+1082	suspension	susp
+1083	wagon	wagn
+1084	window	wndw
+1085	efforts	effort	efrt
+1086	female	fem
+1087	scream	scrm
+1088	whisper	whsp
+1089	drain	dran
+1090	fountain	foun
+1091	plumbing	plmb
+1092	splash	splsh
+1093	armor	armr
+1094	arrow	arro
+1095	blunt	blnt
+1096	knife	knif
+1097	sword	swrd
+1098	watermelon	water melon
+1099	downshifts	down shifts
+1100	rainstorm	rain storm
+1101	sawtooth	saw tooth
+1102	slapstick	slap stick
+1103	hyperspace	hyper space
+1104	matchbox	match box
+1105	junkyard	junk yard
+1106	tablecloth	table cloth
+1107	bubblegum	bubble gum
+1108	waterbirds	water birds
+1109	beartrap	bear trap
+1110	cornflakes	corn flakes
+1111	farmyard	farm yard
+1112	tailpipe	tail pipe
+1113	quickdraw	quick draw
+1114	basketball	basket ball
+1115	carwash	car wash
+1116	longbows	long bows
+1117	matchstick	match stick
+1118	snowplow	snow plow
+1119	pillowcase	pillow case
+1120	downstroke	down stroke
+1121	rollover	roll over
+1122	otherworld	other world
+1123	spaceshuttle	space shuttle
+1124	bullfrog	bull frog
+1125	motorcycles	motor cycles
+1126	riverbank	river bank
+1127	woodshed	wood shed
+1128	basketballs	basket balls
+1129	speedboats	speed boats
+1130	snowshoe	snow shoe
+1131	coldwater	cold water
+1132	straightaway	straight away
+1133	workout	work out
+1134	backspace	back space
+1135	campsite	camp site
+1136	landslide	land slide
+1137	touchscreen	touch screen
+1138	paperwork	paper work
+1139	boombox	boom box
+1140	dumptruck	dump truck
+1141	crosscut	cross cut
+1142	putdown	put down
+1143	leatherjacket	leather jacket
+1144	blackhole	black hole
+1145	freestyle	free style
+1146	fireball	fire ball
+1147	knockout	knock out
+1148	readouts	read outs
+1149	bulldog	bull dog
+1150	seatbelt	seat belt
+1151	thunderclap	thunder clap
+1152	knockback	knock back
+1153	woodstove	wood stove
+1154	multitrack	multi track
+1155	suitcase	suit case
+1156	volleyball	volley ball
+1157	pinball	pin ball
+1158	lightbulb	light bulb
+1159	stingray	sting ray
+1160	airconditioner	air conditioner
+1161	airforce	air force
+1162	highspeed	high speed
+1163	bedsheets	bed sheets
+1164	turnover	turn over
+1165	rubberband	rubber band
+1166	horseshoes	horse shoes
+1167	firestorm	fire storm
+1168	facepunch	face punch
+1169	paperbag	paper bag
+1170	greatsword	great sword
+1171	wineglass	wine glass
+1172	landslides	land slides
+1173	powerline	power line
+1174	intercity	inter city
+1175	muzzleloader	muzzle loader
+1176	fastfood	fast food
+1177	livingroom	living room
+1178	punchbag	punch bag
+1179	nanobot	nano bot
+1180	eggshell	egg shell
+1181	bullwhip	bull whip
+1182	faraway	far away
+1183	daylight	day light
+1184	longbow	long bow
+1185	dialtone	dial tone
+1186	checkmark	check mark
+1187	caplock	cap lock
+1188	cartwheel	cart wheel
+1189	dropkick	drop kick
+1190	breakthrough	break through
+1191	airbrake	air brake
+1192	carpark	car park
+1193	flyscreen	fly screen
+1194	highschool	high school
+1195	stardust	star dust
+1196	downstairs	down stairs
+1197	junkpile	junk pile
+1198	switchblade	switch blade
+1199	turboprop	turbo prop
+1200	broadsword	broad sword
+1201	payout	pay out
+1202	streetside	street side
+1203	midrange	mid range
+1204	workshop	work shop
+1205	boardwalk	board walk
+1206	flyover	fly over
+1207	softsoap	soft soap
+1208	softball	soft ball
+1209	bedsprings	bed springs
+1210	hacksaw	hack saw
+1211	talkbox	talk box
+1212	bottlenose	bottle nose
+1213	holddown	hold down
+1214	lizardman	lizard man
+1215	beatboxing	beat boxing
+1216	supersonic	super sonic
+1217	shorebirds	shore birds
+1218	lockdown	lock down
+1219	deathray	death ray
+1220	lawnmower	lawn mower
+1221	iceblock	ice block
+1222	dragonfly	dragon fly
+1223	afterlife	after life
+1224	sledgehammer	sledge hammer
+1225	airlift	air lift
+1226	hardball	hard ball
+1227	hotrod	hot rod
+1228	multiethnic	multi ethnic
+1229	snowshoes	snow shoes
+1230	catcalling	cat calling
+1231	liftoff	lift off
+1232	landrover	land rover
+1233	fireplace	fire place
+1234	flybys	fly bys
+1235	takedown	take down
+1236	bulletproof	bullet proof
+1237	oneshot	one shot
+1238	bubblewrap	bubble wrap
+1239	hairspray	hair spray
+1240	prelaunch	pre launch
+1241	electrostatic	electro static
+1242	newspaper	news paper
+1243	outtakes	out takes
+1244	soundboards	sound boards
+1245	fingernail	finger nail
+1246	heartrate	heart rate
+1247	harddrive	hard drive
+1248	darkroom	dark room
+1249	sunglasses	sun glasses
+1250	sportscar	sports car
+1251	snowbank	snow bank
+1252	zipline	zip line
+1253	shortwave	short wave
+1254	lifeform	life form
+1255	eggbeater	egg beater
+1256	powerbook	power book
+1257	shotguns	shot guns
+1258	presswood	press wood
+1259	forklift	fork lift
+1260	headbutt	head butt
+1261	straightforward	straight forward
+1262	dishwasher	dish washer
+1263	sidestreet	side street
+1264	teapot	tea pot
+1265	dogfood	dog food
+1266	southeastern	south eastern
+1267	oilfield	oil field
+1268	runaway	run away
+1269	marketplace	market place
+1270	toothbrush	tooth brush
+1271	startrek	star trek
+1272	countdown	count down
+1273	checkpoint	check point
+1274	floorboard	floor board
+1275	meadowlarks	meadow larks
+1276	honeyeater	honey eater
+1277	airstrike	air strike
+1278	iceskating	ice skating
+1279	iceplant	ice plant
+1280	sunroof	sun roof
+1281	jackhammers	jack hammers
+1282	skateboard	skate board
+1283	waterbody	water body
+1284	minivan	mini van
+1285	firework	fire work
+1286	clifftop	cliff top
+1287	mineshaft	mine shaft
+1288	headstand	head stand
+1289	multitone	multi tone
+1290	ballpoint	ball point
+1291	printout	print out
+1292	multilayered	multi layered
+1293	countryside	country side
+1294	padlock	pad lock
+1295	kickstart	kick start
+1296	spacebar	space bar
+1297	nighttime	night time
+1298	blowtorch	blow torch
+1299	turnaround	turn around
+1300	moonroof	moon roof
+1301	hotplate	hot plate
+1302	shutdown	shut down
+1303	heartbeat	heart beat
+1304	cablecar	cable car
+1305	heartbeats	heart beats
+1306	airshow	air show
+1307	hardcase	hard case
+1308	floorboards	floor boards
+1309	lockbox	lock box
+1310	raindrops	rain drops
+1311	snowpants	snow pants
+1312	kickdown	kick down
+1313	waterfalls	water falls
+1314	touchdown	touch down
+1315	streetball	street ball
+1316	pothole	pot hole
+1317	boxcar	box car
+1318	lunchbox	lunch box
+1319	thunderstorm	thunder storm
+1320	downshifting	down shifting
+1321	backfire	back fire
+1322	echolocation	echo location
+1323	shutdowns	shut downs
+1324	offroad	off road
+1325	plexiglass	plexi glass
+1326	wineglasses	wine glasses
+1327	woodwork	wood work
+1328	kettledrums	kettle drums
+1329	hellfire	hell fire
+1330	rainstick	rain stick
+1331	sidewheeler	side wheeler
+1332	bandpass	band pass
+1333	snowballs	snow balls
+1334	supercharged	super charged
+1335	woodsman	woods man
+1336	backseat	back seat
+1337	watertight	water tight
+1338	floatplane	float plane
+1339	whipcrack	whip crack
+1340	spacecraft	space craft
+1341	outflow	out flow
+1342	throwback	throw back
+1343	rainforest	rain forest
+1344	screwdrivers	screw drivers
+1345	longsword	long sword
+1346	fireballs	fire balls
+1347	rundown	run down
+1348	woodpigeon	wood pigeon
+1349	hovercar	hover car
+1350	backfiring	back firing
+1351	sunglass	sun glass
+1352	shortcuts	short cuts
+1353	footstep	foot step
+1354	rooftop	roof top
+1355	coffeecup	coffee cup
+1356	downshift	down shift
+1357	weightlifting	weight lifting
+1358	golfball	golf ball
+1359	mailbox	mail box
+1360	snowboard	snow board
+1361	hairdryer	hair dryer
+1362	woodworking	wood working
+1363	badlands	bad lands
+1364	newsroom	news room
+1365	whitewater	white water
+1366	truckstop	truck stop
+1367	oldschool	old school
+1368	supermarket	super market
+1369	tincan	tin can
+1370	footsteps	foot steps
+1371	coffeeshop	coffee shop
+1372	crossbar	cross bar
+1373	cinderblock	cinder block
+1374	voiceover	voice over
+1375	firestarter	fire starter
+1376	pillbox	pill box
+1377	whitenoise	white noise
+1378	icebox	ice box
+1379	servomotor	servo motor
+1380	rollercoaster	roller coaster
+1381	manhole	man hole
+1382	pingpong	ping pong
+1383	cyberpunk	cyber punk
+1384	overhead	over head
+1385	glovebox	glove box
+1386	midday	mid day
+1387	starwars	star wars
+1388	blackbirds	black birds
+1389	viewfinder	view finder
+1390	kickstand	kick stand
+1391	blowpipe	blow pipe
+1392	callbox	call box
+1393	stepstool	step stool
+1394	barcode	bar code
+1395	waterwheel	water wheel
+1396	readout	read out
+1397	stoplight	stop light
+1398	breechloader	breech loader
+1399	microwave	micro wave
+1400	popcorn	pop corn
+1401	shootout	shoot out
+1402	bookstore	book store
+1403	fastback	fast back
+1404	backfires	back fires
+1405	batcave	bat cave
+1406	headlights	head lights
+1407	cannonball	cannon ball
+1408	playback	play back
+1409	dropdown	drop down
+1410	stovetop	stove top
+1411	lightsaber	light saber
+1412	overmodulation	over modulation
+1413	sandstone	sand stone
+1414	lookout	look out
+1415	cueball	cue ball
+1416	comeback	come back
+1417	drumsticks	drum sticks
+1418	midafternoon	mid afternoon
+1419	waterflow	water flow
+1420	woodlark	wood lark
+1421	sawmill	saw mill
+1422	cockfight	cock fight
+1423	pickaxe	pick axe
+1424	waterphone	water phone
+1425	motorboats	motor boats
+1426	firehose	fire hose
+1427	fireworks	fire works
+1428	drumhead	drum head
+1429	quarterstaff	quarter staff
+1430	airstream	air stream
+1431	deepwater	deep water
+1432	semiautomatic	semi automatic
+1433	wheelchair	wheel chair
+1434	paperclip	paper clip
+1435	deadbolt	dead bolt
+1436	daytime	day time
+1437	cowbells	cow bells
+1438	firetruck	fire truck
+1439	pulldown	pull down
+1440	downrange	down range
+1441	phonebook	phone book
+1442	sinewave	sine wave
+1443	snowblower	snow blower
+1444	mousetrap	mouse trap
+1445	soundboard	sound board
+1446	treetop	tree top
+1447	drillbit	drill bit
+1448	mouseover	mouse over
+1449	teaspoon	tea spoon
+1450	kettledrum	kettle drum
+1451	meadowlark	meadow lark
+1452	offshore	off shore
+1453	bullfrogs	bull frogs
+1454	snowball	snow ball
+1455	catwalk	cat walk
+1456	knockdown	knock down
+1457	airbrakes	air brakes
+1458	drivetrain	drive train
+1459	motorcycle	motor cycle
+1460	flatline	flat line
+1461	smalltown	small town
+1462	hatchback	hatch back
+1463	motorbikes	motor bikes
+1464	biomechanical	bio mechanical
+1465	videotape	video tape
+1466	woodblock	wood block
+1467	iceskate	ice skate
+1468	sniperscope	sniper scope
+1469	piledriver	pile driver
+1470	airboats	air boats
+1471	bathtub	bath tub
+1472	soundcheck	sound check
+1473	takeoff	take off
+1474	biomechanics	bio mechanics
+1475	jackhammer	jack hammer
+1476	blackhawk	black hawk
+1477	tailgate	tail gate
+1478	cooldown	cool down
+1479	potholder	pot holder
+1480	punchcard	punch card
+1481	notepad	note pad
+1482	dustpan	dust pan
+1483	chalkboard	chalk board
+1484	cupholder	cup holder
+1485	chairlift	chair lift
+1486	nightclub	night club
+1487	hummingbirds	humming birds
+1488	jetfighter	jet fighter
+1489	flashlight	flash light
+1490	candlestick	candle stick
+1491	backplate	back plate
+1492	checkout	check out
+1493	campfire	camp fire
+1494	airbus	air bus
+1495	outerspace	outer space
+1496	wildcat	wild cat
+1497	candybar	candy bar
+1498	flyoff	fly off
+1499	sandpaper	sand paper
+1500	woodblocks	wood blocks
+1501	countertop	counter top
+1502	skatepark	skate park
+1503	taillight	tail light
+1504	macbook	mac book
+1505	ballpen	ball pen
+1506	electromechanics	electro mechanics
+1507	turnoff	turn off
+1508	softdrink	soft drink
+1509	payphone	pay phone
+1510	hyperdrive	hyper drive
+1511	snowstorm	snow storm
+1512	soccerball	soccer ball
+1513	midsized	mid sized
+1514	armor	armour
+1515	armored	armoured
+1516	armory	armoury
+1517	color	colour
+1518	colored	coloured
+1519	colorful	colourful
+1520	harbor	harbour
+1521	harbors	harbours
+1522	neighbor	neighbour
+1523	neighbors	neighbours
+1524	neighborhood	neighbourhood
+1525	favor	favour
+1526	flavor	flavour
+1527	humor	humour
+1528	labor	labour
+1529	parlor	parlour
+1530	rumor	rumour
+1531	vapor	vapour
+1532	behavior	behaviour
+1533	clamor	clamour
+1534	honor	honour
+1535	rigor	rigour
+1536	meter	metre
+1537	center	centre
+1538	fiber	fibre
+1539	liter	litre
+1540	caliber	calibre
+1541	saber	sabre
+1542	specter	spectre
+1543	somber	sombre
+1544	scepter	sceptre
+1545	sepulcher	sepulchre
+1546	miter	mitre
+1547	centimeter	centimetre
+1548	amphitheater	amphitheatre
+1549	gray	grey
+1550	tire	tyre
+1551	tires	tyres
+1552	aluminum	aluminium
+1553	plow	plough
+1554	airplane	aeroplane
+1555	airplanes	aeroplanes
+1556	curb	kerb
+1557	mold	mould
+1558	molding	moulding
+1559	jewelry	jewellery
+1560	catalog	catalogue
+1561	dialog	dialogue
+1562	analog	analogue
+1563	fueling	fuelling
+1564	dialed	dialled
+1565	dialing	dialling
+1566	dueling	duelling
+1567	organize	organise
+1568	synthesized	synthesised
+1569	synthesizer	synthesiser
+1570	vocalize	vocalise
+1571	vocalizing	vocalising
+1572	vocalization	vocalisation
+1573	vocalizations	vocalisations
+1574	harmonized	harmonised
+1575	stabilize	stabilise
+1576	stabilizer	stabiliser
+1577	pressurized	pressurised
+1578	vaporize	vaporise
+1579	vaporized	vaporised
+1580	energize	energise
+1581	energized	energised
+1582	materialize	materialise
+1583	dematerialize	dematerialise
+1584	mechanized	mechanised
+1585	motorized	motorised
+1586	computerized	computerised
+1587	digitized	digitised
+1588	randomize	randomise
+1589	randomized	randomised
+1590	customized	customised
+1591	characterized	characterised
+1592	paralyze	paralyse
+1593	analyze	analyse
+1594	analyzer	analyser
+1595	agonizing	agonising
+1596	mesmerize	mesmerise
+1597	mesmerizing	mesmerising
+1598	hypnotize	hypnotise
+1599	authorization	authorisation
+1600	civilization	civilisation
+1601	fertilizer	fertiliser
+1602	maneuver	manoeuvre
+1603	maneuvers	manoeuvres
+1604	maneuvering	manoeuvring
+1605	medieval	mediaeval
+1606	hyena	hyaena
+1607	hyenas	hyaenas
+1608	archeology	archaeology
+1609	fetus	foetus
+1610	diarrhea	diarrhoea
+1611	sulfur	sulphur
+1612	sulfuric	sulphuric
+1613	artifact	artefact
+1614	artifacts	artefacts
+1615	whiskey	whisky
+1616	donut	doughnut
+1617	yogurt	yoghurt
+1618	gasoline	petrol
+1619	trashcan	dustbin
+1620	windshield	windscreen
+1621	stroller	pram
+1622	diaper	nappy
+1623	airfield	aerodrome
+1624	railroad	railway
+1625	streetcar	tram
+1626	motorcycle	motorbike
+1627	psst	pssst
+1628	ooh	oooh
+1629	baa	baaa
+1630	hmm	hmmm
+1631	ooh	ooooh
+1632	shh	shhh
+1633	aah	aaah
+1634	moo	mooooooooo
+1635	ahh	ahhh
+1636	shh	shhhhh
+1637	oof	ooof
+1638	uhh	uhhh
+1639	hmm	hmmmm
+1640	waa	waaa
+1641	braam	braaam
+1642	moo	moooo
+1643	print	prnt
+1644	forward	fwd
+1645	plover	plov
+1646	seagull	sgull
+1647	attack	attck
+1648	servos	srvo
+1649	stormy	strm
+1650	songbirds	sbird
+1651	crowd	crwd
+1652	glissando	gliss
+1653	insect	insc
+1654	mixdown	mixd
+1655	markets	mrkt
+1656	chuffing	chuff
+1657	dynamometer	dyno
+1658	hydraulic	hydr
+1659	plywood	plywd
+1660	portal	prtl
+1661	construct	cnst
+1662	wildcat	wcat
+1663	efforts	efrt
+1664	turbulent	turb
+1665	wolves	wlvs
+1666	citroen	citr
+1667	sport	sprt
+1668	freeway	fwy
+1669	approach	aprch
+1670	ingredients	ingr
+1671	child	chld
+1672	crash	crsh
+1673	hornbill	hornb
+1674	spells	spel
+1675	swooshes	swsh
+1676	sparks	sprk
+1677	switches	swtch
+1678	spaceship	spsh
+1679	battling	batl
+1680	plymouth	plymth
+1681	warbler	warbl
+1682	monster	fiend
+1683	sparkle	glitter	glisten	scintillation
+1684	burp	belch	burping	belching
+1685	glint	glitter	glisten	gleam
+1686	magic	magical	supernatural
+1687	scrape	scraping
+1688	cloth	fabric	textile
+1689	drip	trickle	dribble
+1690	suction	suck	sucking
+1691	subway	underground	metro
+1692	colossus	giant	titan
+1693	tub	bath	bathtub
+1694	neigh	whinny	nicker
+1695	ferocious	fierce
+1696	blustery	gusty	blustering
+1697	spew	puke	barf
+1698	bocce	bocci	boccie
+1699	creature	beast
+1700	ambience	atmosphere
+1701	explosion	detonation
+1702	spell	enchantment
+1703	pistol	handgun
+1704	liquid	fluid
+1705	sword	blade
+1706	plane	airplane
+1707	gunshot	gunfire
+1708	telephone	phone
+1709	flying	flight
+1710	underwater	submerged
+1711	rev	rpm
+1712	thud	thump
+1713	sorcerer	wizard
+1714	combat	fighting
+1715	foliage	leaf
+1716	laugh	laughter
+1717	rip	tear
+1718	slash	slice
+1719	baby	infant
+1720	explosive	exploding
+1721	beam	ray
+1722	log	lumber
+1723	smack	slap
+1724	metaphysical	supernatural
+1725	zip	zipper
+1726	propellor	propeller
+1727	spark	arc
+1728	bubbling	frothy
+1729	bite	chomp
+1730	motorboat	powerboat
+1731	weird	strange
+1732	glow	gleam
+1733	dawn	sunrise
+1734	damaged	mangled
+1735	frog	toad
+1736	shore	seashore
+1737	curious	inquisitive
+1738	bush	shrub
+1739	glimmer	gleam
+1740	choke	gag
+1741	linoleum	lino
+1742	marsh	marshland
+1743	threatening	menacing
+1744	dock	wharf
+1745	goo	ooze
+1746	gull	seagull
+1747	midday	noon
+1748	shattering	smashing
+1749	agony	suffering
+1750	heal	cure
+1751	dissonant	discordant
+1752	saxophone	sax
+1753	slobber	drool
+1754	scared	frightened
+1755	victorious	triumphant
+1756	creek	brook
+1757	explorer	adventurer
+1758	meadowlark	lark
+1759	sewing	stitching
+1760	cattle	cows
+1761	vicious	brutal
+1762	curse	hex
+1763	crested	tufted
+1764	freeway	motorway
+1765	twinkle	scintillation
+1766	snake	serpent
+1767	duffle	duffel
+1768	lakeside	lakeshore
+1769	distressed	worried
+1770	skylark	lark
+1771	borneo	kalimantan
+1772	rome	roma
+1773	shard	fragment
+1774	bleat	baa
+1775	timber	lumber
+1776	chimpanzee	chimp
+1777	decline	reject
+1778	hedge	hedgerow
+1779	hippopotamus	hippo
+1780	kitten	kitty
+1781	deflect	parry
+1782	refill	replenish
+1783	coffin	casket
+1784	avenue	boulevard
+1785	ache	suffer
+1786	teen	teenage
+1787	highland	upland
+1788	subaqueous	subaquatic
+1789	erase	efface
+1790	workout	exercising
+1791	bait	lure
+1792	sitting	seated
+1793	couch	sofa
+1794	puffing	huffing
+1795	irritated	pissed
+1796	charm	enchant
+1797	fright	scare
+1798	beatific	saintly
+1799	wildebeest	gnu
+1800	crap	poop
+1801	sew	stitch
+1802	meditative	contemplative
+1803	luck	fortune
+1804	dong	dingdong
+1805	orangutan	orang
+1806	myna	mynah
+1807	sulawesi	celebes
+1808	devastating	destructive
+1809	wicked	vicious
+1810	terrified	frightened
+1811	reindeer	caribou
+1812	pee	urinate
+1813	cataclysmic	destructive
+1814	graveyard	cemetery
+1815	toll	peal
+1816	piazza	plaza
+1817	blowgun	blowpipe
+1818	mom	mommy
+1819	puking	vomiting
+1820	gibber	blabber
+1821	ruin	devastation
+1822	flashgun	flashbulb

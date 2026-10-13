@@ -71,9 +71,9 @@ export const SEARCH_HELP = `필터 단축키
   • 따옴표 안의 말에는 동의어를 붙이지 않음
 
 동의어
-  • 비슷한 말도 함께 찾음 (UCS 사전)  예) sword → machete · dagger · katana
+  • 비슷한 말도 함께 찾음 (게임 사운드 동의어 사전)  예) sword → katana · machete · dagger
   • 원래 친 단어로 찾은 파일이 먼저, 비슷한 말로 찾은 파일은 그 뒤
-  • 4글자 이상 단어에만 붙음 (넓게·정확 모두)
+  • 넓게·정확 모두 적용
   • 환경설정에서 끌 수 있음
 
 비고

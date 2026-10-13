@@ -30,7 +30,15 @@ $Thesaurus = Join-Path $PyRoot "app\data\ucs_thesaurus.json"
 if (-not (Test-Path $Thesaurus)) {
   throw "UCS 동의어 사전을 찾을 수 없습니다: $Thesaurus"
 }
-# UCS 사전은 동의어(단어마다 최대 3개)와 결과 0건 철자 제안 후보에 쓴다.
+# UCS 사전은 결과 0건 철자 제안 후보에 쓴다 (2.1.7 부터 동의어는 아래 게임 사운드 사전).
+
+# ── 게임 사운드 동의어 사전 (필수, 2.1.7~) ─────────────────────────────────
+# thesaurus._BASEHEAD_DEFAULT = <모듈폴더>/data/game_sfx_thesaurus.tsv. 빠지면 동의어만 조용히 사라진다.
+# 만드는 법: tools\game_thesaurus\README.md
+$GameThesaurus = Join-Path $PyRoot "app\data\game_sfx_thesaurus.tsv"
+if (-not (Test-Path $GameThesaurus)) {
+  throw "게임 사운드 동의어 사전을 찾을 수 없습니다: $GameThesaurus"
+}
 
 # ── 동의어 실험 보관 모듈 — 설치본 제외 (사용자 결정 2026-10-07) ─────────────
 # '같은 뜻' 새 사전·UCS 분류 약어·칩은 써 보고 되돌렸다. 코드는 저장소에만 둔다:
@@ -59,6 +67,7 @@ python -m PyInstaller --noconfirm --onedir --name sf_bridge `
   --exclude-module app.ucs_codes `
   --add-binary "$Sidecar;monitor" `
   --add-data "$Thesaurus;app\data" `
+  --add-data "$GameThesaurus;app\data" `
   --distpath $DistRoot --workpath $WorkRoot `
   (Join-Path $ProjectRoot "src-tauri\python\sf_bridge.py")
 
@@ -125,6 +134,12 @@ if (Test-Path $BundledThesaurus) {
   Write-Host "동의어 사전 포함 확인: $BundledThesaurus"
 } else {
   throw "UCS 동의어 사전이 번들에 들어가지 않았습니다: $BundledThesaurus"
+}
+$BundledGame = Join-Path $DistRoot "sf_bridge\_internal\app\data\game_sfx_thesaurus.tsv"
+if (Test-Path $BundledGame) {
+  Write-Host "게임 사운드 동의어 사전 포함 확인: $BundledGame"
+} else {
+  throw "게임 사운드 동의어 사전이 번들에 들어가지 않았습니다: $BundledGame"
 }
 foreach ($parkedData in @("sfx_synonyms.json", "ucs_codes.json")) {
   if (Test-Path (Join-Path $DistRoot "sf_bridge\_internal\app\data\$parkedData")) {

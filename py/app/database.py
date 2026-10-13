@@ -2751,6 +2751,10 @@ class Database:
     def _related_synonyms(self, token: str) -> List[str]:
         """같이 찾을 말 — UCS 사전의 보완 규칙(thesaurus.related). 4글자 이상 단어만."""
         token = (token or "").strip().rstrip("*")
+        if thesaurus.basehead_mode():
+            # 2.1.7 기본: 게임 사운드 사전(베이스헤드 형식). UCS 의 혼입을 줄이려던 규제(4글자 이상·
+            # 3글자 미만 동의어 버림·제외 단어)는 고른 사전이라 풀었다 (사용자 결정 2026-10-13).
+            return thesaurus.basehead().related(token) if token else []
         if len(token) < 4:
             return []
         return [s for s in thesaurus.get().related(token, cap=40)

@@ -1,0 +1,1850 @@
+{
+"about": "게임 사운드 전용 묶음 2차 (직접 정리). 1차와 같은 원칙 — 같은 소리를 가리키는 말·표기·업계 줄임말만, 뜻이 여럿인 흔한 말은 넣지 않는다.",
+"groups": {
+"악기·음악": [
+[
+"guitar",
+"guitars",
+"gtr"
+],
+[
+"acoustic guitar",
+"acoustic gtr"
+],
+[
+"electric guitar",
+"electric gtr",
+"e-guitar"
+],
+[
+"bass guitar",
+"bass gtr"
+],
+[
+"piano",
+"pianos",
+"pianoforte"
+],
+[
+"keyboard instrument",
+"keys instrument"
+],
+[
+"synthesizer",
+"synthesiser",
+"synthesizers",
+"synthesisers",
+"synth",
+"synths"
+],
+[
+"organ",
+"pipe organ",
+"church organ"
+],
+[
+"harpsichord",
+"clavichord"
+],
+[
+"violin",
+"violins",
+"fiddle",
+"fiddles"
+],
+[
+"viola",
+"violas"
+],
+[
+"cello",
+"cellos",
+"violoncello"
+],
+[
+"contrabass",
+"double bass",
+"upright bass"
+],
+[
+"harp",
+"harps"
+],
+[
+"flute",
+"flutes"
+],
+[
+"piccolo",
+"piccolos"
+],
+[
+"clarinet",
+"clarinets"
+],
+[
+"oboe",
+"oboes"
+],
+[
+"bassoon",
+"bassoons"
+],
+[
+"saxophone",
+"saxophones",
+"sax"
+],
+[
+"trumpet",
+"trumpets"
+],
+[
+"trombone",
+"trombones"
+],
+[
+"tuba",
+"tubas"
+],
+[
+"french horn",
+"french horns"
+],
+[
+"bugle",
+"bugles"
+],
+[
+"harmonica",
+"mouth organ"
+],
+[
+"accordion",
+"accordions"
+],
+[
+"bagpipe",
+"bagpipes"
+],
+[
+"drum",
+"drums"
+],
+[
+"drum kit",
+"drumkit",
+"drum set",
+"drumset"
+],
+[
+"snare",
+"snare drum",
+"snares"
+],
+[
+"kick drum",
+"bass drum"
+],
+[
+"tom tom",
+"tomtom",
+"toms",
+"floor tom"
+],
+[
+"cymbal",
+"cymbals"
+],
+[
+"hi hat",
+"hihat",
+"hi-hat",
+"hihats"
+],
+[
+"crash cymbal",
+"crash cymbals"
+],
+[
+"ride cymbal",
+"ride cymbals"
+],
+[
+"timpani",
+"kettledrum",
+"kettledrums"
+],
+[
+"gong",
+"gongs",
+"tam tam",
+"tamtam"
+],
+[
+"xylophone",
+"xylophones"
+],
+[
+"marimba",
+"marimbas"
+],
+[
+"vibraphone",
+"vibes"
+],
+[
+"glockenspiel",
+"glock"
+],
+[
+"celesta",
+"celeste"
+],
+[
+"chimes",
+"tubular bells"
+],
+[
+"tambourine",
+"tambourines"
+],
+[
+"maraca",
+"maracas",
+"shaker",
+"shakers"
+],
+[
+"castanet",
+"castanets"
+],
+[
+"triangle",
+"triangles"
+],
+[
+"cowbell",
+"cowbells"
+],
+[
+"woodblock",
+"wood block",
+"woodblocks"
+],
+[
+"bongo",
+"bongos"
+],
+[
+"conga",
+"congas"
+],
+[
+"djembe",
+"djembes"
+],
+[
+"taiko",
+"taiko drum"
+],
+[
+"didgeridoo",
+"didjeridu"
+],
+[
+"kalimba",
+"thumb piano",
+"mbira"
+],
+[
+"sitar",
+"sitars"
+],
+[
+"ukulele",
+"ukuleles",
+"uke"
+],
+[
+"banjo",
+"banjos"
+],
+[
+"mandolin",
+"mandolins"
+],
+[
+"music box",
+"musicbox",
+"music boxes"
+],
+[
+"theremin",
+"theremins"
+],
+[
+"choir",
+"choirs",
+"chorus"
+],
+[
+"orchestra",
+"orchestral",
+"symphonic"
+],
+[
+"percussion",
+"perc",
+"percussive"
+],
+[
+"strings",
+"string section"
+],
+[
+"brass section",
+"horns section"
+],
+[
+"woodwind",
+"woodwinds"
+],
+[
+"arpeggio",
+"arpeggios",
+"arp"
+],
+[
+"chord",
+"chords"
+],
+[
+"melody",
+"melodies"
+],
+[
+"riff",
+"riffs"
+],
+[
+"tempo",
+"bpm"
+],
+[
+"crescendo",
+"crescendos"
+],
+[
+"decrescendo",
+"diminuendo"
+],
+[
+"pizzicato",
+"pizz"
+],
+[
+"tremolo",
+"trem"
+],
+[
+"vibrato",
+"vib"
+],
+[
+"sustain",
+"sustained"
+],
+[
+"fade in",
+"fadein",
+"fade-in"
+],
+[
+"fade out",
+"fadeout",
+"fade-out"
+],
+[
+"intro",
+"introduction"
+],
+[
+"outro",
+"ending"
+],
+[
+"victory jingle",
+"win jingle",
+"victory fanfare"
+],
+[
+"lose jingle",
+"fail jingle",
+"defeat jingle"
+]
+],
+"생활·소품": [
+[
+"kitchen",
+"kitchens"
+],
+[
+"cutlery",
+"silverware",
+"flatware"
+],
+[
+"plate",
+"plates",
+"dish",
+"dishes"
+],
+[
+"cup",
+"cups",
+"mug",
+"mugs"
+],
+[
+"pot",
+"pots",
+"cookware"
+],
+[
+"kettle",
+"kettles",
+"teakettle"
+],
+[
+"microwave",
+"microwave oven"
+],
+[
+"refrigerator",
+"fridge",
+"fridges"
+],
+[
+"freezer",
+"freezers"
+],
+[
+"dishwasher",
+"dishwashers"
+],
+[
+"washing machine",
+"washer",
+"laundry machine"
+],
+[
+"dryer",
+"tumble dryer"
+],
+[
+"vacuum cleaner",
+"vacuum",
+"hoover"
+],
+[
+"blender",
+"blenders"
+],
+[
+"toaster",
+"toasters"
+],
+[
+"faucet",
+"tap water"
+],
+[
+"sink",
+"sinks"
+],
+[
+"toilet",
+"toilets",
+"lavatory",
+"wc"
+],
+[
+"toilet flush",
+"flush",
+"flushing"
+],
+[
+"shower",
+"showers"
+],
+[
+"bathtub",
+"bath tub",
+"tub"
+],
+[
+"doorbell",
+"door bell",
+"doorbells"
+],
+[
+"intercom",
+"intercoms"
+],
+[
+"telephone",
+"phone",
+"phones",
+"telephones"
+],
+[
+"cellphone",
+"cell phone",
+"mobile phone",
+"smartphone"
+],
+[
+"ringtone",
+"ring tone",
+"ringtones"
+],
+[
+"clock",
+"clocks",
+"clok"
+],
+[
+"alarm clock",
+"alarm clocks"
+],
+[
+"wristwatch",
+"wrist watch"
+],
+[
+"camera",
+"cameras"
+],
+[
+"camera shutter",
+"shutter",
+"shutter click"
+],
+[
+"flashbulb",
+"flash bulb"
+],
+[
+"typewriter",
+"typewriters"
+],
+[
+"printer",
+"printers"
+],
+[
+"stapler",
+"staplers"
+],
+[
+"scissors",
+"scissor"
+],
+[
+"pencil",
+"pencils"
+],
+[
+"pen",
+"pens"
+],
+[
+"eraser",
+"rubber eraser"
+],
+[
+"marker",
+"markers",
+"felt pen",
+"feltpen"
+],
+[
+"chalk",
+"chalkboard",
+"blackboard"
+],
+[
+"book",
+"books"
+],
+[
+"page turn",
+"page flip",
+"turning page"
+],
+[
+"paper rustle",
+"paper rustling"
+],
+[
+"envelope",
+"envelopes"
+],
+[
+"zipper",
+"zip",
+"zippers",
+"zipr"
+],
+[
+"velcro",
+"hook and loop"
+],
+[
+"button press",
+"press button"
+],
+[
+"keychain",
+"key ring",
+"keyring"
+],
+[
+"coins",
+"loose change"
+],
+[
+"wallet",
+"wallets",
+"purse"
+],
+[
+"backpack",
+"rucksack",
+"knapsack"
+],
+[
+"suitcase",
+"luggage",
+"suitcases"
+],
+[
+"umbrella",
+"umbrellas"
+],
+[
+"lighter",
+"cigarette lighter",
+"zippo"
+],
+[
+"match strike",
+"match striking",
+"striking match"
+],
+[
+"candle",
+"candles"
+],
+[
+"lamp",
+"lamps"
+],
+[
+"light switch",
+"lightswitch"
+],
+[
+"flashlight",
+"flash light",
+"torch light"
+],
+[
+"battery",
+"batteries"
+],
+[
+"plug",
+"plugs",
+"plug in"
+],
+[
+"socket",
+"outlet",
+"wall socket"
+],
+[
+"cable",
+"cables",
+"cord",
+"cords"
+],
+[
+"remote control",
+"remote"
+],
+[
+"television",
+"tv set",
+"telly"
+],
+[
+"radio",
+"radios",
+"wireless set"
+],
+[
+"speaker",
+"speakers",
+"loudspeaker"
+],
+[
+"headphones",
+"headphone",
+"earphones"
+],
+[
+"microphone",
+"mic",
+"mics"
+],
+[
+"vinyl",
+"record player",
+"turntable"
+],
+[
+"cassette",
+"cassettes",
+"tape deck"
+],
+[
+"vhs",
+"videotape"
+],
+[
+"computer mouse",
+"mouse click"
+],
+[
+"electric fan",
+"desk fan",
+"ceiling fan"
+],
+[
+"air conditioner",
+"air conditioning",
+"aircon"
+],
+[
+"heater",
+"heaters",
+"radiator"
+],
+[
+"bed",
+"beds"
+],
+[
+"mattress",
+"mattresses"
+],
+[
+"pillow",
+"pillows"
+],
+[
+"blanket",
+"blankets",
+"duvet"
+],
+[
+"curtain",
+"curtains",
+"drapes"
+],
+[
+"blinds",
+"window blinds"
+],
+[
+"carpet",
+"rug",
+"rugs"
+],
+[
+"floorboard",
+"floorboards",
+"floor board"
+],
+[
+"staircase",
+"stairs",
+"stairway"
+],
+[
+"elevator",
+"lift car"
+],
+[
+"escalator",
+"escalators"
+]
+],
+"자연 세부": [
+[
+"leaves",
+"foliage"
+],
+[
+"leaf rustle",
+"leaves rustle",
+"rustling leaves"
+],
+[
+"branch",
+"branches",
+"bough"
+],
+[
+"twig",
+"twigs"
+],
+[
+"tree",
+"trees"
+],
+[
+"tree fall",
+"falling tree",
+"timber fall"
+],
+[
+"bush",
+"bushes",
+"shrub",
+"shrubs"
+],
+[
+"grass",
+"grasses",
+"lawn"
+],
+[
+"reed",
+"reeds"
+],
+[
+"vine",
+"vines"
+],
+[
+"flower",
+"flowers"
+],
+[
+"mushroom",
+"mushrooms",
+"fungus",
+"fungi"
+],
+[
+"moss",
+"mossy"
+],
+[
+"root",
+"roots"
+],
+[
+"log",
+"logs"
+],
+[
+"stump",
+"stumps"
+],
+[
+"pinecone",
+"pine cone",
+"pinecones"
+],
+[
+"acorn",
+"acorns"
+],
+[
+"sea shell",
+"seashell",
+"seashells"
+],
+[
+"coral",
+"corals"
+],
+[
+"seaweed",
+"kelp"
+],
+[
+"sand dune",
+"dunes"
+],
+[
+"cliff",
+"cliffs"
+],
+[
+"valley",
+"valleys"
+],
+[
+"hill",
+"hills"
+],
+[
+"meadow",
+"meadows",
+"field of grass"
+],
+[
+"prairie",
+"plains"
+],
+[
+"tundra",
+"arctic"
+],
+[
+"glacier",
+"glaciers"
+],
+[
+"iceberg",
+"icebergs"
+],
+[
+"icicle",
+"icicles"
+],
+[
+"frost crack",
+"ice crack",
+"cracking ice"
+],
+[
+"puddle",
+"puddles"
+],
+[
+"mud splash",
+"muddy splash"
+],
+[
+"geyser",
+"geysers"
+],
+[
+"hot spring",
+"hot springs"
+],
+[
+"steam",
+"steaming",
+"vapour",
+"vapor"
+],
+[
+"smoke",
+"smoky"
+],
+[
+"fog",
+"mist",
+"haze"
+],
+[
+"dew",
+"dewdrop"
+],
+[
+"sunny",
+"sunshine"
+],
+[
+"cloudy",
+"overcast"
+],
+[
+"night insects",
+"night bugs"
+],
+[
+"dawn chorus",
+"morning birds"
+],
+[
+"lightning strike",
+"lightning crack",
+"thunder strike"
+],
+[
+"rumble thunder",
+"distant thunder"
+],
+[
+"windstorm",
+"wind storm"
+],
+[
+"sandstorm",
+"sand storm",
+"dust storm"
+],
+[
+"whirlwind",
+"dust devil"
+],
+[
+"drought",
+"dry spell"
+],
+[
+"flood",
+"flooding",
+"floods"
+],
+[
+"tsunami",
+"tidal wave"
+],
+[
+"rockfall",
+"rock fall",
+"falling rocks"
+],
+[
+"mudslide",
+"mud slide"
+]
+],
+"스포츠·놀이": [
+[
+"ball bounce",
+"bouncing ball",
+"ball bouncing"
+],
+[
+"basketball",
+"basketballs",
+"hoops"
+],
+[
+"baseball",
+"baseballs"
+],
+[
+"baseball bat",
+"bat hit"
+],
+[
+"soccer ball",
+"soccer"
+],
+[
+"tennis",
+"tennis ball"
+],
+[
+"golf",
+"golf ball",
+"golf swing"
+],
+[
+"hockey",
+"ice hockey",
+"hockey puck"
+],
+[
+"bowling",
+"bowling ball",
+"bowling pins"
+],
+[
+"billiards",
+"pool table",
+"snooker"
+],
+[
+"ping pong",
+"table tennis",
+"pingpong"
+],
+[
+"volleyball",
+"volleyballs"
+],
+[
+"boxing glove",
+"boxing gloves"
+],
+[
+"wrestling",
+"wrestle",
+"wrestler"
+],
+[
+"fencing sword",
+"foil sword",
+"epee"
+],
+[
+"archery",
+"archer"
+],
+[
+"skateboard",
+"skateboarding",
+"skate board"
+],
+[
+"skates",
+"ice skates",
+"rollerblades",
+"roller skates"
+],
+[
+"skiing",
+"ski",
+"skis"
+],
+[
+"snowboard",
+"snowboarding"
+],
+[
+"surfboard",
+"surf board"
+],
+[
+"swimming pool",
+"pool splash"
+],
+[
+"whistle referee",
+"referee whistle"
+],
+[
+"stadium",
+"arena",
+"stadiums"
+],
+[
+"scoreboard",
+"score board"
+],
+[
+"buzzer",
+"buzzers",
+"buzr"
+],
+[
+"starting gun",
+"starter pistol"
+],
+[
+"finish line",
+"finishing line"
+],
+[
+"playground",
+"play ground"
+],
+[
+"swing set",
+"swingset"
+],
+[
+"seesaw",
+"see saw",
+"teeter totter"
+],
+[
+"slide playground",
+"playground slide"
+],
+[
+"wind up toy",
+"windup toy",
+"clockwork toy"
+],
+[
+"rubber duck",
+"rubber ducky"
+],
+[
+"squeaky toy",
+"squeak toy",
+"dog toy"
+],
+[
+"dice",
+"die roll",
+"dice roll"
+],
+[
+"cards",
+"card shuffle",
+"shuffling cards"
+],
+[
+"poker chips",
+"casino chips"
+],
+[
+"slot machine",
+"slot machines",
+"fruit machine"
+],
+[
+"arcade machine",
+"arcade cabinet"
+],
+[
+"pinball",
+"pinball machine"
+],
+[
+"board game",
+"boardgame"
+],
+[
+"chess",
+"chess piece",
+"chess pieces"
+]
+],
+"산업·건설": [
+[
+"construction site",
+"building site"
+],
+[
+"jackhammer",
+"jack hammer",
+"pneumatic drill"
+],
+[
+"bulldozer",
+"bulldozers",
+"dozer"
+],
+[
+"excavator",
+"digger",
+"backhoe"
+],
+[
+"forklift",
+"fork lift",
+"forklifts"
+],
+[
+"cement mixer",
+"concrete mixer"
+],
+[
+"nail gun",
+"nailgun"
+],
+[
+"power drill",
+"electric drill",
+"cordless drill"
+],
+[
+"angle grinder",
+"grinder",
+"grinders"
+],
+[
+"circular saw",
+"buzz saw"
+],
+[
+"table saw",
+"tablesaw"
+],
+[
+"sander",
+"sanding",
+"sandpaper"
+],
+[
+"welding",
+"welder",
+"weld"
+],
+[
+"blowtorch",
+"blow torch",
+"torch flame"
+],
+[
+"compressor",
+"air compressor"
+],
+[
+"generator",
+"generators",
+"genset"
+],
+[
+"conveyor",
+"conveyor belt",
+"conveyors"
+],
+[
+"assembly line",
+"production line"
+],
+[
+"press machine",
+"hydraulic press"
+],
+[
+"boiler",
+"boilers"
+],
+[
+"furnace",
+"furnaces",
+"kiln"
+],
+[
+"smelting",
+"smelter"
+],
+[
+"steam engine",
+"steam locomotive"
+],
+[
+"turbine",
+"turbines",
+"turb"
+],
+[
+"pump",
+"pumps",
+"water pump"
+],
+[
+"pipe hit",
+"pipe impact"
+],
+[
+"scaffold",
+"scaffolding"
+],
+[
+"sheet metal",
+"metal sheet"
+],
+[
+"corrugated metal",
+"corrugated iron",
+"corrugated"
+],
+[
+"rebar",
+"steel bar"
+],
+[
+"girder",
+"girders",
+"i-beam"
+],
+[
+"manhole",
+"manhole cover"
+],
+[
+"sewer",
+"sewers",
+"sewage"
+],
+[
+"drainpipe",
+"drain pipe",
+"downpipe"
+],
+[
+"gutter",
+"gutters"
+],
+[
+"vent",
+"vents",
+"air vent",
+"ventilation"
+],
+[
+"duct",
+"ducts",
+"ductwork"
+]
+],
+"탈것 부품·주행": [
+[
+"car door",
+"vehicle door"
+],
+[
+"car horn",
+"vehicle horn"
+],
+[
+"seatbelt",
+"seat belt",
+"safety belt"
+],
+[
+"handbrake",
+"hand brake",
+"parking brake",
+"e brake"
+],
+[
+"gearbox",
+"transmission"
+],
+[
+"clutch",
+"clutches"
+],
+[
+"steering wheel",
+"steering"
+],
+[
+"windshield wiper",
+"wiper",
+"wipers",
+"windscreen wiper"
+],
+[
+"turn signal",
+"blinker",
+"blinkers"
+],
+[
+"headlight",
+"headlights",
+"head light"
+],
+[
+"engine bay",
+"engine compartment"
+],
+[
+"hood slam",
+"bonnet slam"
+],
+[
+"trunk open",
+"boot lid"
+],
+[
+"tire",
+"tires",
+"tyre",
+"tyres"
+],
+[
+"tire roll",
+"rolling tire",
+"tyre roll"
+],
+[
+"gravel road",
+"dirt road"
+],
+[
+"tarmac",
+"asphalt road"
+],
+[
+"offroad",
+"off road",
+"off-road"
+],
+[
+"drift",
+"drifting",
+"drifts"
+],
+[
+"burnout",
+"burn out",
+"wheelspin"
+],
+[
+"crash car",
+"car crash",
+"car accident"
+],
+[
+"collision",
+"collisions"
+],
+[
+"traffic jam",
+"gridlock"
+],
+[
+"highway",
+"freeway",
+"motorway",
+"expressway"
+],
+[
+"intersection",
+"crossroads"
+],
+[
+"parking lot",
+"car park",
+"parking garage"
+],
+[
+"gas station",
+"petrol station",
+"filling station"
+],
+[
+"fuel",
+"gasoline",
+"petrol"
+],
+[
+"race car",
+"racecar",
+"racing car",
+"racecars"
+],
+[
+"formula one",
+"f1"
+],
+[
+"rally",
+"rally car"
+],
+[
+"go kart",
+"gokart",
+"go-kart",
+"kart"
+],
+[
+"police car",
+"cop car",
+"patrol car"
+],
+[
+"ambulance",
+"ambulances"
+],
+[
+"fire truck",
+"firetruck",
+"fire engine"
+],
+[
+"school bus",
+"schoolbus"
+],
+[
+"taxi",
+"taxis",
+"cab",
+"cabs"
+],
+[
+"limousine",
+"limo"
+],
+[
+"pickup truck",
+"pick-up truck"
+],
+[
+"semi truck",
+"18 wheeler",
+"big rig",
+"tractor trailer"
+],
+[
+"motor scooter",
+"vespa"
+],
+[
+"dirt bike",
+"dirtbike",
+"motocross"
+],
+[
+"quad bike",
+"atv",
+"four wheeler"
+],
+[
+"snowmobile",
+"snow mobile",
+"skidoo"
+],
+[
+"jet ski",
+"jetski",
+"personal watercraft"
+],
+[
+"canoe",
+"kayak",
+"canoes",
+"kayaks"
+],
+[
+"rowboat",
+"row boat",
+"rowing boat"
+],
+[
+"paddle",
+"paddling",
+"oar",
+"oars"
+],
+[
+"anchor",
+"anchors"
+],
+[
+"sail",
+"sails",
+"sailing"
+],
+[
+"foghorn",
+"fog horn",
+"ship horn"
+],
+[
+"airship",
+"blimp",
+"zeppelin"
+],
+[
+"hot air balloon",
+"balloon flight"
+],
+[
+"glider",
+"gliders",
+"sailplane"
+],
+[
+"fighter jet",
+"jet fighter",
+"fighter plane"
+],
+[
+"bomber",
+"bombers"
+],
+[
+"airliner",
+"passenger jet",
+"jetliner"
+],
+[
+"landing gear",
+"undercarriage"
+],
+[
+"takeoff",
+"take off",
+"lift off",
+"liftoff"
+],
+[
+"sonic boom",
+"sonicboom"
+],
+[
+"afterburner",
+"after burner"
+]
+],
+"감정·분위기·연출": [
+[
+"anger",
+"angry",
+"rage",
+"furious"
+],
+[
+"fear",
+"afraid",
+"scared",
+"frightened"
+],
+[
+"panic",
+"panicked",
+"frantic"
+],
+[
+"surprise",
+"surprised",
+"shocked"
+],
+[
+"disgust",
+"disgusted",
+"gross"
+],
+[
+"joy",
+"joyous",
+"delight"
+],
+[
+"calm",
+"calming",
+"peaceful",
+"tranquil"
+],
+[
+"relax",
+"relaxing",
+"relaxed"
+],
+[
+"mysterious",
+"mystery",
+"enigmatic"
+],
+[
+"magical moment",
+"enchanted"
+],
+[
+"dramatic",
+"drama"
+],
+[
+"intense",
+"intensity"
+],
+[
+"chaotic",
+"chaos",
+"mayhem"
+],
+[
+"lonely",
+"loneliness",
+"desolate"
+],
+[
+"romantic",
+"romance"
+],
+[
+"nostalgic",
+"nostalgia"
+],
+[
+"triumphant",
+"triumph",
+"victorious"
+],
+[
+"playful",
+"whimsical"
+],
+[
+"sneaky",
+"stealthy",
+"stealth"
+],
+[
+"mechanical feel",
+"mechanized"
+],
+[
+"synthetic",
+"artificial"
+],
+[
+"alien feel",
+"otherworldly"
+],
+[
+"underwater feel",
+"submerged",
+"muffled underwater"
+],
+[
+"slow motion",
+"slowmotion",
+"bullet time"
+],
+[
+"jump scare",
+"jumpscare"
+],
+[
+"heartbeat tension",
+"tension heartbeat"
+],
+[
+"ticking clock",
+"clock ticking"
+],
+[
+"countdown beep",
+"countdown beeps"
+],
+[
+"reveal",
+"revealing"
+],
+[
+"impact hit",
+"hit impact"
+],
+[
+"transition whoosh",
+"whoosh transition"
+],
+[
+"logo",
+"logo sting",
+"logo reveal"
+],
+[
+"title",
+"title card",
+"title hit"
+],
+[
+"menu music",
+"title music"
+]
+]
+}
+}

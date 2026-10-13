@@ -169,6 +169,13 @@ comments, description, keywords, category, sub_category, source.
   설명하는 말' 이지 동의어 사전이 아니다). **원래 친 단어로 찾은 파일이 항상 먼저** — 두 모드 모두 1단계
   동의어 없이 → 상한을 못 채우면 2단계 동의어 포함으로 채운다 (with_syns). 한 식으로 섞으면 동의어 파일이
   앞서고, 넓게 찾기는 동의어 60개 OR 로 3~5초가 걸렸다.
+- **2.1.7 부터 동의어 사전 = 게임 사운드 사전** (`py/app/data/game_sfx_thesaurus.tsv`, 베이스헤드 형식, 1,822묶음).
+  UCS 사전은 철자 제안 단어 목록으로만 쓴다 (사용자 결정 2026-10-13: UCS 묶음은 '그 분류를 설명하는 말'이라
+  small→Fairy·CREATURES, splash→WATER 같은 혼입이 끝없이 나왔다). 만드는 법·출처·혼입 거르기는
+  `tools/game_thesaurus/README.md`. 규칙: 친 말이 묶음의 말과 **글자까지 같으면** 묶음 나머지 전부 (`thesaurus.BaseheadThesaurus`),
+  UCS 시절 규제(4글자 이상·제외어) 없음. 되돌리기: env `SOUNDFIELD_THESAURUS=ucs`. 다른 사전 시험: `run_basehead.bat`(베이스헤드 원본)·
+  `SOUNDFIELD_BASEHEAD_THESAURUS=<경로>`. ⚠ 사전 파일이 번들에 빠지면 동의어만 조용히 사라진다 — `build_bridge.ps1` 이 확인.
+  알려진 한계: 많이 쓰는 단어 300개 중 126개는 동의어 0개(뜻이 여럿인 흔한 말은 일부러 뺐다), `guns` 처럼 꼴이 다르면 안 붙음.
 - **넓게 찾기의 동의어는 단어로 찾는다** (2026-10-13 사용자 결정, `_orig_term_sql`): 원래 친 단어는 글자 일부
   (search_fts), 동의어는 단어색인 뿌리 꼴(search_fts_term) — 두 집합 UNION. 글자 일부로 찾으면 짧은 동의어가
   남의 단어 속에 걸렸다(spark 의 ARC → search·march 37만 행) + 그 단계가 2~5초. 뿌리 꼴이라 뜻이 바뀌는 묶음

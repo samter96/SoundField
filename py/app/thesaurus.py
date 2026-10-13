@@ -121,6 +121,64 @@ class Thesaurus:
         return out[:cap]
 
 
+class BaseheadThesaurus:
+    """베이스헤드 형식 동의어 사전 — 한 줄 = 'ID<TAB>말<TAB>말…' 한 묶음, 첫 줄은 머리.
+    2.1.7 부터 기본 사전은 data/game_sfx_thesaurus.tsv (게임 사운드 사전 1,822묶음 — 베이스헤드 원본 +
+    직접 정리 + 표기 변형·약어, tools/game_thesaurus/ 로 만든다). 사용자 결정 2026-10-13: UCS 사전은 보관만.
+    규칙: 친 단어가 묶음의 말과 똑같으면 그 묶음의 나머지 말 전부."""
+
+    def __init__(self, path: str):
+        self._groups: List[List[str]] = []
+        self._term_map: Dict[str, List[int]] = {}
+        try:
+            with open(path, encoding="utf-8-sig") as f:
+                lines = [ln for ln in f.read().splitlines() if ln.strip()]
+            for ln in lines[1:]:
+                terms = [t.strip() for t in ln.split("\t")[1:] if t.strip()]
+                if len(terms) < 2:
+                    continue
+                gi = len(self._groups)
+                self._groups.append(terms)
+                for t in terms:
+                    self._term_map.setdefault(t.lower(), []).append(gi)
+            logger.info(f"베이스헤드 동의어 사전 로드 — {len(self._groups)} 묶음 ({path})")
+        except Exception as e:
+            logger.warning(f"베이스헤드 동의어 사전 로드 실패 (동의어 없음): {e}")
+
+    def related(self, token: str) -> List[str]:
+        t = (token or "").strip().lower()
+        out: List[str] = []
+        seen: Set[str] = {t}
+        for gi in self._term_map.get(t, []):
+            for term in self._groups[gi]:
+                if term.lower() not in seen:
+                    seen.add(term.lower())
+                    out.append(term)
+        return out
+
+
+# 동의어 사전 선택 — 기본(설치본)은 게임 사운드 사전. SOUNDFIELD_THESAURUS=ucs 면 예전 UCS 규칙(되돌리기용).
+# 다른 파일로 시험: SOUNDFIELD_BASEHEAD_THESAURUS=<경로> (run_basehead.bat = 베이스헤드 원본).
+# ⚠ 사전 파일이 번들에 빠지면 동의어만 조용히 사라진다 — build_bridge.ps1 이 포함을 확인한다.
+BASEHEAD_ENV = "SOUNDFIELD_THESAURUS"
+BASEHEAD_PATH_ENV = "SOUNDFIELD_BASEHEAD_THESAURUS"
+_BASEHEAD_DEFAULT = os.path.join(os.path.dirname(__file__), "data", "game_sfx_thesaurus.tsv")
+_bh = None
+
+
+def basehead_mode() -> bool:
+    return os.environ.get(BASEHEAD_ENV, "").strip().lower() != "ucs"
+
+
+def basehead() -> BaseheadThesaurus:
+    global _bh
+    if _bh is None:
+        with _inst_lock:
+            if _bh is None:
+                _bh = BaseheadThesaurus(os.environ.get(BASEHEAD_PATH_ENV) or _BASEHEAD_DEFAULT)
+    return _bh
+
+
 _inst = None
 _inst_lock = threading.Lock()
 
