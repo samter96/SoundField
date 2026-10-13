@@ -81,7 +81,7 @@ export type UserConfig = {
 
 export const CONFIG_DEFAULTS: UserConfig = {
   theme: "grey",
-  searchLimit: 500,
+  searchLimit: 5000,
   searchSynonyms: true,
   doubleClickToPlay: false,
   compactResults: false,

@@ -105,8 +105,17 @@ def maintenance_steps(db):
     return steps
 
 
-def run_maintenance(db, manager):
-    """정비 단계를 차례로 — 각 단계 진행률을 op_progress 로 보낸다."""
+def db_is_empty(db):
+    conn = db._connect()
+    try:
+        return conn.execute("SELECT 1 FROM audio_files LIMIT 1").fetchone() is None
+    finally:
+        conn.close()
+
+
+def run_maintenance(db, manager, quiet=False):
+    """정비 단계를 차례로 — 각 단계 진행률을 op_progress 로 보낸다 (quiet 면 보내지 않는다:
+    화면이 op_progress 를 받으면 정비 화면을 띄우기 때문)."""
     steps = maintenance_steps(db)
     cancel = getattr(manager, "_cancel", None)
     done_keys = []
@@ -114,6 +123,8 @@ def run_maintenance(db, manager):
         key, label = step["key"], step["label"]
 
         def cb(done, total, _i=i, _label=label):
+            if quiet:
+                return
             print(json.dumps({"type": "op_progress", "data": {
                 "op": "maintenance", "step": _i + 1, "steps": len(steps), "label": _label,
                 "done": int(done or 0), "total": int(total or 0)}}, ensure_ascii=False), flush=True)
@@ -346,7 +357,15 @@ def run(req):
         # 업데이트 뒤 DB 를 고쳐 써야 하는 정비 목록 (화면이 이걸 보고 정비 화면을 띄운다 — 있을 때만).
         # 몇 분 안에 끝나는 것만 여기 넣는다. 파일 정보 보강(수 시간)은 화면을 막지 않고 쉬는 동안
         # 뒤에서 한다 (사용자 결정 2026-10-12) — 남은 수만 같이 알려 준다.
-        return {"success": True, "steps": maintenance_steps(db),
+        steps = maintenance_steps(db)
+        if steps and db_is_empty(db):
+            # 처음 설치(빈 DB) — 빈 표를 만드는 정비라 순식간에 끝난다. 화면을 띄우면 번쩍이기만 하고,
+            # 빈 단어색인은 '아직 없음' 으로 보여 라이브러리를 넣기 전까지 켤 때마다 번쩍였다
+            # (2026-10-12 실측). 그래서 화면 없이 조용히 하고 '할 일 없음' 으로 알린다.
+            # ⚠ 건너뛰면 안 된다 — 빈 단어색인 표가 있어야 첫 인덱싱이 거기에도 채운다.
+            run_maintenance(db, manager, quiet=True)
+            steps = []
+        return {"success": True, "steps": steps,
                 "reparse_remaining": db.reparse_remaining(META_PARSER_VERSION),
                 # 보강 진행 분모 (앱을 껐다 켜도 처음 기준 — library_manager.META_REPARSE_TOTAL_KEY)
                 "reparse_total": int(db.get_meta("meta_reparse_total") or 0)}

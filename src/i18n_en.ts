@@ -164,8 +164,8 @@ const CURATED_EN: Record<string, string> = {
   "결과 {0}개 — 더 있음{1}": "{0} results — more available{1}",
   "검색이 {0}초 안에 끝나지 않아 멈췄습니다 — 검색어나 필터를 좁혀 보세요":
     "The search did not finish within {0} seconds and was stopped — narrow the search or filters",
-  "(추천: 1000개 이하 / 최대: 20000개. 값이 클수록 검색 성능에 영향을 줄 수 있습니다.)":
-    "(Recommended: 1000 or less / Maximum: 20000. Larger values may affect search performance.)",
+  "(추천: 5000개 / 최대: 20000개. 값이 클수록 검색 성능에 영향을 줄 수 있습니다.)":
+    "(Recommended: 5000 / Maximum: 20000. Larger values may affect search performance.)",
 
   /* 업데이트 정비 화면 · 파일 정보 보강 (2026-10-12) */
   "업데이트 마무리 중": "Finishing the update",

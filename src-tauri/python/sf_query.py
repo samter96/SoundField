@@ -167,7 +167,7 @@ def _run_query(req):
         min_channels=req.get("min_channels"),
         path_prefixes=req.get("path_prefixes") or None,
         precise=bool(req.get("precise")),
-        limit=int(req.get("limit") or 500),
+        limit=int(req.get("limit") or 5000),
         # 환경설정 '동의어도 함께 찾기' — 값이 없으면(옛 화면) 켠 것으로 본다
         use_thesaurus=True if synonyms is None else bool(synonyms),
         info=info,

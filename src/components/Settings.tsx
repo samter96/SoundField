@@ -479,7 +479,7 @@ export function Settings({ onClose, config, onSave, runAdmin, onBusyChange }: Pr
                    }} />
           </div>
           <div className="form-hint">
-            (추천: 1000개 이하 / 최대: 20000개. 값이 클수록 검색 성능에 영향을 줄 수 있습니다.)
+            (추천: 5000개 / 최대: 20000개. 값이 클수록 검색 성능에 영향을 줄 수 있습니다.)
           </div>
 
           <div className="form-row">
