@@ -4,7 +4,8 @@ export type Row = {
   id: number;
   dbId?: string;
   dur: number;
-  fmt: "WAV" | "MP3" | "FLAC" | "AIFF";
+  /** 형식 배지 — 실제 형식. 모르면 "" (배지 없음) */
+  fmt: "WAV" | "MP3" | "FLAC" | "AIFF" | "";
   name: string;
   sr: number;
   ch: number;

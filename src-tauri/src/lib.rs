@@ -4,6 +4,9 @@ use std::collections::{HashMap, HashSet};
 use std::process::{Child, ChildStdin, ChildStdout};
 use std::sync::Mutex;
 
+/* 자동 업데이트 — 확인·받기·교체 도우미 전부 이 파일 하나에 있다 (2026-10-14 준비) */
+pub mod updater;
+
 struct AudioState {
     child: Mutex<Option<Child>>,
     stdin: Mutex<Option<ChildStdin>>,
@@ -60,6 +63,9 @@ struct LibraryRoot {
 struct BlacklistPath {
     path: String,
     description: String,
+    /* 탭별 블랙리스트 (2026-10-14 사용자 결정 — 탭마다 완전히 따로).
+       "all" = '전체' 탭(blacklist_paths), "fav" = 즐겨찾기, "user:이름" = 개인 탭(blacklist_tab_paths). */
+    tab: String,
 }
 
 #[derive(serde::Serialize, Clone)]
@@ -93,6 +99,9 @@ struct SearchRequest {
     /* 환경설정 '동의어도 함께 찾기' — 없으면(옛 화면) 파이썬이 켠 것으로 본다 */
     #[serde(default)]
     synonyms: Option<bool>,
+    /* 지금 탭의 블랙리스트만 뺀다 (탭별 블랙리스트 2026-10-14). 없으면 '전체' 탭 목록 */
+    #[serde(default)]
+    blacklist_tab: Option<String>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -129,6 +138,9 @@ struct WaveformRequest {
     end_sec: Option<f64>,
     #[serde(default)]
     rate: Option<f64>,
+    /// "region" 모드 — 모노로 합친 `이름_mono.wav` 로 (2026-10-14)
+    #[serde(default)]
+    mono: Option<bool>,
 }
 
 /* 원본과 동일한 로컬 상태 경로. 오디오 라이브러리(Y:\)에는 절대 쓰지 않고,
@@ -994,28 +1006,75 @@ async fn sf_root_order_set(paths: Vec<String>) -> Result<(), String> {
     }).await.map_err(|e| e.to_string())?
 }
 
-/* 원본 get_blacklist_paths (database.py:529) — ORDER BY path. */
+/* 원본 get_blacklist_paths (database.py:529) — ORDER BY path.
+   탭별 블랙리스트 (2026-10-14): '전체' 탭 목록 + 다른 탭 목록을 한꺼번에 돌려주고, 화면이 탭으로 나눈다.
+   탭별 표가 아직 없는 DB(처음 추가하기 전)면 '전체' 탭 목록만. */
 fn blacklist_paths_blocking() -> Result<Vec<BlacklistPath>, String> {
     let conn = open_readonly()?;
-    let out: Vec<BlacklistPath> = {
+    let mut out: Vec<BlacklistPath> = {
         let mut stmt = conn.prepare(
             "SELECT path, IFNULL(description,'') FROM blacklist_paths ORDER BY path"
         ).map_err(|e| e.to_string())?;
         let rows = stmt.query_map([], |row| {
-            Ok(BlacklistPath { path: row.get(0)?, description: row.get(1)? })
+            Ok(BlacklistPath { path: row.get(0)?, description: row.get(1)?, tab: "all".into() })
         }).map_err(|e| e.to_string())?;
         rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?
     };
+    if let Ok(mut stmt) = conn.prepare(
+        "SELECT path, IFNULL(description,''), tab FROM blacklist_tab_paths ORDER BY tab, path") {
+        let rows = stmt.query_map([], |row| {
+            Ok(BlacklistPath { path: row.get(0)?, description: row.get(1)?, tab: row.get(2)? })
+        }).map_err(|e| e.to_string())?;
+        out.extend(rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?);
+    }
 
     Ok(out)
 }
 
+/* 탭별 블랙리스트 표 — 쓰기 전에 만든다 (파이썬 _ensure 와 같은 꼴). */
+fn ensure_blacklist_tab_table(conn: &rusqlite::Connection) -> Result<(), String> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS blacklist_tab_paths (
+             tab TEXT NOT NULL,
+             path TEXT NOT NULL,
+             description TEXT,
+             added_at REAL DEFAULT (strftime('%s','now')),
+             PRIMARY KEY (tab, path)
+         );").map_err(|e| e.to_string())
+}
+
+/* 탭 이름 → '전체' 탭이면 None. "all" 이거나 비었으면 전체. */
+fn blacklist_tab_key(tab: Option<String>) -> Option<String> {
+    tab.filter(|t| !t.is_empty() && t != "all")
+}
+
 /* 블랙리스트 추가/제거 — 원본 Database와 같은 실제 DB 갱신. */
 #[tauri::command]
-async fn sf_blacklist_add(path: String, description: String) -> Result<(), String> {
+async fn sf_blacklist_add(path: String, description: String, tab: Option<String>)
+    -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         let conn = open_writable()?;
         let norm = norm_path(&path);
+        if let Some(tab) = blacklist_tab_key(tab) {
+            /* 즐겨찾기·개인 탭 목록 — 같은 탭 안에서만 대소문자 무시로 겹침을 본다 */
+            ensure_blacklist_tab_table(&conn)?;
+            let existing: Option<String> = conn.query_row(
+                "SELECT path FROM blacklist_tab_paths WHERE tab = ?1 AND path = ?2 COLLATE NOCASE",
+                rusqlite::params![tab, norm], |r| r.get(0)).ok();
+            match existing {
+                Some(found) => {
+                    conn.execute(
+                        "UPDATE blacklist_tab_paths SET description = ?3 WHERE tab = ?1 AND path = ?2",
+                        rusqlite::params![tab, found, description]).map_err(|e| e.to_string())?;
+                }
+                None => {
+                    conn.execute(
+                        "INSERT INTO blacklist_tab_paths(tab, path, description) VALUES(?1, ?2, ?3)",
+                        rusqlite::params![tab, norm, description]).map_err(|e| e.to_string())?;
+                }
+            }
+            return Ok(());
+        }
         /* ⚠ blacklist_paths.path 는 TEXT PRIMARY KEY = **대소문자 구분**이다.
            ON CONFLICT 만 믿으면 `D:\Lib` 와 `d:\lib` 가 두 줄로 들어간다.
            원본은 넣기 전에 `path.lower()` 집합으로 걸러낸다
@@ -1042,11 +1101,43 @@ async fn sf_blacklist_add(path: String, description: String) -> Result<(), Strin
 }
 
 #[tauri::command]
-async fn sf_blacklist_remove(path: String) -> Result<(), String> {
+async fn sf_blacklist_remove(path: String, tab: Option<String>) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         let conn = open_writable()?;
         let norm = norm_path(&path);
+        if let Some(tab) = blacklist_tab_key(tab) {
+            ensure_blacklist_tab_table(&conn)?;
+            conn.execute("DELETE FROM blacklist_tab_paths WHERE tab = ?1 AND path = ?2 COLLATE NOCASE",
+                         rusqlite::params![tab, norm]).map_err(|e| e.to_string())?;
+            return Ok(());
+        }
         conn.execute("DELETE FROM blacklist_paths WHERE path = ?1 COLLATE NOCASE", [&norm])
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }).await.map_err(|e| e.to_string())?
+}
+
+/* 개인 탭 이름 변경 → 그 탭 블랙리스트도 따라간다 (탭 이름이 목록의 열쇠라서).
+   새 이름에 이미 남은 목록이 있으면(같은 이름 탭을 지운 흔적) 그 위에 합친다. */
+#[tauri::command]
+async fn sf_blacklist_tab_rename(from: String, to: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let conn = open_writable()?;
+        ensure_blacklist_tab_table(&conn)?;
+        conn.execute("UPDATE OR REPLACE blacklist_tab_paths SET tab = ?2 WHERE tab = ?1",
+                     rusqlite::params![from, to]).map_err(|e| e.to_string())?;
+        Ok(())
+    }).await.map_err(|e| e.to_string())?
+}
+
+/* 개인 탭 삭제 → 그 탭 블랙리스트도 지운다. 남겨 두면 같은 이름으로 새 탭을 만들 때
+   예전 목록이 말없이 되살아난다. */
+#[tauri::command]
+async fn sf_blacklist_tab_drop(tab: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let conn = open_writable()?;
+        ensure_blacklist_tab_table(&conn)?;
+        conn.execute("DELETE FROM blacklist_tab_paths WHERE tab = ?1", [&tab])
             .map_err(|e| e.to_string())?;
         Ok(())
     }).await.map_err(|e| e.to_string())?
@@ -1518,6 +1609,7 @@ fn waveform_blocking(state: &WaveInner, req: WaveformRequest) -> Result<serde_js
         "start_sec": req.start_sec,
         "end_sec": req.end_sec,
         "rate": req.rate,
+        "mono": req.mono.unwrap_or(false),
     });
 
     let mut io_guard = state.io.lock().map_err(|_| "파형 입출력 잠금 실패".to_string())?;
@@ -2723,6 +2815,8 @@ pub fn run() {
             sf_blacklist_add,
             sf_root_order_set,
             sf_blacklist_remove,
+            sf_blacklist_tab_rename,
+            sf_blacklist_tab_drop,
             sf_config_read,
             sf_file_stamp,
             sf_layout_store_read,
@@ -2733,6 +2827,10 @@ pub fn run() {
             sf_drag_icon,
             sf_drag_image,
             sf_duplicates,
+            updater::sf_update_check,
+            updater::sf_update_download,
+            updater::sf_update_cancel,
+            updater::sf_update_apply,
         ])
         /* 창 위치·크기·최대화 상태를 기억한다 (조사 Q14).
            ⚠ 이동 중에는 이벤트가 초당 수십 번 온다. 그때마다 파일을 쓰면 디스크를

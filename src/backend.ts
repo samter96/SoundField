@@ -34,7 +34,11 @@ type DbRoot = {
 type DbBlacklist = {
   path: string;
   description: string;
+  /** 탭별 블랙리스트 (2026-10-14): "all" = 전체 탭, "fav" = 즐겨찾기, "user:이름" = 개인 탭 */
+  tab: string;
 };
+/** 블랙리스트 한 줄 — 화면 전체가 같은 꼴을 쓴다 */
+export type BlacklistEntry = DbBlacklist;
 
 export type SearchRequest = {
   matchers: Array<{ field: string; operator: string | null; value: string }>;
@@ -48,17 +52,24 @@ export type SearchRequest = {
   limit: number;
   /** 환경설정 '동의어도 함께 찾기' */
   synonyms?: boolean;
+  /** 지금 탭 — 그 탭의 블랙리스트만 뺀다 (탭별 블랙리스트 2026-10-14) */
+  blacklist_tab?: string;
 };
 
 /** 결과 0건일 때 철자 제안 — 혼자서도 아무것도 안 걸리는 단어만 */
 export type SpellSuggestion = { word: string; suggestion: string };
 
-const extToFmt = (name: string): Row["fmt"] => {
-  const ext = name.split(".").pop()?.toUpperCase();
-  if (ext === "MP3") return "MP3";
-  if (ext === "FLAC") return "FLAC";
-  if (ext === "AIF" || ext === "AIFF") return "AIFF";
-  return "WAV";
+/* 형식 배지 = 메타 분석이 파일 내용으로 판정한 실제 형식 (사용자 결정 2026-10-14).
+   이름은 .wav 인데 속은 AIFF 인 파일이 있다 (실측 2,550개, 사운드모프 등) — 확장자로 정하면
+   WAV 로 잘못 보인다. 아직 분석 전이라 형식을 모르면(codec 없음) 배지를 비운다.
+   codec 값: PCM(WAV·BWF·RF64) / AIFF / MP3 / FLAC — py/app/metadata.py. */
+const codecToFmt = (codec: string | null | undefined): Row["fmt"] => {
+  const c = (codec ?? "").toUpperCase();
+  if (c === "PCM") return "WAV";
+  if (c === "AIFF") return "AIFF";
+  if (c === "MP3") return "MP3";
+  if (c === "FLAC") return "FLAC";
+  return "";
 };
 
 const dirname = (path: string) => {
@@ -71,7 +82,7 @@ function toRow(row: DbRow, index: number): Row {
     id: index,
     dbId: row.id,
     dur: Number(row.duration) || 0,
-    fmt: extToFmt(row.file_name),
+    fmt: codecToFmt(row.codec),
     name: row.file_name,
     sr: Number(row.sample_rate) || 0,
     ch: Number(row.channels) || 0,
@@ -176,7 +187,7 @@ export async function loadLibraryRoots(): Promise<Lib[] | null> {
   });
 }
 
-export async function loadBlacklistPaths(): Promise<Array<{ path: string; description: string }> | null> {
+export async function loadBlacklistPaths(): Promise<BlacklistEntry[] | null> {
   try {
     return await invoke<DbBlacklist[]>("sf_blacklist_paths");
   } catch {
@@ -203,7 +214,7 @@ export async function loadFolderTree(): Promise<TreeNode | null> {
 }
 
 type AudioCommand = {
-  command: "load" | "play" | "restart" | "pause" | "stop" | "seek" | "rate" | "volume" | "binaural" | "layout" | "quit";
+  command: "load" | "play" | "restart" | "pause" | "stop" | "seek" | "rate" | "volume" | "binaural" | "mono" | "layout" | "quit";
   path?: string;
   meta?: Record<string, unknown>;
   position_ms?: number;
@@ -332,6 +343,8 @@ export const audioBridge = {
   rate: (rate: number) => audio({ command: "rate", rate }),
   volume: (gain: number) => audio({ command: "volume", volume: Math.max(0, Math.min(2, gain)) }),
   binaural: (enabled: boolean) => audio({ command: "binaural", enabled }),
+  /** 모노로 합치기 (2026-10-14) — 듣기. DAW 내보내기는 exportRegion 의 mono */
+  mono: (enabled: boolean) => audio({ command: "mono", enabled }),
   layout: (layout: string, restart = false, play = false) =>
     audio({ command: "layout", layout, restart, play }),
 };
@@ -528,18 +541,38 @@ export async function setRootOrder(paths: string[]): Promise<boolean> {
   }
 }
 
-export async function addBlacklistPath(path: string, description: string) {
+export async function addBlacklistPath(path: string, description: string, tab: string) {
   try {
-    await invoke("sf_blacklist_add", { path, description });
+    await invoke("sf_blacklist_add", { path, description, tab });
     return true;
   } catch {
     return false;
   }
 }
 
-export async function removeBlacklistPath(path: string) {
+export async function removeBlacklistPath(path: string, tab: string) {
   try {
-    await invoke("sf_blacklist_remove", { path });
+    await invoke("sf_blacklist_remove", { path, tab });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** 개인 탭 이름 변경 — 그 탭 블랙리스트도 따라간다 */
+export async function renameBlacklistTab(from: string, to: string) {
+  try {
+    await invoke("sf_blacklist_tab_rename", { from, to });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** 개인 탭 삭제 — 그 탭 블랙리스트도 지운다 */
+export async function dropBlacklistTab(tab: string) {
+  try {
+    await invoke("sf_blacklist_tab_drop", { tab });
     return true;
   } catch {
     return false;
@@ -661,9 +694,12 @@ export async function loadQuickPeaks(path: string): Promise<WavePeaks | null> {
    실패하면 오류를 전달한다. 요청과 다른 원본 파일로 대체하지 않는다. */
 export async function exportRegion(path: string, startSec: number | null,
                                    endSec: number | null,
-                                   rate = 1): Promise<string> {
+                                   rate = 1, mono = false,
+                                   override = ""): Promise<string> {
+  /* mono = 모노로 합친 `이름_mono.wav` 로 (2026-10-14). override = 사용자가 고른 채널 배치 —
+     합치는 비율을 재생과 같은 배치로 정하려고 넘긴다. */
   const out = await invoke<{ path: string }>("sf_waveform", {
-    req: { path, mode: "region", start_sec: startSec, end_sec: endSec, rate },
+    req: { path, mode: "region", start_sec: startSec, end_sec: endSec, rate, mono, override },
   });
   if (!out?.path) throw new Error("내보낼 파일을 만들지 못했습니다");
   return out.path;
@@ -678,4 +714,40 @@ export async function loadLayoutInfo(path: string, channels: number,
   } catch {
     return null;
   }
+}
+
+/* ── 자동 업데이트 (src-tauri/src/updater.rs) ───────────────────────────────────
+   올리는 곳(update.cfg)이 비어 있으면 확인은 늘 null 이다 — 기능이 꺼진 상태. */
+export type UpdateInfo = { version: string; current: string; build: string; files: number; bytes: number };
+export type UpdateProgress = { done: number; total: number };
+export type UpdateFinished = { ok: boolean; error: string };
+
+export async function updateCheck(): Promise<UpdateInfo | null> {
+  try {
+    return await invoke<UpdateInfo | null>("sf_update_check");
+  } catch (error) {
+    /* 공유 폴더에 못 닿는 등 — 업데이트를 못 할 뿐 앱 사용은 막지 않는다 */
+    debugLog(`UPDATE 확인 실패 ${String(error)}`);
+    return null;
+  }
+}
+
+export const updateDownload = (): Promise<void> => invoke<void>("sf_update_download");
+export const updateCancel = (): Promise<void> => invoke<void>("sf_update_cancel").catch(() => {});
+export const updateApply = (): Promise<void> => invoke<void>("sf_update_apply");
+
+export function onUpdateProgress(cb: (value: UpdateProgress) => void): () => void {
+  let stop: (() => void) | null = null;
+  let dead = false;
+  void listen<UpdateProgress>("sf-update-progress", (event) => cb(event.payload))
+    .then((un) => { if (dead) un(); else stop = un; });
+  return () => { dead = true; stop?.(); };
+}
+
+export function onUpdateDone(cb: (value: UpdateFinished) => void): () => void {
+  let stop: (() => void) | null = null;
+  let dead = false;
+  void listen<UpdateFinished>("sf-update-done", (event) => cb(event.payload))
+    .then((un) => { if (dead) un(); else stop = un; });
+  return () => { dead = true; stop?.(); };
 }

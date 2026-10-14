@@ -138,7 +138,9 @@ export function ResultsTable({
   savedColumns,
   onColumnsChange,
   onDragDropped,
+  scrollResetKey,
   pip,
+  playedPaths,
 }: {
   rows: Row[];
   playing: number | null;
@@ -148,6 +150,8 @@ export function ResultsTable({
         pip 이 붙은 행에 적용된다 (원본 _playing_row 는 ended 에도 그 행을 가리킨다).
         따라서 일시정지/정지 뒤에도 그 행 강조는 남고 점만 파랗게 바뀐다. */
   pip?: { path: string; state: "loading" | "playing" | "ended" | "" };
+  /** 이번 실행에서 재생한 소리의 경로 — 그 줄 글자를 노랗게 (사운드마이너식, 앱 재시작 시 초기화) */
+  playedPaths?: ReadonlySet<string>;
   compact: boolean;
   /* 원본 앱 config 의 columns — localStorage 레이아웃이 없을 때만 쓴다
      (PoC 에서 사용자가 옮긴 배치를 원본 값이 덮어쓰지 않도록) */
@@ -163,6 +167,8 @@ export function ResultsTable({
   onContext: (event: React.MouseEvent, row: Row, selectedRows: Row[]) => void;
   /** 원본 dragDropped — DAW 등 외부로 드롭이 성사됐을 때 (stop_on_drag 판단은 상위에서) */
   onDragDropped?: () => void;
+  /** 바뀌면 목록을 맨 위로 — 새 검색 결과가 도착했을 때 (App 이 올린다) */
+  scrollResetKey?: number;
 }) {
   const [columns, setColumns] = useState<Column[]>(loadColumns);
   /* 원본 앱이 저장해 둔 컬럼 배치를 최초 1회 적용 (PoC 로컬 배치가 없을 때만).
@@ -187,6 +193,12 @@ export function ResultsTable({
   }, [savedColumns]);
   const [sort, setSort] = useState<SortState>(null);
   const [scrollTop, setScrollTop] = useState(0);
+  /* 새 검색 결과 → 맨 위부터 (전엔 보던 스크롤 위치에 그대로 남아 새 결과의 중간이 보였다) */
+  useEffect(() => {
+    if (!scrollResetKey || !boxRef.current) return;
+    boxRef.current.scrollTop = 0;
+    setScrollTop(0);
+  }, [scrollResetKey]);
   /* 휠 한 번에 scroll 이벤트가 여러 번 오고, 그때마다 setState 하면 한 프레임에
      리렌더가 여러 번 돈다 (5,000행 가상 목록에서 체감된다). 프레임당 한 번으로
      묶는다 — 마지막 값만 반영되므로 표시 결과는 같다. */
@@ -487,10 +499,12 @@ export function ResultsTable({
     window.addEventListener("mouseup", up);
   };
 
+  /* 오름 → 내림 → 정렬 없음(검색 점수 순) 차례로 (사용자 결정 2026-10-14).
+     전엔 오름↔내림만 돌아서 한 번 정렬하면 점수 순으로 돌아갈 방법이 없었다. */
   const toggleSort = (key: ColumnKey) => {
     setSort((prev) => {
       if (!prev || prev.key !== key) return { key, dir: "asc" };
-      return { key, dir: prev.dir === "asc" ? "desc" : "asc" };
+      return prev.dir === "asc" ? { key, dir: "desc" } : null;
     });
   };
 
@@ -675,6 +689,7 @@ export function ResultsTable({
                 key={row.id}
                 className={"tr"
                   + (rowSelected ? " selected" : "")
+                  + (row.fullPath && playedPaths?.has(row.fullPath) ? " played" : "")
                   /* pip 이 붙은 행이면 상태와 무관하게 행 강조 */
                   + (pipPath && (row.fullPath ?? "") === pipPath ? " playing" : "")
                   + (pipPath && (row.fullPath ?? "") === pipPath && pip?.state
@@ -751,7 +766,7 @@ export function ResultsTable({
                       {col.key === "file_name" ? (
                         <>
                           <span className="dot" />
-                          <span className={`fmt ${row.fmt.toLowerCase()}`}>{row.fmt}</span>
+                          {row.fmt && <span className={`fmt ${row.fmt.toLowerCase()}`}>{row.fmt}</span>}
                           <span>{content}</span>
                         </>
                       ) : content}

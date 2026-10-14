@@ -21,6 +21,18 @@ const CURATED_EN: Record<string, string> = {
   "인덱싱이 진행 중입니다. 지금 종료하면 작업이 중단됩니다.\n\nSoundField 를 종료할까요?":
     "Indexing is in progress. Quitting now will stop it.\n\nQuit SoundField?",
 
+  /* ── 자동 업데이트 창 (components/UpdateDialog.tsx) ── */
+  "업데이트": "Update",
+  "새 버전이 있습니다.": "A new version is available.",
+  "지금 {0} → 새 버전 {1}": "Current {0} → New {1}",
+  "바뀐 파일 {0}개 · 받을 크기 {1} MB": "{0} changed files · {1} MB to download",
+  "다 받으면 SoundField 가 다시 시작됩니다.": "SoundField will restart when the download finishes.",
+  "받는 중… {0} / {1} MB": "Downloading… {0} / {1} MB",
+  "다시 시작하는 중…": "Restarting…",
+  "확인": "OK",
+  "업데이트를 받지 못했습니다. 지금 버전으로 계속 사용합니다.":
+    "Couldn't download the update. You can keep using the current version.",
+
   /* ── 공통 짧은 문구 / 자동 번역 보정 ── */
   "PC 탐색기에서 보기": "Show in File Explorer",
   "새 탭": "New tab",

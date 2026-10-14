@@ -88,6 +88,7 @@
   --row-hover:    rgba(255, 255, 255, .05);
   --row-selected: rgba(255, 255, 255, .10);
   --row-playing:  rgba(255, 255, 255, .145);
+  --row-played:   #e3b341;   /* 이번 실행에서 재생한 소리 (사운드마이너식 노란 글자) */
 
   /* 원본 COLORS_GREY 는 warn 을 무채색으로 둔다 ("무채색 톤 유지") — 그대로 지킨다.
      danger 만 빨강(#c44848). 상태 램프(정상/대기/실패)는 테마 무관 상수라 별개다. */
@@ -172,6 +173,7 @@
   --row-hover:    rgba(120, 160, 220, .07);
   --row-selected: rgba(80, 137, 212, .18);
   --row-playing:  rgba(80, 137, 212, .27);
+  --row-played:   #e3b341;
 
   --warn:   #c89840;
   --danger: #c44848;
@@ -254,6 +256,7 @@
   --row-hover:    rgba(70, 60, 38, .07);
   --row-selected: rgba(70, 60, 38, .15);
   --row-playing:  rgba(70, 60, 38, .22);
+  --row-played:   #9a6700;   /* 밝은 바탕에서 노랑은 안 보여 진한 황토색 */
 
   --warn:   #a07820;
   --danger: #9c3535;

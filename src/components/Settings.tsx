@@ -60,6 +60,7 @@ const SHORTCUTS: Array<[string, string, string]> = [
   ["toggle_segments", "세그먼트 토글", "S"],
   ["toggle_history", "히스토리 토글", "H"],
   ["toggle_binaural", "바이노럴 켜기/끄기", "B"],
+  ["toggle_mono", "모노로 합치기 켜기/끄기", "M"],
   ["open_settings", "환경설정 열기/닫기", "Ctrl+P"],
 ];
 
@@ -122,6 +123,7 @@ export function Settings({ onClose, config, onSave, runAdmin, onBusyChange }: Pr
   const [restartFromZero, setRestartFromZero] = useState(config.playbackRestartFromZero);
   const [autoPreview, setAutoPreview] = useState(config.autoPreview);
   const [stopOnDrag, setStopOnDrag] = useState(config.stopOnDrag);
+  const [monoKeep, setMonoKeep] = useState(config.monoKeep);
   const [indexOnIdle, setIndexOnIdle] = useState(config.indexOnIdle);
   const [shortcuts, setShortcuts] = useState<Record<string, string>>(
     { ...SHORTCUT_DEFAULTS, ...config.shortcuts },
@@ -151,6 +153,7 @@ export function Settings({ onClose, config, onSave, runAdmin, onBusyChange }: Pr
     setRestartFromZero(CONFIG_DEFAULTS.playbackRestartFromZero);
     setAutoPreview(CONFIG_DEFAULTS.autoPreview);
     setStopOnDrag(CONFIG_DEFAULTS.stopOnDrag);
+    setMonoKeep(CONFIG_DEFAULTS.monoKeep);
     setIndexOnIdle(CONFIG_DEFAULTS.indexOnIdle);
     setShortcuts({ ...SHORTCUT_DEFAULTS });
     /* 원본 _on_reset 은 테마 라디오를 건드리지 않는다 */
@@ -238,6 +241,7 @@ export function Settings({ onClose, config, onSave, runAdmin, onBusyChange }: Pr
       playbackRestartFromZero: restartFromZero,
       autoPreview,
       stopOnDrag,
+      monoKeep,
       indexOnIdle,
       shortcuts: { ...SHORTCUT_DEFAULTS, ...shortcuts },
     });
@@ -558,6 +562,22 @@ export function Settings({ onClose, config, onSave, runAdmin, onBusyChange }: Pr
               <CheckRow checked={stopOnDrag} label="DAW 로 드래그 시작 시 재생 정지"
                         title={"툴에서 사운드를 DAW 로 드래그 앤 드롭하는 순간 재생을 정지합니다.\n체크 해제 시 드래그 중에도 계속 재생됩니다."}
                         onToggle={() => setStopOnDrag((v) => !v)} />
+            </div>
+          </div>
+
+          <div className="form-sep" />
+
+          {/* 모노로 합치기가 꺼지는 시점 (사용자 결정 2026-10-14). 켜 두고 잊어 스테레오를
+              모노로 보내는 일을 막으려고 고른다 — 위에서 아래로 갈수록 잘 꺼진다. */}
+          <div className="form-row">
+            <span className="form-label">모노로 합치기:</span>
+            <div className="form-radios">
+              <Radio checked={monoKeep === "manual"} label="직접 끌 때까지 유지"
+                     onSelect={() => setMonoKeep("manual")} />
+              <Radio checked={monoKeep === "drag"} label="DAW 로 한 번 보내면 끄기"
+                     onSelect={() => setMonoKeep("drag")} />
+              <Radio checked={monoKeep === "play"} label="다른 사운드를 재생하면 끄기"
+                     onSelect={() => setMonoKeep("play")} />
             </div>
           </div>
         </div>

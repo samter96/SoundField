@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
 import type { TreeNode } from "../data";
 import { IcoCaret, IcoMore, IcoPlus, IcoSearch, IcoStar, IcoX } from "../icons";
-import { removeBlacklistPath } from "../backend";
+import { dropBlacklistTab, removeBlacklistPath, renameBlacklistTab } from "../backend";
+import { IN_APP_DROP_EVENT, type InAppDrop } from "../drag";
 import { t } from "../i18n";
 
 type Props = {
@@ -23,7 +24,12 @@ type Props = {
   onBlacklistDetail: () => void;
   onNotify: (kind: "add" | "remove" | "info", text: string) => void;
   tree?: TreeNode;
-  blacklistEntries?: Array<{ path: string; description: string }>;
+  /** 지금 탭의 블랙리스트 (탭별 블랙리스트 2026-10-14 — 상위가 탭으로 걸러 준다) */
+  blacklistEntries?: Array<{ path: string; description: string; tab: string }>;
+  /** 지금 탭 이름이 바뀔 때 ('all' / 'fav' / 'user:이름') — 블랙리스트·검색이 이 탭 기준이다 */
+  onBlacklistTab?: (tab: string) => void;
+  /** 트리·라이브러리 검색 행을 블랙리스트 패널에 끌어다 놓았을 때 — 놓은 폴더 경로들 */
+  onBlacklistDrop?: (paths: string[]) => void;
   /* 원본 config "blacklist_expanded_h" — 블랙리스트 패널 펼침 높이 */
   blacklistH?: number;
   /* 원본 side_count 가 쓰는 등록 라이브러리 수 (manager.get_roots() 길이) */
@@ -116,7 +122,8 @@ export function Sidebar({ onContext, onBlacklistDetail, onNotify, tree, blacklis
                          displayNames, openBlacklistTick, onReorderRoots,
                          initialFavorites, initialTabs, initialSelection, pruneSignal,
                          onFavoritesChange, onTabsChange, onSelectionChange,
-                         onBlacklistHeightCommit, onBlacklistChanged, rootCount }: Props) {
+                         onBlacklistHeightCommit, onBlacklistChanged, rootCount,
+                         onBlacklistTab, onBlacklistDrop }: Props) {
   const treeData = tree ?? { id: "root", label: "", path: "", count: 0, children: [] };
   /* 원본 _can_move_root 판정용 — 루트(라이브러리)의 형제 안 위치 */
   const rootIndexOf = (id: string) =>
@@ -445,6 +452,8 @@ export function Sidebar({ onContext, onBlacklistDetail, onNotify, tree, blacklis
       return next;
     });
     setTab((cur) => (cur === `user:${from}` ? `user:${name}` : cur));
+    /* 탭 이름이 블랙리스트 목록의 열쇠라 같이 옮긴다 (탭별 블랙리스트 2026-10-14) */
+    void renameBlacklistTab(`user:${from}`, `user:${name}`).then(() => onBlacklistChanged?.());
     setRenameTab(null);
     setTabError("");
   };
@@ -471,6 +480,8 @@ export function Sidebar({ onContext, onBlacklistDetail, onNotify, tree, blacklis
     setTabItems((prev) => { const next = { ...prev }; delete next[`user:${name}`]; return next; });
     setTabExcluded((prev) => { const next = { ...prev }; delete next[`user:${name}`]; return next; });
     setTab((current) => (current === `user:${name}` ? "all" : current));
+    /* 그 탭 블랙리스트도 지운다 — 남겨 두면 같은 이름으로 새 탭을 만들 때 말없이 되살아난다 */
+    void dropBlacklistTab(`user:${name}`).then(() => onBlacklistChanged?.());
   };
   const [blacklistH, setBlacklistH] = useState(() => {
     const saved = Number(localStorage.getItem(SAVED_BLACKLIST_H));
@@ -535,6 +546,8 @@ export function Sidebar({ onContext, onBlacklistDetail, onNotify, tree, blacklis
       excluded: tabExcluded[`user:${name}`] ?? [],
     })));
   }, [userTabs, tabItems, tabExcluded]);
+  /* 탭별 블랙리스트 (2026-10-14) — 탭이 바뀌면 상위가 그 탭 목록으로 바꿔 넘겨 준다 */
+  useEffect(() => { onBlacklistTab?.(tab); }, [tab]);
   useEffect(() => {
     const node = sel ? nodeById[sel] : null;
     onSelectionChange?.({
@@ -915,6 +928,37 @@ export function Sidebar({ onContext, onBlacklistDetail, onNotify, tree, blacklis
     return ids.filter((value) => value !== "all");
   };
 
+  /* 상위 폴더가 함께 들어 있으면 하위는 뺀다 (사용자 요청 2026-10-14) — 'Surround' 폴더와 그 안의
+     'surround_01' 을 같이 골라 탭에 넣으면 하위가 두 번(상위 안 + 따로) 보이던 것 방지. 순서는 유지. */
+  const topmostOnly = (ids: string[]) => {
+    const set = new Set(ids);
+    return ids.filter((id, i) => ids.indexOf(id) === i
+      && !(chainOf[id] ?? []).some((ancestor) => ancestor !== id && set.has(ancestor)));
+  };
+
+  /* 라이브러리 검색 결과에서 고른 행들 (2026-10-14) — Ctrl 클릭 = 하나씩 더하기/빼기,
+     Shift 클릭 = 범위. 끌어서 탭이나 블랙리스트 패널에 놓으면 고른 행 전체가 간다.
+     그냥 클릭은 예전처럼 그 폴더로 바로 간다. */
+  const [hitSel, setHitSel] = useState<Set<string>>(new Set());
+  const hitAnchorRef = useRef<string | null>(null);
+  /* 블랙리스트 패널 위로 끌고 왔을 때 강조 */
+  const [blDropOver, setBlDropOver] = useState(false);
+  const blPanelRef = useRef<HTMLElement>(null);
+  /* 결과 표 사운드 행을 이 패널 위에 놓았을 때 (사용자 결정 2026-10-14: '놓은 위치로 판단').
+     결과 표 끌기는 윈도우 드래그라 아래 onDrop 이 오지 않는다 — drag.ts 가 끝난 순간 위치를 알려 준다. */
+  const onBlacklistDropRef = useRef(onBlacklistDrop);
+  onBlacklistDropRef.current = onBlacklistDrop;
+  useEffect(() => {
+    const onDrop = (event: Event) => {
+      const { x, y, paths } = (event as CustomEvent<InAppDrop>).detail;
+      const rect = blPanelRef.current?.getBoundingClientRect();
+      if (!rect || x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) return;
+      if (paths.length) onBlacklistDropRef.current?.(paths);
+    };
+    window.addEventListener(IN_APP_DROP_EVENT, onDrop);
+    return () => window.removeEventListener(IN_APP_DROP_EVENT, onDrop);
+  }, []);
+
   /* ── 라이브러리 검색 매치 (원본 _apply_search + iter_folder_nodes) ──
      ⚠ 정렬하지 않는다. 원본은 iter_folder_nodes() 의 **트리 순회 순서**를 그대로
         _search_matches 로 쓰므로 '하나씩 찾기(↑/↓)' 도 트리 위→아래 순서로 돈다.
@@ -1012,10 +1056,14 @@ export function Sidebar({ onContext, onBlacklistDetail, onNotify, tree, blacklis
     };
   }, [dropdownOpen, searchText, matches.length]);
 
-  /* ── 검색과 무관한 동작이면 결과 목록만 닫는다 (검색어는 그대로 남긴다) ──────
+  /* ── 검색과 무관한 동작이면 결과 목록만 닫는다 (검색어·검색 행은 그대로 남긴다) ──────
      원본 _show_dropdown 은 app.installEventFilter 로 **바깥 클릭**을 감시해 닫는다
      (library_tabs.py:1494). 여기서는 검색행/순차찾기행/드롭다운 밖의 mousedown,
-     그리고 검색창에 포커스가 없는 상태의 키 입력을 '다른 동작' 으로 본다. */
+     그리고 검색창에 포커스가 없는 상태의 키 입력을 '다른 동작' 으로 본다.
+     ⚠ 닫히는 건 **목록뿐**이다 — 검색 행은 돋보기 버튼·Esc 로만 닫힌다 (사용자 확인 2026-10-14:
+       "검색창이 닫히지 않게" = 검색 행만 남기라는 뜻이지 목록을 열어 두라는 뜻이 아니다).
+       목록에서 끌어 탭에 놓는 동작은 mousedown 이 목록 안에서 시작하므로 닫히지 않는다. */
+  useEffect(() => { setHitSel(new Set()); hitAnchorRef.current = null; }, [searchText]);
   useEffect(() => {
     if (!(dropdownOpen && searchText.trim())) return;
     const inside = (target: Node | null) =>
@@ -1024,7 +1072,9 @@ export function Sidebar({ onContext, onBlacklistDetail, onNotify, tree, blacklis
     const onDown = (event: MouseEvent) => {
       if (!inside(event.target as Node)) setDropdownOpen(false);
     };
-    const onKey = () => {
+    const onKey = (event: KeyboardEvent) => {
+      /* Ctrl·Shift 를 누르는 것만으로 닫지 않는다 — 그 키로 결과 행을 여러 개 고른다 (2026-10-14) */
+      if (["Control", "Shift", "Alt", "Meta"].includes(event.key)) return;
       if (document.activeElement !== searchRef.current) setDropdownOpen(false);
     };
     document.addEventListener("mousedown", onDown, true);
@@ -1555,7 +1605,7 @@ export function Sidebar({ onContext, onBlacklistDetail, onNotify, tree, blacklis
                         /* 원본 _on_remove: DB 에서 제거 후 refresh + changed 시그널.
                            PoC 는 오버레이 DB 에 "가림" 으로 기록한다. */
                         const path = confirmRemoveBl!;
-                        void removeBlacklistPath(path).then((ok) => {
+                        void removeBlacklistPath(path, tab).then((ok) => {
                           if (!ok) { onNotify("remove", "블랙리스트 제거 실패"); return; }
                           setBlacklist((rows) => rows.filter((row) => row.path !== path));
                           onNotify("remove", "블랙리스트에서 제거");
@@ -1757,6 +1807,7 @@ export function Sidebar({ onContext, onBlacklistDetail, onNotify, tree, blacklis
                       key={hit.id}
                       className={"library-search-hit"
                         + (isCurrent ? " current" : "")
+                        + (hitSel.has(hit.id) ? " picked" : "")
                         + (hit.reason !== null ? " blacklisted"
                             : hit.isMatch ? "" : " context")}
                       disabled={!hit.isMatch || hit.reason !== null}
@@ -1765,16 +1816,58 @@ export function Sidebar({ onContext, onBlacklistDetail, onNotify, tree, blacklis
                          지나갔다 (사용자 신고 2026-09-03, 스크린샷). +14 로 밀어
                          연결선과 글자 사이에 7px 여백을 둔다. */
                       style={{ paddingLeft: 4 + hit.depth * 14 + (hit.depth > 0 ? 14 : 0) }}
-                      onClick={() => {
-                        /* 원본 _dropdown_pick: 클릭은 **명시 선택**이다 (select=True →
-                           folderSelected 까지 나가 검색 범위가 바뀐다). 클릭하면
-                           드롭다운은 닫는다. 조상(문맥) 행은 클릭이 무시되고 목록은
-                           그대로 열려 있다 (위 disabled 처리). */
+                      /* 끌어서 탭(즐겨찾기·개인 탭)이나 블랙리스트 패널에 놓기 (2026-10-14).
+                         고른 행 안에서 끌면 고른 행 전체, 아니면 그 행 하나. 상위·하위를 같이 골랐으면
+                         상위만 간다 (topmostOnly). 트리 행과 같은 실림 형식이라 놓는 쪽은 그대로다. */
+                      draggable={hit.isMatch && hit.reason === null}
+                      onDragStart={(event) => {
+                        const ids = topmostOnly(hitSel.has(hit.id) ? [...hitSel] : [hit.id]);
+                        if (!ids.length) { event.preventDefault(); return; }
+                        event.dataTransfer.setData("application/x-soundfield-paths", JSON.stringify(ids));
+                        event.dataTransfer.effectAllowed = "copy";
+                      }}
+                      onClick={(event) => {
+                        /* Ctrl/Shift 클릭 = 여러 개 고르기 (2026-10-14). 트리 선택·검색 범위는
+                           바꾸지 않고 목록도 연 채로 둔다 — 고른 뒤 끌어다 놓는 용도다. */
+                        if (event.ctrlKey || event.metaKey || event.shiftKey) {
+                          const pickable = shown.filter((h) => h.isMatch && h.reason === null)
+                            .map((h) => h.id);
+                          if (event.shiftKey && hitAnchorRef.current
+                              && pickable.includes(hitAnchorRef.current)) {
+                            const a = pickable.indexOf(hitAnchorRef.current);
+                            const b = pickable.indexOf(hit.id);
+                            const [lo, hi] = a < b ? [a, b] : [b, a];
+                            setHitSel(new Set(pickable.slice(lo, hi + 1)));
+                          } else {
+                            setHitSel((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(hit.id)) next.delete(hit.id); else next.add(hit.id);
+                              return next;
+                            });
+                            hitAnchorRef.current = hit.id;
+                          }
+                          return;
+                        }
+                        /* 그냥 클릭 = **고르기만** (사용자 결정 2026-10-14). 예전엔 클릭이 곧 그 폴더로
+                           이동이라, 범위로 골라 탭에 끌어 넣으려고 첫 행을 누르는 순간 이동해 버렸다.
+                           이동은 더블클릭(아래 onDoubleClick). Shift 범위의 시작점이 된다. */
+                        setHitSel(new Set([hit.id]));
+                        hitAnchorRef.current = hit.id;
+                      }}
+                      onDoubleClick={() => {
+                        /* 원본 _dropdown_pick: **명시 선택** (select=True → folderSelected 까지 나가
+                           검색 범위가 바뀐다). 사용자 결정 2026-10-14 로 클릭 → **더블클릭**.
+                           이동하면 드롭다운은 닫는다. 조상(문맥) 행은 무시된다 (위 disabled 처리). */
                         const at = allMatches.findIndex((m) => m.id === hit.id);
                         if (at >= 0) setMatchIndex(at);
                         setOpen((value) => new Set([...value, ...(chainOf[hit.id] ?? [])]));
                         setSel(hit.id);
                         setMultiSel(new Set([hit.id]));
+                        setHitSel(new Set([hit.id]));
+                        hitAnchorRef.current = hit.id;
+                        /* 고른 폴더를 트리 **가운데**로 (사용자 요청 2026-10-14) — 계층이 깊으면
+                           선택만 되고 화면은 그대로라 한참 내려가 찾아야 했다. 순차찾기와 같은 방식. */
+                        setCenterOnId(hit.id);
                         setDropdownOpen(false);
                       }}
                     >
@@ -1993,8 +2086,30 @@ export function Sidebar({ onContext, onBlacklistDetail, onNotify, tree, blacklis
       )}
 
       <section
-        className={"blacklist-panel" + (blacklistOpen ? " open" : "")}
+        ref={blPanelRef}
+        className={"blacklist-panel" + (blacklistOpen ? " open" : "") + (blDropOver ? " drop-target" : "")}
         style={{ flexBasis: blacklistOpen ? blacklistH : 40 }}
+        /* 트리·라이브러리 검색 행을 끌어다 놓으면 지금 탭 블랙리스트에 추가 (사용자 요청 2026-10-14).
+           우클릭 [블랙리스트에 추가] 와 같은 흐름 — 경로마다 설명을 묻는다. 상위·하위를 같이 놓으면 상위만. */
+        onDragOver={(event) => {
+          if (!event.dataTransfer.types.includes("application/x-soundfield-paths")) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "copy";
+          if (!blDropOver) setBlDropOver(true);
+        }}
+        onDragLeave={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setBlDropOver(false);
+        }}
+        onDrop={(event) => {
+          event.preventDefault();
+          setBlDropOver(false);
+          const raw = event.dataTransfer.getData("application/x-soundfield-paths");
+          if (!raw) return;
+          const paths = topmostOnly(JSON.parse(raw) as string[])
+            .map((id) => nodeById[id]?.path ?? "")
+            .filter(Boolean);
+          if (paths.length) onBlacklistDrop?.(paths);
+        }}
       >
         <div className="blacklist-head">
           <button
@@ -2003,7 +2118,9 @@ export function Sidebar({ onContext, onBlacklistDetail, onNotify, tree, blacklis
             onClick={() => setBlacklistOpen((value) => !value)}
           >
             <IcoCaret className={blacklistOpen ? "open" : ""} size={13} />
-            <span>{t("블랙리스트")}&nbsp;&nbsp;({blacklist.length})</span>
+            {/* 어느 탭의 목록인지 글자로도 (탭별 블랙리스트 2026-10-14) */}
+            <span>{t("블랙리스트")}&nbsp;&nbsp;({blacklist.length}) - {tab === "all" ? "전체"
+              : tab === "fav" ? "즐겨찾기" : tab.slice(5)}</span>
           </button>
           <button className="blacklist-detail" data-tip="블랙리스트 상세 보기" aria-label="블랙리스트 상세 보기" onClick={onBlacklistDetail}>
             <IcoMore size={15} />

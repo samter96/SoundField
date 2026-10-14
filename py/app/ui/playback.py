@@ -22,6 +22,7 @@ from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
 from app.audio_engine import AudioEngine, engine_can_play
 from app.binaural import (BinauralBackend, is_binaural_candidate,
                           layout_channel_roles, resolve_layout)
+from app.downmix import mono_weights
 
 logger = logging.getLogger(__name__)
 
@@ -75,12 +76,17 @@ class _EngineLoadWorker(QObject):
         # 다운믹스가 쓸 채널 역할을 **바이노럴과 같은 판정**으로 구해 넣는다.
         # 파일을 열어 보는 판정이라 UI 스레드가 아닌 여기(워커)에서 한다.
         try:
-            roles = (layout_channel_roles(resolve_layout(path, int(channels or 0), override))
-                     if channels and channels > 2 else ())
+            layout = (resolve_layout(path, int(channels or 0), override)
+                      if channels and channels > 2 else None)
+            roles = layout_channel_roles(layout) if layout is not None else ()
         except Exception:
             logger.exception("[playback] 채널 역할 판정 실패: %s", path)
-            roles = ()
+            layout, roles = None, ()
         self._eng.set_channel_roles(roles)
+        # 모노로 합치기 가중치 — 같은 배치 판정으로 (내보내기 쪽 region_export 와 같은 규칙)
+        self._eng.set_mono_weights(mono_weights(
+            getattr(layout, "topology", ""), getattr(layout, "preset", ""),
+            roles, int(channels or 0)))
         try:
             ok = self._eng.load(path)
         except Exception:
@@ -389,8 +395,31 @@ class HybridPlayer(QObject):
             status = "바이노럴 꺼짐"
         self.binauralStatusChanged.emit(status)
 
+    def setMonoEnabled(self, enabled: bool):
+        """모노로 합치기 (2026-10-14). 켜면 바이노럴보다 우선한다 — 바이노럴은 입체 출력이라
+        모노와 함께 쓸 수 없다. 켜고 끌 때 재생 위치·상태는 그대로 이어 간다."""
+        enabled = bool(enabled)
+        if enabled == getattr(self, "_mono", False):
+            return
+        position = self.position() if self._path else 0
+        should_play = bool(
+            self._pending_play or self.playbackState() == PS.PlayingState
+        ) if self._path else False
+        self._mono = enabled
+        self._eng.set_mono(enabled)
+        if enabled and self._mode == "binaural":
+            self._fallback_from_binaural("모노로 합치기 켜짐 · 현재 파일은 변환 없이 재생")
+            self.binauralStatusChanged.emit("바이노럴 켜짐 · 모노로 합치기 중 — 현재 파일은 변환 없이 재생")
+            return
+        if not enabled and self._path and self._should_use_binaural(self._path):
+            path = self._path
+            self.setSource(QUrl.fromLocalFile(path))
+            self._pending_position_ms = position
+            self._pending_play = should_play
+
     def _should_use_binaural(self, path: str) -> bool:
         return (self._binaural_enabled and self._binaural.is_installed
+                and not getattr(self, "_mono", False)
                 and abs(self._rate - 1.0) < 0.005
                 and is_binaural_candidate(path, self._media_meta))
 
@@ -420,7 +449,9 @@ class HybridPlayer(QObject):
             self._request_engine_load(path)
             if self._binaural_enabled:
                 self.binauralStatusChanged.emit(
-                    "바이노럴 켜짐 · 현재 파일은 변환 없이 재생")
+                    "바이노럴 켜짐 · 모노로 합치기 중 — 현재 파일은 변환 없이 재생"
+                    if getattr(self, "_mono", False)
+                    else "바이노럴 켜짐 · 현재 파일은 변환 없이 재생")
             return
         # QMediaPlayer 폴백 — 엔진 정지도 워커로 (진행 중 load 와 직렬화)
         self._load_gen.value += 1

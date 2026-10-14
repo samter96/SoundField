@@ -1845,6 +1845,21 @@
 "menu music",
 "title music"
 ]
+],
+"흔한 말 보강 (2026-10-14 사용자 승인)": [
+[
+"alert",
+"notification"
+],
+[
+"reverberant",
+"reverb",
+"reverberation"
+],
+[
+"sequence",
+"seq"
+]
 ]
 }
 }

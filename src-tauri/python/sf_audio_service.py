@@ -182,6 +182,8 @@ def main():
                 extra = f" position_ms={cmd.get('position_ms')}"
             elif name == "volume":
                 extra = f" volume={cmd.get('volume')}"
+            elif name in ("mono", "binaural"):
+                extra = f" enabled={cmd.get('enabled')}"
             elif name == "load":
                 extra = f" path={str(cmd.get('path'))[-60:]}"
             cmd_log.info("명령 %s%s (엔진상태=%s)", name, extra,
@@ -231,6 +233,9 @@ def main():
             player.setVolume(float(cmd.get("volume") or 0.0))
         elif name == "binaural":
             player.setBinauralEnabled(bool(cmd.get("enabled")))
+        elif name == "mono":
+            # 모노로 합치기 (2026-10-14) — 듣기에만 적용. DAW 내보내기는 파형 서비스가 따로 만든다.
+            player.setMonoEnabled(bool(cmd.get("enabled")))
         elif name == "layout":
             # 원본 _preview_binaural_layout/_apply_binaural_layout과 같은 순서:
             # 메타 교체 -> 현재 바이노럴 체인 재로딩 -> 필요 시 0초부터 재생.

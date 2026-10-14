@@ -26,7 +26,10 @@ type Props = {
   /** 실제 DB 에서 읽은 라이브러리 루트 (없으면 더미) */
   libraries?: Lib[];
   /** 실제 DB 에서 읽은 블랙리스트 (0개면 0개로 표시 — 더미로 대체하지 않는다) */
-  blacklistEntries?: Array<{ path: string; description: string }> | null;
+  /** 지금 탭의 블랙리스트 (탭별 블랙리스트 2026-10-14) — 줄마다 tab 이 붙어 있어 제거도 그 탭에서 한다 */
+  blacklistEntries?: Array<{ path: string; description: string; tab: string }> | null;
+  /** 상세 창 제목에 붙일 지금 탭 이름 */
+  blacklistTabLabel?: string;
   config: UserConfig;
   onSaveConfig: (next: UserConfig) => void;
   onDataChanged?: () => void;
@@ -75,7 +78,7 @@ function retrySummary(result: Record<string, unknown>): string {
   return lines.join("\n");
 }
 
-export function Modals({ onBack, id, onClose, onOpenFailed, libraries, blacklistEntries,
+export function Modals({ onBack, id, onClose, onOpenFailed, libraries, blacklistEntries, blacklistTabLabel,
                          config, onSaveConfig, onDataChanged, onOrphans,
                          onRunAdmin, onBusyChange }: Props) {
   /* onRunAdmin 은 App.runDialogAdmin — 중복 실행 가드가 씌워져 있다.
@@ -97,7 +100,7 @@ export function Modals({ onBack, id, onClose, onOpenFailed, libraries, blacklist
                                                    onDataChanged={onDataChanged}
                                                    onOrphans={onOrphans}
                                                    onRunAdmin={onRunAdmin} />;
-  if (id === "blacklist") return <Blacklist onClose={onClose} entries={blacklistEntries}
+  if (id === "blacklist") return <Blacklist onClose={onClose} entries={blacklistEntries} tabLabel={blacklistTabLabel}
                                                 onDataChanged={onDataChanged} />;
   if (id === "dupes") return <Dupes onClose={onClose} />;
   return null;
@@ -700,9 +703,10 @@ function Failed({ onClose, onBack, root, onDataChanged, onOrphans, onRunAdmin,
    힌트 "검색 결과에서만 가려집니다 (인덱스/DB 는 유지).".
    표 4열 라이브러리(내용맞춤) / 경로(늘어남) / 사유(늘어남) / ✕(48px 고정), 행 교대 배경.
    제거는 확인 후 ("블랙리스트에서 제거할까요?" + 경로). 하단 닫기(pill). */
-function Blacklist({ onClose, entries, onDataChanged }: {
+function Blacklist({ onClose, entries, tabLabel, onDataChanged }: {
   onClose: () => void;
-  entries?: Array<{ path: string; description: string }> | null;
+  entries?: Array<{ path: string; description: string; tab: string }> | null;
+  tabLabel?: string;
   onDataChanged?: () => void;
 }) {
   /* entries 가 빈 배열이면 "0개" 가 실제 상태다 — 더미로 대체하지 않는다. */
@@ -710,7 +714,7 @@ function Blacklist({ onClose, entries, onDataChanged }: {
   const [confirmPath, setConfirmPath] = useState<string | null>(null);
   return (
     <Modal
-      title="블랙리스트 상세"
+      title={tabLabel ? `블랙리스트 상세 · ${tabLabel}` : "블랙리스트 상세"}
       size="lg"
       onClose={onClose}
       foot={
@@ -754,7 +758,8 @@ function Blacklist({ onClose, entries, onDataChanged }: {
               <button className="btn btn-primary" autoFocus
                       onClick={() => {
                         const path = confirmPath;
-                        void removeBlacklistPath(path).then((ok) => {
+                        const tab = rows.find((x) => x.path === path)?.tab ?? "all";
+                        void removeBlacklistPath(path, tab).then((ok) => {
                           if (ok) {
                             setRows((r) => r.filter((x) => x.path !== path));
                             onDataChanged?.();

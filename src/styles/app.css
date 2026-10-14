@@ -687,6 +687,9 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .library-search-hit.context { color: #5b636f; cursor: default; }
 .library-search-hit:enabled:hover,
 .library-search-hit.current { background: var(--row-hover); color: var(--text); }
+/* Ctrl/Shift 클릭으로 고른 행 (2026-10-14) — 트리 선택과 같은 바탕 + 왼쪽 파란 막대 */
+.library-search-hit.picked { background: var(--row-selected); color: var(--text);
+  box-shadow: inset 3px 0 0 #4E90E8; }
 .library-search-hit.context:hover { background: transparent; color: #5b636f; }
 .hit-count {
   margin-left: auto;
@@ -827,6 +830,11 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
   background: var(--bg-sidebar);
 }
 .blacklist-panel.open { min-height: 80px; }
+/* 트리·라이브러리 검색 행을 끌고 왔을 때 — 탭 드롭 강조와 같은 색 (2026-10-14) */
+.blacklist-panel.drop-target {
+  box-shadow: inset 0 0 0 1px var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg-sidebar));
+}
 .blacklist-head {
   height: 39px;
   padding: 0 6px 0 8px;
@@ -1300,6 +1308,10 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .tr.selected { background: var(--row-selected); }
 .tr.playing { background: var(--row-playing); }
 .tr.playing .td-name { color: var(--text); font-weight: 600; }
+/* 이번 실행에서 재생한 소리 — 줄의 모든 칸 글자를 노랗게 (사용자 결정 2026-10-14, 앱을 다시 켜면 초기화).
+   재생 중인 줄·선택된 줄에서도 노랑을 유지한다 (사운드마이너와 같음). 형식 배지는 제 색 그대로. */
+.tr.played .td,
+.tr.played .td-name { color: var(--row-played); }
 
 .td {
   padding: 0 10px;
@@ -1771,6 +1783,38 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .state-chip.off { background: var(--danger); color: #ffffff; font-weight: 600; }
 .state-chip.on { background: var(--active-green); color: #08170d; font-weight: 600; }
 .binaural-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* '모노로 듣기' 체크박스 (2026-10-14) — 상태줄 '인덱싱 집중' 과 같은 체크 모양. 켜지면 글자 주황 */
+.mono-check {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 10px 0 2px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.mono-check:hover { color: var(--text); }
+.mono-check.on, .mono-check.on:hover { color: #f0a43c; font-weight: 600; }
+[data-theme="light"] .mono-check.on, [data-theme="light"] .mono-check.on:hover { color: #b25d00; }
+/* 파형 위 표시 — 켜 둔 걸 잊고 보내는 일을 막는다 (Soundminer 사용자들이 겪던 일) */
+.mono-badge {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  z-index: 3;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  pointer-events: none;
+}
 .binaural-menu {
   width: 24px;
   height: 22px;
@@ -2074,6 +2118,9 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 }
 .mtable tr:hover td { background: var(--row-hover); color: var(--text); }
 .mtable td.strong { color: var(--text); }
+
+/* 자동 업데이트 창의 받기 진행 (components/UpdateDialog.tsx) */
+.update-progress { display: flex; flex-direction: column; gap: 10px; }
 
 /* ── 진행 막대 ────────────────────────────────────────── */
 .progress {

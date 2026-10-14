@@ -37,7 +37,7 @@
   #error app\.brand 가 없습니다. ISCC 를 직접 돌리지 말고 `npm run installer` 를 쓰세요.
 #endif
 
-#define MyAppVersion "2.1.7"
+#define MyAppVersion "2.2.0"
 #define MyAppExe "SoundField.exe"
 
 ; 이름에 접두사를 붙이지 않는다 — 앱 "SoundField" / SoundField_Installer_v*.exe
@@ -147,6 +147,10 @@ Source: "app\soundfield.exe"; DestDir: "{app}"; DestName: "{#MyAppExe}"; Flags: 
 Source: "app\bridge\*"; DestDir: "{app}\bridge"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; 시작 메뉴 검색/바로가기 아이콘용 (PE 임베드 아이콘만 있으면 검색 결과에서 누락되는 경우가 있다)
 Source: "src-tauri\icons\icon.ico"; DestDir: "{app}"; Flags: ignoreversion
+; 자동 업데이트 (src-tauri\src\updater.rs) — 설치본의 파일 목록(바뀐 파일만 받는 기준)과 올리는 곳 설정.
+; 목록은 build_release.ps1 이 tools\update_tool.py manifest 로 만든다. update.cfg 가 비어 있으면 기능이 꺼져 있다.
+Source: "app\update_manifest.json"; DestDir: "{app}"; Flags: ignoreversion
+Source: "update.cfg"; DestDir: "{app}"; Flags: ignoreversion
 
 ; ── WebView2 런타임 설치 도우미 (1.7MB) ─────────────────────────────────────
 ; 화면은 Microsoft Edge WebView2 런타임이 그린다 (엣지 브라우저와는 **별개 부품**).
@@ -178,8 +182,13 @@ Filename: "{app}\{#MyAppExe}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; F
 ; 재생 히스토리   %LOCALAPPDATA%\SoundField\history.json
 ; 채널 배치 저장  %LOCALAPPDATA%\SoundField\binaural_layouts.json
 ; 개인 설정      %USERPROFILE%\.soundfield_config.json
-; 전부 설치 폴더 밖이고 [UninstallDelete] 항목이 없으므로 삭제/재설치에도 그대로 남는다.
+; 전부 설치 폴더 밖이고 아래 [UninstallDelete] 는 설치 폴더 안만 지우므로 삭제/재설치에도 그대로 남는다.
 ; (이 목록을 지우는 코드를 여기에 추가하지 말 것.)
+
+; 자동 업데이트가 **새로 넣은** 브리지 파일은 인스톨러가 깐 목록에 없어서 제거 때 남는다.
+; 설치 폴더 안의 bridge 폴더만 통째로 지운다 (사용자 데이터와 무관).
+[UninstallDelete]
+Type: filesandordirs; Name: "{app}\bridge"
 
 [Code]
 const

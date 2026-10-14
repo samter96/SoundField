@@ -49,7 +49,9 @@ STREAM_WARMUP_MS = 90.0   # 새로 열린 출력 스트림 안정화 대기
 SWITCH_FADE_MS = 55.0     # 다른 파일로 바꾸기 전 장치 버퍼를 무음으로 비움
 OUTPUT_LATENCY_SEC = 0.055
 STREAM_RETIRE_DELAY_SEC = 0.35
-OUT_CHANNELS = 2          # 항상 스테레오 출력(모노 복제, 다채널은 앞 2채널)
+STALL_SEC = 0.5           # 재생 중 장치가 이만큼 소리를 안 가져가면 출력 통로가 멈춘 것으로 본다
+STALL_RETRY_SEC = 2.0     # 멈춤 복구를 다시 시도하기까지 최소 간격 (장치가 아예 없을 때 반복 방지)
+OUT_CHANNELS = 2         # 항상 스테레오 출력(모노 복제, 다채널은 앞 2채널)
 
 # ── 다채널 → 스테레오 다운믹스 — 계수·레벨 규칙은 downmix.py 가 정본 (ffmpeg 와 동일).
 # 여기서는 표를 가져다 쓰기만 한다. 바이노럴 음량 보정(binaural.py)도 같은 표를 본다.
@@ -81,6 +83,10 @@ class AudioEngine(QObject):
         self._sf_lock = threading.Lock()
 
         self._q: "queue.Queue" = queue.Queue(maxsize=QUEUE_MAX)
+        # 모노로 합치기 (2026-10-14) — 켜면 채널을 가중치로 합쳐 양쪽 스피커에 똑같이 낸다.
+        # 가중치는 파일마다 load 전에 받는다 (downmix.mono_weights, 바이노럴과 같은 배치 판정).
+        self._mono = False
+        self._mono_weights: tuple = ()
         self._producer: Optional[threading.Thread] = None
         self._producer_stop = threading.Event()
         self._seek_req: Optional[int] = None
@@ -96,6 +102,13 @@ class AudioEngine(QObject):
         self._user_volume = 0.8
         self._stream_warm_until = 0.0
         self._last_callback_status_log = 0.0
+        # 출력 멈춤 감시 (2026-10-14 사용자 신고) — Nuendo 가 다른 프로젝트를 열면서 장치를 다시
+        # 잡자, 열어 둔 출력 통로가 소리를 안 가져간 채 멈췄다 (큐 96블록 그대로, 재생 중인데 무음).
+        # 같은 샘플레이트면 통로를 재사용하므로 앱을 다시 켤 때까지 풀리지 않았다.
+        # 콜백이 마지막으로 불린 시각을 적어 두고 _poll_tick 이 확인한다.
+        self._last_cb = 0.0
+        self._stall_retry_at = 0.0
+        self._last_poll = 0.0
         self._rate = 1.0
         self._played_src = 0.0     # seek 기준점 이후 출력한 source 프레임 누적
         self._seek_base = 0        # 현재 구간 시작 source 프레임
@@ -161,6 +174,7 @@ class AudioEngine(QObject):
                 )
                 st.start()
                 self._stream = st
+                self._last_cb = time.monotonic()
                 self._stream_warm_until = time.monotonic() + (STREAM_WARMUP_MS / 1000.0)
                 logger.info("[audio] stream open via %s sr=%d latency=%.1fms",
                             label, samplerate, st.latency * 1000)
@@ -226,6 +240,7 @@ class AudioEngine(QObject):
         if stream_gen is not None and stream_gen != self._stream_gen:
             outdata.fill(0.0)
             return
+        self._last_cb = time.monotonic()
         if status:
             now = time.monotonic()
             if now - self._last_callback_status_log > 0.5:
@@ -425,6 +440,13 @@ class AudioEngine(QObject):
             pass
 
     def _to_stereo(self, raw: np.ndarray) -> np.ndarray:
+        if self._mono and raw.shape[1] > 1:
+            ch = raw.shape[1]
+            w = self._mono_weights if len(self._mono_weights) == ch else (1.0 / ch,) * ch
+            mono = raw.astype(np.float32, copy=False) @ np.asarray(w, dtype=np.float32)
+            # 가중 평균이라 넘치지 않지만 FuMa W(√2 보정)는 드물게 넘칠 수 있어 막아 둔다
+            np.clip(mono, -1.0, 1.0, out=mono)
+            return np.ascontiguousarray(np.column_stack((mono, mono)), dtype=np.float32)
         if raw.shape[1] == OUT_CHANNELS:
             return raw
         if raw.shape[1] == 1:
@@ -473,6 +495,22 @@ class AudioEngine(QObject):
         return np.concatenate([raw, pad], axis=1)
 
     # ───────── 공개 API ─────────
+    def set_mono_weights(self, weights) -> None:
+        """다음 load 에 쓸 모노 합치기 가중치 (파일 채널 순서). load 보다 먼저 부를 것."""
+        self._mono_weights = tuple(float(x) for x in (weights or ()))
+
+    def set_mono(self, enabled: bool) -> None:
+        """모노로 합치기 켜기/끄기. 재생 중이면 지금 위치로 다시 탐색해 **바로** 들리게 한다
+        (이미 만들어 둔 블록이 대기열에 남아 있어 그냥 두면 수백 ms 늦게 바뀐다)."""
+        enabled = bool(enabled)
+        if enabled == self._mono:
+            return
+        self._mono = enabled
+        # ⚠ 멈춘 상태여도 다시 탐색한다 — 생산자가 미리 만들어 둔 블록(이전 설정)이 대기열에
+        #   남아 있으면 다음 재생 첫머리가, 짧은 소리는 통째로 이전 설정으로 나온다.
+        if self._sf is not None:
+            self.seek(self.position_ms())
+
     def set_channel_roles(self, roles) -> None:
         """다음 load 에 쓸 채널 역할을 넣는다. **load 보다 먼저** 부를 것.
 
@@ -816,7 +854,35 @@ class AudioEngine(QObject):
             self._state = st
             self.stateChanged.emit(st)
 
+    def _recover_stalled_output(self):
+        """멈춘 출력 통로를 버리고 새로 연 뒤 **처음부터** 다시 튼다 (사용자 결정 2026-10-14).
+        끊긴 동안 아무것도 안 들렸으니 이어 틀기보다 처음부터가 자연스럽다 — 중간부터 틀면
+        소리 한가운데로 갑자기 들어간다. 머리부터 트는 건 보통 재생과 똑같다."""
+        now = time.monotonic()
+        self._stall_retry_at = now + STALL_RETRY_SEC
+        logger.warning("[audio] 출력 멈춤 감지 — %.0fms 동안 장치가 소리를 안 가져감 "
+                       "(sr=%d q=%d). 통로를 새로 열고 처음부터 재생",
+                       (now - self._last_cb) * 1000.0, self._samplerate, self._q.qsize())
+        self._retire_stream()   # 멈춘 통로 닫기는 별도 스레드 — 죽은 장치에서 멈춰도 앱은 안 막힌다
+        try:
+            self._ensure_stream(self._file_sr)
+        except Exception as e:
+            logger.warning("[audio] 출력 다시 열기 실패 (%.0f초 뒤 다시 시도): %s", STALL_RETRY_SEC, e)
+            return
+        self._restart_now()
+
     def _poll_tick(self):
+        # ⚠ 이 타이머 자체가 늦게 돌았으면(프로세스가 바빠 파이썬 잠금을 오래 잡은 경우) 콜백도 같이
+        #   못 돌았을 뿐이다 — 멈춤으로 오판해 처음부터 다시 틀지 않도록 그 틱은 건너뛴다.
+        now = time.monotonic()
+        poll_late = now - self._last_poll > 0.2
+        self._last_poll = now
+        if (self._state == "playing" and self._stream is not None and self._sf is not None
+                and not self._switching and not poll_late
+                and now - self._last_cb > STALL_SEC
+                and now >= self._stall_retry_at):
+            self._recover_stalled_output()
+            return
         prebuffer_ready = self._q.qsize() >= START_PREBUFFER_BLOCKS or self._eof
         if (self._state == "playing" and self._target_gain == 0.0
                 and self._after is None and not self._seek_wait

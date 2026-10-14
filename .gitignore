@@ -79,3 +79,5 @@ py/sidecar/
 
 # run_dev.bat 이 만드는 실행기 사본 (파이썬 수정을 빌드 없이 들어보기용)
 devrun/
+# 자동 업데이트 파일 목록 — 빌드 산출물 (tools/update_tool.py manifest)
+app/update_manifest.json

@@ -15,6 +15,8 @@ export type Shortcuts = {
      기본값 B(Binaural): 이미 쓰는 단일 키(Space/Home/R/S/H)와 겹치지 않고,
      검색 입력 중에는 단축키가 무시되므로 타이핑을 방해하지 않는다. */
   toggle_binaural: string;
+  /* 모노로 합치기 on/off (2026-10-14) — 기본 M (Soundminer 와 같은 키) */
+  toggle_mono: string;
   open_settings: string;
 };
 
@@ -25,6 +27,7 @@ export const SHORTCUT_DEFAULTS: Shortcuts = {
   toggle_segments: "S",
   toggle_history: "H",
   toggle_binaural: "B",
+  toggle_mono: "M",
   open_settings: "Ctrl+P",
 };
 
@@ -33,6 +36,10 @@ export type ColumnPref = { key: string; visible: boolean; width: number };
 /** 화면 표시 언어 — 원본에는 없던 항목(원본은 한글 전용)이라 PoC 전용 키에 담는다
  *  (poc_side_w / poc_player_h 와 같은 방식). */
 export type UiLang = "ko" | "en";
+
+/** 모노로 합치기가 언제 꺼지는지 (사용자 결정 2026-10-14) — 잘 안 꺼지는 순서:
+ *  manual(직접 끌 때까지) > drag(DAW 로 한 번 보내면) > play(다른 사운드를 재생하면). 기본 drag. */
+export type MonoKeep = "manual" | "drag" | "play";
 
 export type UserConfig = {
   theme: "grey" | "dark" | "light";
@@ -44,6 +51,7 @@ export type UserConfig = {
   playbackRestartFromZero: boolean;
   autoPreview: boolean;
   stopOnDrag: boolean;
+  monoKeep: MonoKeep;
   indexOnIdle: boolean;
   indexFocusMode: boolean;
   blacklistExpandedH: number;
@@ -88,6 +96,7 @@ export const CONFIG_DEFAULTS: UserConfig = {
   playbackRestartFromZero: true,
   autoPreview: false,
   stopOnDrag: true,
+  monoKeep: "drag",
   indexOnIdle: false,
   indexFocusMode: false,
   blacklistExpandedH: 220,
@@ -133,6 +142,8 @@ export async function loadUserConfig(): Promise<UserConfig> {
       playbackRestartFromZero: Boolean(d.playback_restart_from_zero ?? CONFIG_DEFAULTS.playbackRestartFromZero),
       autoPreview: Boolean(d.auto_preview ?? CONFIG_DEFAULTS.autoPreview),
       stopOnDrag: Boolean(d.stop_on_drag ?? CONFIG_DEFAULTS.stopOnDrag),
+      monoKeep: (["manual", "drag", "play"] as const).includes(d.mono_keep as MonoKeep)
+        ? (d.mono_keep as MonoKeep) : CONFIG_DEFAULTS.monoKeep,
       indexOnIdle: Boolean(d.index_on_idle ?? CONFIG_DEFAULTS.indexOnIdle),
       indexFocusMode: Boolean(d.index_focus_mode ?? CONFIG_DEFAULTS.indexFocusMode),
       blacklistExpandedH: Number(d.blacklist_expanded_h ?? CONFIG_DEFAULTS.blacklistExpandedH),
@@ -212,6 +223,7 @@ export async function saveUserConfig(config: UserConfig,
       playback_restart_from_zero: config.playbackRestartFromZero,
       auto_preview: config.autoPreview,
       stop_on_drag: config.stopOnDrag,
+      mono_keep: config.monoKeep,
       index_on_idle: config.indexOnIdle,
       index_focus_mode: config.indexFocusMode,
       blacklist_expanded_h: config.blacklistExpandedH,

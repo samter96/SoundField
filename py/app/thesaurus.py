@@ -85,6 +85,17 @@ class Thesaurus:
         Behead·Syringe·Needle 까지 붙는다 (10-07 'UCS 전부' 를 되돌린 이유와 같다).
         영어 검색만 쓰므로 한글 용어는 붙이지 않는다."""
         t = (token or "").strip().lower()
+        out = self._related_one(t, cap)
+        if not out:
+            # 붙는 말이 없으면 복수형만 떼서 다시 본다 (사용자 결정 2026-10-14 — 다른 꼬리는 안 뗀다).
+            # 'guns' 는 사전에 있지만 묶음 7개 이상에 걸쳐 위 규칙으로 아무것도 안 붙는다 → gun 규칙대로.
+            # 뗀 말(gun)도 붙인다 — 넓게 찾기는 'guns' 글자로만 찾아 'gun' 만 든 파일을 못 본다.
+            for c in _singulars(t):
+                if c in self._term_map:
+                    return ([c] + self._related_one(c, cap))[:cap]
+        return out
+
+    def _related_one(self, t: str, cap: int) -> List[str]:
         gids = self._term_map.get(t)
         if not gids:
             return []
@@ -121,10 +132,22 @@ class Thesaurus:
         return out[:cap]
 
 
+def _singulars(t: str) -> List[str]:
+    """복수형만 뗀 후보 (bodies→body, slices→slice, crashes→crash). ss 로 끝나면(glass) 떼지 않는다."""
+    out: List[str] = []
+    if len(t) > 4 and t.endswith("ies"):
+        out.append(t[:-3] + "y")
+    if len(t) > 3 and t.endswith("s") and not t.endswith("ss"):
+        out.append(t[:-1])
+        if t.endswith("es"):
+            out.append(t[:-2])
+    return [c for c in out if len(c) >= 3]
+
+
 class BaseheadThesaurus:
     """베이스헤드 형식 동의어 사전 — 한 줄 = 'ID<TAB>말<TAB>말…' 한 묶음, 첫 줄은 머리.
     2.1.7 부터 기본 사전은 data/game_sfx_thesaurus.tsv (게임 사운드 사전 1,822묶음 — 베이스헤드 원본 +
-    직접 정리 + 표기 변형·약어, tools/game_thesaurus/ 로 만든다). 사용자 결정 2026-10-13: UCS 사전은 보관만.
+    직접 정리 + 표기 변형·약어). 사용자 결정 2026-10-13: UCS 사전은 철자 제안·되돌리기용으로 보관.
     규칙: 친 단어가 묶음의 말과 똑같으면 그 묶음의 나머지 말 전부."""
 
     def __init__(self, path: str):
@@ -145,11 +168,31 @@ class BaseheadThesaurus:
         except Exception as e:
             logger.warning(f"베이스헤드 동의어 사전 로드 실패 (동의어 없음): {e}")
 
+    @staticmethod
+    def _singulars(t: str) -> List[str]:
+        """복수형만 뗀 후보 (bodies→body, slices→slice, crashes→crash). ss 로 끝나면(glass) 떼지 않는다."""
+        out: List[str] = []
+        if len(t) > 4 and t.endswith("ies"):
+            out.append(t[:-3] + "y")
+        if len(t) > 3 and t.endswith("s") and not t.endswith("ss"):
+            out.append(t[:-1])
+            if t.endswith("es"):
+                out.append(t[:-2])
+        return [c for c in out if len(c) >= 3]
+
     def related(self, token: str) -> List[str]:
         t = (token or "").strip().lower()
         out: List[str] = []
         seen: Set[str] = {t}
-        for gi in self._term_map.get(t, []):
+        gids = self._term_map.get(t)
+        if not gids:
+            # 사전에 그대로 없으면 복수형만 떼서 다시 본다 (사용자 결정 2026-10-14 — 다른 꼬리는 안 뗀다).
+            # 뗀 말(gun)도 묶음 구성원이라 함께 붙는다 — 넓게 찾기는 'guns' 글자로만 찾아 'gun' 만 든 파일을 못 본다.
+            for c in self._singulars(t):
+                if c in self._term_map:
+                    gids = self._term_map[c]
+                    break
+        for gi in gids or []:
             for term in self._groups[gi]:
                 if term.lower() not in seen:
                     seen.add(term.lower())
@@ -158,7 +201,7 @@ class BaseheadThesaurus:
 
 
 # 동의어 사전 선택 — 기본(설치본)은 게임 사운드 사전. SOUNDFIELD_THESAURUS=ucs 면 예전 UCS 규칙(되돌리기용).
-# 다른 파일로 시험: SOUNDFIELD_BASEHEAD_THESAURUS=<경로> (run_basehead.bat = 베이스헤드 원본).
+# 다른 파일로 시험: SOUNDFIELD_BASEHEAD_THESAURUS=<경로> 를 정하고 run_dev.bat.
 # ⚠ 사전 파일이 번들에 빠지면 동의어만 조용히 사라진다 — build_bridge.ps1 이 포함을 확인한다.
 BASEHEAD_ENV = "SOUNDFIELD_THESAURUS"
 BASEHEAD_PATH_ENV = "SOUNDFIELD_BASEHEAD_THESAURUS"

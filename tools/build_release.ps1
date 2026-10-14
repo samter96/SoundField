@@ -110,6 +110,11 @@ Copy-Item $exe "app\soundfield.exe" -Force
 Set-Content -Path "app\.brand" -Value "ysg" -Encoding ascii -NoNewline
 Write-Host "app\soundfield.exe 갱신" -ForegroundColor Green
 
+# 자동 업데이트용 파일 목록 (src-tauri\src\updater.rs) — 실행 파일·브리지가 다 놓인 **뒤에** 만든다.
+# 앱은 설치 폴더의 이 목록과 올리는 곳의 latest.json 을 비교해 바뀐 파일만 받는다.
+& python tools\update_tool.py manifest
+if ($LASTEXITCODE -ne 0) { throw "업데이트 파일 목록 생성 실패" }
+
 Write-Host "=== 인스톨러 ===" -ForegroundColor Cyan
 # ⚠ ISCC 의 마지막 단계(EndUpdateResource)가 백신 때문에 간헐적으로 실패한다
 #   ("Resource update error ... (110)"). 방금 지운 출력 파일을 백신이 아직

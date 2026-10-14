@@ -1,6 +1,6 @@
 [package]
 name = "soundfield"
-version = "2.1.7"
+version = "2.2.0"
 description = "SoundField"
 edition = "2021"
 
@@ -28,6 +28,9 @@ tauri-plugin-single-instance = "2.4.4"
 # 파일에 쓴다. startDrag 가 이미지를 **파일 경로**로만 받기 때문이다.
 # 잠금파일에 이미 0.22.1 이 간접 의존으로 들어와 있어 새로 내려받지 않는다.
 base64 = "0.22"
+# 자동 업데이트(updater.rs) — 받은 파일의 지문 검사. 잠금파일에 0.10.9 가 이미 간접 의존으로
+# 들어와 있어 새로 내려받지 않는다.
+sha2 = "0.10"
 
 
 # 탐색기에서 파일을 **선택된 상태로** 열기 위한 셸 API (SHOpenFolderAndSelectItems).

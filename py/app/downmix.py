@@ -61,3 +61,36 @@ def norm_gain(roles, channels: int) -> float:
 def norm_db(roles, channels: int) -> float:
     """같은 것을 dB 로 (5.1 → -7.66)."""
     return 20.0 * math.log10(norm_gain(roles, channels))
+
+
+# ── 모노로 합치기 (Sum to Mono, 사용자 결정 2026-10-14 — '업계 표준 방식으로') ──────────────
+# 스피커 배치: ITU-R BS.775 모노 다운믹스 계수 (ffmpeg rematrix 의 모노 출력과 같은 비율).
+#   앞 L·R 0.707 · 센터 1.0 · 서라운드(옆·뒤) 0.5 · **LFE 는 버린다**(업계 공통).
+#   계수 합으로 나눠 **가중 평균**을 낸다 → 입력이 풀스케일이어도 넘치지 않는다.
+#   스테레오는 (L + R) ÷ 2 (편집기들의 '모노로 합치기' 기본값과 같다).
+# 앰비소닉: 전 방향 채널(W) 하나 — B 포맷에서 모노를 얻는 표준. X·Y·Z 는 방향 성분이라 더하면 망가진다.
+#   FuMa 는 W 를 −3 dB 낮춰 저장하는 규격이라 √2 를 곱해 AmbiX(SN3D) 와 같은 크기로 맞춘다.
+# 배치를 모를 때(일반 4채널·판정 실패): 모든 채널의 평균.
+MONO_GAIN = {"L": 0.707, "R": 0.707, "C": 1.0, "LFE": 0.0,
+             "LS": 0.5, "RS": 0.5, "LB": 0.5, "RB": 0.5, "BC": 0.707,
+             "TFL": 0.5, "TFR": 0.5}
+FUMA_W_GAIN = math.sqrt(2.0)
+
+
+def mono_weights(topology: str, preset: str, roles, channels: int) -> list:
+    """파일 채널 순서대로의 모노 합치기 가중치. 곱해서 더하면 모노 한 채널이 된다."""
+    n = int(channels or 0)
+    if n <= 1:
+        return [1.0]
+    if topology == "ambisonic":
+        w = [0.0] * n
+        w[0] = FUMA_W_GAIN if preset == "fuma" else 1.0
+        return w
+    if roles and len(roles) == n:
+        raw = [MONO_GAIN.get(r, 0.5) for r in roles]
+    else:
+        raw = [1.0] * n
+    total = sum(raw)
+    if total <= 0:
+        return [1.0 / n] * n
+    return [x / total for x in raw]

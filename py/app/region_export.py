@@ -10,6 +10,7 @@ import hashlib
 import logging
 import math
 import os
+import re
 import struct
 import time
 from pathlib import Path
@@ -296,8 +297,92 @@ def _patch_channel_mask(dest: str, mask: int) -> bool:
         return False
 
 
+# ── 모노로 합치기 내보내기 (Sum to Mono, 사용자 결정 2026-10-14) ──────────────────────────
+# DAW 로 끌어낼 때 모노로 합친 임시 WAV 를 만든다. 이름은 원본 이름 끝에 '_mono'.
+# 같은 이름의 다른 파일과 겹치지 않게 원본 경로·수정시각·가중치로 만든 폴더 안에 둔다
+# (이름은 깔끔하게 유지 — DAW 트랙 이름이 그대로 보이므로). 24시간 뒤 정리.
+# 가중치는 downmix.mono_weights (재생과 같은 규칙). WAV 면 bext·iXML·cue 등을 보존하고
+# iXML 트랙 목록은 1트랙으로 고친다 — 8트랙 목록이 남으면 DAW 가 채널 이름을 엉뚱하게 붙인다.
+MONO_DIR = TEMP_DIR / "mono"
+_MONO_SUBTYPES = ("PCM_16", "PCM_24", "PCM_32", "FLOAT", "DOUBLE")
+
+
+def _ixml_mono(data: bytes) -> bytes:
+    text = data.decode("utf-8", "replace")
+    single = ("<TRACK_LIST><TRACK_COUNT>1</TRACK_COUNT><TRACK><CHANNEL_INDEX>1</CHANNEL_INDEX>"
+              "<INTERLEAVE_INDEX>1</INTERLEAVE_INDEX><NAME>Mono</NAME></TRACK></TRACK_LIST>")
+    return re.sub(r"<TRACK_LIST>.*?</TRACK_LIST>", single, text, flags=re.S).encode("utf-8")
+
+
+def mono_wav(src: str, weights) -> Optional[str]:
+    """src 를 모노로 합친 임시 WAV 경로. 이미 모노면 src 그대로. 실패하면 None
+    (호출자가 드래그를 멈춘다 — 원본 스테레오를 몰래 대신 보내지 않는다)."""
+    try:
+        import numpy as np
+        import soundfile as sf
+        info = sf.info(src)
+        n = int(info.channels or 0)
+        if n <= 1:
+            return src
+        w = [float(x) for x in (weights or ())]
+        if len(w) != n:
+            w = [1.0 / n] * n
+        stamp = os.stat(src)
+        key = hashlib.md5(
+            f"{src}|{stamp.st_mtime_ns}|{stamp.st_size}|{','.join(f'{x:.6f}' for x in w)}".encode("utf-8")
+        ).hexdigest()[:10]
+        out_dir = MONO_DIR / key
+        out_dir.mkdir(parents=True, exist_ok=True)
+        base = os.path.splitext(os.path.basename(src))[0]
+        dest = out_dir / f"{base}_mono.wav"
+        if dest.exists() and dest.stat().st_size > 44:
+            return str(dest)               # 같은 원본·같은 가중치면 다시 만들지 않는다
+        subtype = info.subtype if info.subtype in _MONO_SUBTYPES else "PCM_24"
+        tmp = out_dir / f"{base}_mono.part.wav"
+        wv = np.asarray(w, dtype=np.float64)
+        with sf.SoundFile(src) as fin, sf.SoundFile(str(tmp), "w", samplerate=info.samplerate,
+                                                    channels=1, subtype=subtype, format="WAV") as fout:
+            for block in fin.blocks(blocksize=262144, dtype="float64", always_2d=True):
+                m = block @ wv
+                np.clip(m, -1.0, 1.0, out=m)
+                fout.write(m)
+        after = os.stat(src)
+        if (after.st_mtime_ns, after.st_size) != (stamp.st_mtime_ns, stamp.st_size):
+            raise RuntimeError("모노로 합치는 도중 원본 파일이 바뀌었습니다")
+        if src.lower().endswith(".wav"):
+            _fmt_src, chunks, _off, _size = _parse_riff(src)
+            fmt_new, _c, data_off, data_size = _parse_riff(str(tmp))
+            with open(tmp, "rb") as fh:
+                fh.seek(data_off)
+                frames = fh.read(data_size)
+            chunks = [(cid, _ixml_mono(d) if cid == b"iXML" else d) for cid, d in chunks]
+            tag, _ch, _sr, _br, block_align, _bits = struct.unpack("<HHIIHH", fmt_new[:16])
+            fact = struct.pack("<I", data_size // max(1, block_align)) if tag != 1 else None
+            _write_wav(str(dest), fmt_new, chunks, frames, fact)
+            tmp.unlink()
+        else:
+            os.replace(tmp, dest)          # MP3·FLAC·AIFF → 모노 WAV (소리만)
+        return str(dest)
+    except Exception:
+        logger.warning("[mono] 모노 합치기 실패: %s", src, exc_info=True)
+        return None
+
+
 def cleanup_temp_files():
     cutoff = time.time() - MAX_AGE_HOURS * 3600
+    # 모노 합치기 임시(폴더별) — 오래된 파일을 지우고 빈 폴더도 치운다
+    if MONO_DIR.exists():
+        for p in MONO_DIR.rglob("*"):
+            try:
+                if p.is_file() and p.stat().st_mtime < cutoff:
+                    p.unlink()
+            except OSError:
+                pass
+        for d in sorted((x for x in MONO_DIR.iterdir() if x.is_dir()), reverse=True):
+            try:
+                d.rmdir()
+            except OSError:
+                pass
     # 영역 crop 임시 + MAX_PATH 초과 드래그용 임시 복사본 둘 다 정리
     longpath_dir = TEMP_DIR.parent / "SoundField_longpath"
     for d, pattern in ((TEMP_DIR, "*.wav"), (longpath_dir, "*")):

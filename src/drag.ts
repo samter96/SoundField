@@ -31,7 +31,22 @@ export function setDragStatusSink(sink: (message: string) => void) {
    경로를 실제로 다룰 수 있는지(drag 크레이트가 실패하는 바로 그 호출로) 확인한다.
    확인에 실패했는데 그대로 startDrag 를 부르면 **앱이 즉사한다** (실측: drag-2.1.1
    windows/mod.rs:370 패닉 → PID 소멸). 그래서 던지고, 호출부가 드래그를 포기한다. */
+/* 모노로 합치기 (2026-10-14) — 켜져 있으면 결과표·히스토리에서 끄는 파일도 모노로 합친
+   `이름_mono.wav` 를 만들어 보낸다. App 이 상태가 바뀔 때마다 알려 준다.
+   ⚠ 만들기에 실패하면 던진다 — 원본(스테레오)을 몰래 대신 보내면 안 된다. */
+let dragMono = false;
+export function setDragMono(enabled: boolean) { dragMono = enabled; }
+
 async function draggablePaths(paths: string[]): Promise<string[]> {
+  if (dragMono) {
+    paths = await Promise.all(paths.map(async (path) => {
+      const out = await invoke<{ path: string }>("sf_waveform", {
+        req: { path, mode: "region", start_sec: null, end_sec: null, rate: 1, mono: true },
+      });
+      if (!out?.path) throw new Error("모노로 합친 파일을 만들지 못했습니다");
+      return out.path;
+    }));
+  }
   const ready = await invoke<string[]>("sf_drag_paths", { paths });
   /* 크레이트에 실제로 넘어가는 값을 남긴다 — 검사한 값과 다르면 그게 원인이다 */
   void debugLog("DRAG item n=" + ready.length + " 첫=" + (ready[0] ?? "(없음)"));
@@ -78,6 +93,31 @@ if (typeof window !== "undefined") {
     if (event.button === 0) leftDown = false;
   }, true);
   window.addEventListener("blur", () => { leftDown = false; });
+}
+
+/* ── 결과 표 행을 앱 안(블랙리스트 패널)에 놓기 (사용자 결정 2026-10-14: '놓은 위치로 판단') ──
+   결과 표 끌기는 DAW 로 보내는 **윈도우 드래그**라, 우리 창(dragDropEnabled: false)은 놓는 곳이
+   되지 못한다 — 끄는 동안 칸 강조도 없고 커서는 '금지' 모양이다. 대신 아무 데도 받지 않고 끝났을 때
+   (결과 Cancelled) 그 순간 마우스 위치를 창 안 좌표로 바꿔 알린다. 받는 쪽(Sidebar)이 블랙리스트
+   패널 위였는지 본다. ⚠ Esc 로 취소해도 결과가 같아(Cancelled) 패널 위에서 Esc 를 누르면 추가 대화상자가
+   뜬다 — 그 대화상자에서 취소하면 된다. ⚠ DAW 드래그 자체는 바꾸지 않았다. */
+export const IN_APP_DROP_EVENT = "sf-in-app-drop";
+export type InAppDrop = { x: number; y: number; paths: string[] };
+
+async function announceInAppDrop(paths: string[]) {
+  try {
+    const { cursorPosition, getCurrentWindow } = await import("@tauri-apps/api/window");
+    const win = getCurrentWindow();
+    const [cursor, inner] = await Promise.all([cursorPosition(), win.innerPosition()]);
+    /* 화면 픽셀 → CSS 픽셀. devicePixelRatio 는 윈도우 배율과 웹뷰 확대를 함께 반영한다 */
+    const scale = window.devicePixelRatio || 1;
+    const x = (cursor.x - inner.x) / scale;
+    const y = (cursor.y - inner.y) / scale;
+    if (x < 0 || y < 0 || x > window.innerWidth || y > window.innerHeight) return;
+    window.dispatchEvent(new CustomEvent<InAppDrop>(IN_APP_DROP_EVENT, { detail: { x, y, paths } }));
+  } catch {
+    /* Tauri 밖(브라우저)이거나 위치를 못 읽으면 조용히 넘어간다 */
+  }
 }
 
 export type DragWatch = {
@@ -146,6 +186,7 @@ export function watchRowDrag(startX: number, startY: number,
               void debugLog("DRAG done " + String(payload?.result ?? "?"));
               /* 원본은 결과가 IgnoreAction 이 아닐 때만 dragDropped 를 낸다 */
               if (payload?.result === "Dropped") onDropped?.();
+              else void announceInAppDrop(paths);
             });
         } catch (err) {
           dragging = false;   // Tauri 밖(브라우저)이면 조용히 무시

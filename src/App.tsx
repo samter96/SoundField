@@ -14,14 +14,15 @@ import { Modals } from "./components/Modals";
 import { ContextMenu, type Ctx } from "./components/ContextMenu";
 import { CenterToast, type ToastMessage, type ToastKind } from "./components/CenterToast";
 import { CenterLoader, type LoaderTask } from "./components/CenterLoader";
+import { UpdateDialog } from "./components/UpdateDialog";
 
 import { type Lib, type Row, type TreeNode } from "./data";
-import { addBlacklistPath, appLoaded, audioBridge, cancelAdmin, loadFtsStale, onAdminOpProgress, loadHidden, setRootOrder, loadBlacklistPaths, loadFolderTree, loadIndexedCount, loadInitialRows, loadLibraryRoots, loadLibraryRootsBasic, loadRowByPath, recordHistory, runAdmin, searchRows, type AdminRequest, type SearchRequest, type SpellSuggestion } from "./backend";
+import { addBlacklistPath, appLoaded, audioBridge, cancelAdmin, loadFtsStale, onAdminOpProgress, loadHidden, setRootOrder, loadBlacklistPaths, loadFolderTree, loadIndexedCount, loadInitialRows, loadLibraryRoots, loadLibraryRootsBasic, loadRowByPath, recordHistory, runAdmin, searchRows, type AdminRequest, type BlacklistEntry, type SearchRequest, type SpellSuggestion } from "./backend";
 import { applyTheme, loadTheme, type ThemeName } from "./theme";
 import { CONFIG_DEFAULTS, loadUserConfig, saveUserConfig, type UserConfig } from "./config";
 import { setLang, useLang } from "./i18n";
 import { IcoCheck } from "./icons";
-import { setDragStatusSink } from "./drag";
+import { setDragMono, setDragStatusSink } from "./drag";
 
 /* 인덱스에 없는 파일을 **경로만으로** 재생용 항목으로 만든다 (조사 H02).
    원본 _on_history_pick 은 히스토리 경로를 그대로 load_and_play 에 넘긴다 —
@@ -213,7 +214,14 @@ export default function App() {
   const [addedLibs, setAddedLibs] = useState<string[]>([]);
   const [rows, setRows] = useState<Row[]>([]);
   const [libraryRoots, setLibraryRoots] = useState<Lib[]>([]);
-  const [blacklistRows, setBlacklistRows] = useState<Array<{ path: string; description: string }>>([]);
+  /* 블랙리스트 전체(모든 탭). 탭별 블랙리스트 (사용자 결정 2026-10-14 — 탭마다 완전히 따로):
+     줄마다 tab = "all"(전체) / "fav"(즐겨찾기) / "user:이름". 화면·검색은 지금 탭 줄만 쓴다. */
+  const [blacklistRows, setBlacklistRows] = useState<BlacklistEntry[]>([]);
+  /* 지금 파일 브라우저 탭 — Sidebar 가 알려 준다. 블랙리스트 추가·검색 제외가 이 탭 기준이다. */
+  const [blacklistTab, setBlacklistTab] = useState("all");
+  const tabBlacklist = useMemo(
+    () => blacklistRows.filter((row) => row.tab === blacklistTab),
+    [blacklistRows, blacklistTab]);
   const [folderTree, setFolderTree] = useState<TreeNode>(EMPTY_TREE);
   const [indexedCount, setIndexedCount] = useState(0);
   const [searchReq, setSearchReq] = useState<SearchRequest | null>(null);
@@ -866,10 +874,25 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
   const [cmdSeek, setCmdSeek] = useState(0);
   /* 바이노럴 토글 단축키 (기본 B) — 다른 커맨드와 같은 카운터 방식 */
   const [cmdBinaural, setCmdBinaural] = useState(0);
+  /* 모노로 합치기 (Sum to Mono, 사용자 결정 2026-10-14) — 듣기와 DAW 로 끌어내기 모두에 적용.
+     언제 꺼지는지는 환경설정(config.monoKeep). 앱을 켤 때는 늘 꺼진 상태로 시작한다. */
+  const [monoSum, setMonoSum] = useState(false);
+  const monoSumRef = useRef(false);
+  monoSumRef.current = monoSum;
+  useEffect(() => {
+    void audioBridge.mono(monoSum);
+    setDragMono(monoSum);
+  }, [monoSum]);
+  /* DAW 로 드롭이 성사됐을 때 — 'DAW 로 한 번 보내면 끄기' 면 끈다 */
+  const afterDawDrop = () => { if (config.monoKeep === "drag") setMonoSum(false); };
 
   /* 원본은 재생 시작 시 _record_history(path) 로 history.json 에 기록한다.
      PoC 는 원본 파일을 건드리지 않으므로 이 세션 재생분만 메모리에 쌓아 드로어에 얹는다. */
   const [sessionPlays, setSessionPlays] = useState<string[]>([]);
+  /* 이번 실행에서 재생한 소리 — 결과 표에 노란 글자로 표시 (사운드마이너식, 사용자 결정 2026-10-14).
+     메모리에만 둔다 = 앱을 다시 켜면 초기화. 히스토리(sessionPlays)와 따로 둔다 —
+     히스토리는 100개 상한·[비우기]가 있지만 이 표시는 그 영향을 받지 않는다. */
+  const [playedPaths, setPlayedPaths] = useState<ReadonlySet<string>>(() => new Set());
   const audioLoadedPath = useRef("");
   const audioLoadSeq = useRef(0);
   const playingRef = useRef(false);
@@ -1124,6 +1147,9 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
 
   const playRow = (row: Row, explicitManual = false) => {
     const same = current?.id === row.id;
+    /* '다른 사운드를 재생하면 끄기' (2026-10-14) — 같은 파일을 다시 재생할 때는 유지 */
+    if (config.monoKeep === "play" && monoSumRef.current && row.fullPath
+        && row.fullPath !== current?.fullPath) setMonoSum(false);
     /* 이미 재생 중인 같은 파일을 다시 재생하는 경우 — 엔진 상태가 PlayingState 에서
        바뀌지 않아 playback-state 이벤트가 오지 않는다. 그래서 pip 을 "loading"
        (빨강 박동)으로 두면 **거기서 못 빠져나온다** (사용자 보고: 액션라이트 빨강).
@@ -1148,6 +1174,10 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
       setPip({ path: row.fullPath, state: wasPlayingSame ? "playing" : "loading" });
     if (row.fullPath) {
       setSessionPlays((prev) => [...prev.filter((p) => p !== row.fullPath), row.fullPath!].slice(-100));
+      /* 재생이 시작되면 바로 '들어 본 소리' (사용자 결정 2026-10-14). 재생은 전부 이 함수를
+         거친다 — current 를 바꾸는 곳이 여기뿐이고, 멈췄다 이어 듣기는 이미 표시된 파일이다. */
+      const played = row.fullPath;
+      setPlayedPaths((prev) => (prev.has(played) ? prev : new Set(prev).add(played)));
       void recordHistory(row.fullPath);
     }
   };
@@ -1159,6 +1189,8 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
     void audioBridge.load(current).then((ok) => {
       if (!ok || seq !== audioLoadSeq.current) return;
       audioLoadedPath.current = current.fullPath ?? "";
+      /* 오디오 서비스가 다시 떴을 수도 있어 모노 상태를 파일마다 다시 알려 준다 */
+      if (monoSumRef.current) void audioBridge.mono(true);
       if (playingRef.current) void audioBridge.play();
     });
   }, [current]);
@@ -1299,7 +1331,10 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
      경로마다 순서대로 "설명 (선택)" 을 묻는다. 이미 등록된 경로(대소문자 무시)는
      묻지 않고 건너뛴다. 하나라도 추가되면 패널을 펼치고 목록을 새로 고친다. */
   const askBlacklist = (paths: string[]) => {
-    const existing = new Set(blacklistRows.map((r) =>
+    /* 지금 탭 목록에 넣는다 (탭별 블랙리스트 2026-10-14). 겹침도 그 탭 안에서만 본다 —
+       다른 탭에 있는 경로는 이 탭에 따로 넣을 수 있다. */
+    const tabKey = blacklistTab;
+    const existing = new Set(blacklistRows.filter((r) => r.tab === tabKey).map((r) =>
       normPath(r.path).replace(/[\\/]+$/, "").toLowerCase()));
     const queue = paths
       .map((p) => normPath(p).replace(/[\\/]+$/, ""))
@@ -1320,12 +1355,12 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
         label: `설명 (선택):\n${norm}`,
         value: "",
         onOk: (desc) => {
-          void addBlacklistPath(norm, desc.trim()).then((ok) => {
+          void addBlacklistPath(norm, desc.trim(), tabKey).then((ok) => {
             if (ok) {
               setBlacklistRows((rows) => rows.some((r) =>
-                r.path.toLowerCase() === norm.toLowerCase())
+                r.tab === tabKey && r.path.toLowerCase() === norm.toLowerCase())
                   ? rows
-                  : [...rows, { path: norm, description: desc.trim() }]);
+                  : [...rows, { path: norm, description: desc.trim(), tab: tabKey }]);
               added += 1;
               lastQuerySig.current = "";
               if (searchReq) setSearchReq({ ...searchReq });
@@ -1413,6 +1448,8 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
      비켜 둔다. 우리는 확인을 넣는 쪽을 골랐다.
      최소화·트레이로 내려가는 선택지는 두지 않는다 — X 는 종료 아니면 취소다. */
   const [exitAsk, setExitAsk] = useState(false);
+  /* 자동 업데이트 창이 떠 있는 동안은 앱 단축키를 막는다 (components/UpdateDialog.tsx) */
+  const [updateOpen, setUpdateOpen] = useState(false);
   /* Enter 와 [종료] 버튼 클릭이 겹쳐도 종료 절차는 한 번만 돈다 */
   const exitingRef = useRef(false);
 
@@ -1565,6 +1602,10 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
      40ms 디바운스로 연속 입력을 한 프레임으로 묶는다 (main_window.py:7198).
      PoC 는 effect 의존성만으로 재실행돼 같은 질의를 여러 번 던지고 있었다. */
   const lastQuerySig = useRef("");
+  /* 검색 조건이 바뀐 결과가 화면에 처음 뜰 때만 목록을 맨 위로 (사용자 요청 2026-10-14).
+     인덱싱 뒤 같은 검색을 다시 돌려 새로 고칠 때는 보던 위치를 지킨다 — 조건(sig)이 같으면 그대로. */
+  const shownQuerySig = useRef("");
+  const [scrollResetKey, setScrollResetKey] = useState(0);
   /* 마지막 검색이 0건일 때 철자 제안 */
   const [searchExtras, setSearchExtras] = useState<{ suggestions: SpellSuggestion[] }>({ suggestions: [] });
   /* 철자 제안을 누르면 검색창의 그 단어를 바꾼다 — 필터 상태는 SearchPanel 안에 있다 */
@@ -1589,14 +1630,16 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
     /* 원본은 40ms 디바운스 + signature 중복 차단 (그리고 400ms 넘게 걸릴 때만 "검색 중" 표시) */
     let busy = 0;
     const timer = window.setTimeout(() => {
-      const sig = "q:" + JSON.stringify(searchReq);
+      /* 지금 탭의 블랙리스트만 뺀다 (탭별 블랙리스트 2026-10-14) — 탭이 바뀌면 같은 검색어도 다시 찾는다 */
+      const req: SearchRequest = { ...searchReq, blacklist_tab: blacklistTab };
+      const sig = "q:" + JSON.stringify(req);
       if (lastQuerySig.current === sig) return;
       lastQuerySig.current = sig;
       /* 원본 _search_busy_timer: 400ms 를 넘길 때만 "검색 중..." 을 띄운다
          (평소엔 깜빡임 없이 조용히, main_window.py:_on_search_busy_timeout) */
       busy = window.setTimeout(() => setStatusOverride("검색 중..."), 400);
       /* +1 = 상한보다 한 줄 더 — 더 있는지 판단용 (hasMoreRows) */
-      searchRows({ ...searchReq, limit: searchReq.limit + 1 }).then(({ rows: loaded, error, suggestions }) => {
+      searchRows({ ...req, limit: req.limit + 1 }).then(({ rows: loaded, error, suggestions }) => {
         window.clearTimeout(busy);
         if (!alive) return;
         if (error) {
@@ -1608,7 +1651,13 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
           setStatusOverride(/^검색이 \d+초 안에/.test(error) ? error : "오류: " + error);
           return;
         }
-        if (loaded) setRows(loaded);
+        if (loaded) {
+          setRows(loaded);
+          if (shownQuerySig.current !== sig) {
+            shownQuerySig.current = sig;
+            setScrollResetKey((k) => k + 1);
+          }
+        }
         setSearchExtras({ suggestions });
         /* 원본은 결과 메시지로 상태를 덮어쓴다 — 일회성 메시지를 지운다 */
         setStatusOverride("");
@@ -1619,7 +1668,7 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
       window.clearTimeout(timer);
       window.clearTimeout(busy);
     };
-  }, [searchReq]);
+  }, [searchReq, blacklistTab]);
 
   useEffect(() => {
     const preventNativeContext = (event: MouseEvent) => event.preventDefault();
@@ -1671,7 +1720,14 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
          않는다 (조사 Q10). 원본은 창이 열리면 뒤쪽 단축키가 아예 안 먹는다.
          확인창 버튼에 포커스가 있는데 R 을 눌러 뒤쪽 반복 재생이 바뀌면 안 된다.
          위의 Ctrl+P(창 열고 닫기)는 예외로 이미 처리했다. */
-      if (modal || confirm || exitAsk || playerOverlay) return;
+      if (modal || confirm || exitAsk || playerOverlay || updateOpen) return;
+      /* 단축키로 처리하는 키면 버튼에 남은 포커스를 뺀다 (2026-10-14) — 안 그러면 버튼을 누른 뒤
+         스페이스로 재생할 때 키를 떼는 순간 그 버튼까지 눌린다 (모노가 도로 꺼지던 원인). */
+      if (target instanceof HTMLButtonElement
+          && [sc.play_pause, sc.seek_to_start, sc.toggle_loop, sc.toggle_segments, sc.toggle_history,
+              sc.toggle_binaural, sc.toggle_mono].some((key) => matches(event, key))) {
+        target.blur();
+      }
 
       if (matches(event, sc.play_pause)) {
         if (!selected && !current) return;
@@ -1693,6 +1749,9 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
       } else if (matches(event, sc.toggle_binaural)) {
         event.preventDefault();
         setCmdBinaural((v) => v + 1);
+      } else if (matches(event, sc.toggle_mono)) {
+        event.preventDefault();
+        setMonoSum((v) => !v);
       } else if (matches(event, sc.seek_to_start)) {
         event.preventDefault();
         setCmdSeek((v) => v + 1);
@@ -1702,7 +1761,7 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [current, selected, playing, config.shortcuts, config.playbackRestartFromZero,
-      modal, modalBusy, confirm, exitAsk, playerOverlay]);
+      modal, modalBusy, confirm, exitAsk, playerOverlay, updateOpen]);
 
   const openCtx = (
     e: React.MouseEvent,
@@ -1905,7 +1964,12 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
                    onNotify={notify} blacklistH={config.blacklistExpandedH}
                    tree={folderTree}
                    rootCount={libraryRoots.length + addedLibs.length}
-                   blacklistEntries={blacklistRows}
+                   /* 지금 탭 목록만 넘긴다 — 트리 숨김·라이브러리 검색·블랙리스트 패널이 탭별이다 */
+                   blacklistEntries={tabBlacklist}
+                   onBlacklistTab={setBlacklistTab}
+                   /* 트리·라이브러리 검색 행을 블랙리스트 패널에 끌어다 놓기 (사용자 요청 2026-10-14).
+                      우클릭 추가와 같은 함수 — 경로마다 설명을 묻고 지금 탭 목록에 넣는다 */
+                   onBlacklistDrop={(paths) => askBlacklist(paths)}
                    onScope={setScopePrefixes}
                    focusPath={focusPath} onFocusHandled={() => setFocusPath(null)}
                    /* 원본 ROLE_IS_ROOT — 등록된 라이브러리 경로 목록 */
@@ -1966,8 +2030,10 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
                 savedColumns={config.columns}
                 onColumnsChange={(columns) => patchConfig({ columns })}
                 rows={visibleRows}
+                scrollResetKey={scrollResetKey}
                 playing={playing ? current?.id ?? null : null}
                 pip={pip}
+                playedPaths={playedPaths}
                 onSelect={setSelected}
                 /* 원클릭/더블클릭 여부는 ResultsTable 이 결정한다.
                    여기로 들어온 activate 는 실제 재생 요청이다. */
@@ -1980,6 +2046,7 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
                    DAW 로 드롭이 성사된 순간 재생을 정지한다 (main_window.py:4328) */
                 onDragDropped={() => {
                   if (config.stopOnDrag) { setPlaying(false); audioBridge.stop(); }
+                  afterDawDrop();
                 }}
               />
               {/* 결과 0건 + 철자 제안 — 누르면 검색창의 그 단어를 바꿔 다시 찾는다
@@ -2000,7 +2067,10 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
             <HistoryDrawer open={history} initialWidth={config.historyWidth} sessionPlays={sessionPlays}
                            onClear={() => setSessionPlays([])}
                            onWidthCommit={(width) => patchConfig({ historyWidth: Math.round(width) })}
-                           onDragDropped={() => { if (config.stopOnDrag) { setPlaying(false); audioBridge.stop(); } }}
+                           onDragDropped={() => {
+                             if (config.stopOnDrag) { setPlaying(false); audioBridge.stop(); }
+                             afterDawDrop();
+                           }}
                            onPick={(path) => {
                              /* 원본 _on_history_pick: 히스토리 항목을 그대로 재생한다.
                                 결과 목록에 있으면 그 행을, 없으면 경로만으로 재생한다. */
@@ -2037,7 +2107,12 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
                  (stop_playback_only — 선택 영역/파형은 그대로 남긴다) */
               onRegionDropped={() => {
                 if (config.stopOnDrag) { setPlaying(false); void audioBridge.stop(); }
+                afterDawDrop();
               }}
+              mono={monoSum}
+              onMonoToggle={() => setMonoSum((v) => !v)}
+              onMonoChange={setMonoSum}
+              onNotify={(text) => notify("info", text)}
               onRate={(rate) => audioBridge.rate(rate)}
               onVolume={(gain) => audioBridge.volume(gain)}
               onPersist={(patch) => patchConfig(patch)}
@@ -2208,7 +2283,9 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
                         /* 미완료 항목 창에서 라이브러리 현황으로 돌아가기 */
                         onBack={() => { if (!modalBusy) setModal("status"); }}
                         libraries={libraryRoots}
-                        blacklistEntries={blacklistRows}
+                        blacklistEntries={tabBlacklist}
+                        blacklistTabLabel={blacklistTab === "all" ? "전체"
+                          : blacklistTab === "fav" ? "즐겨찾기" : blacklistTab.slice(5)}
                         config={config} onSaveConfig={saveConfig}
                         onRunAdmin={runDialogAdmin}
                         onOrphans={promptOrphanRestore}
@@ -2391,6 +2468,8 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
       )}
       <CenterToast message={toast} />
       <CenterLoader tasks={loaderTasks} />
+      {/* 자동 업데이트 — update.cfg 가 비어 있으면 아무것도 안 그린다 */}
+      <UpdateDialog onBeforeRestart={flushConfigSave} onOpenChange={setUpdateOpen} />
     </div>
   );
 }

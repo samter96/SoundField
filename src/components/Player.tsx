@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Row } from "../data";
 import { Waveform } from "./Waveform";
-import { IcoPlay, IcoPause, IcoStop, IcoSkip, IcoLoop, IcoVolume, IcoDown, IcoSegment } from "../icons";
+import { IcoPlay, IcoPause, IcoStop, IcoSkip, IcoLoop, IcoVolume, IcoDown, IcoSegment, IcoCheck } from "../icons";
 import { cancelWaveform, fileStamp, loadQuickPeaks, loadWavePeaks, type WavePeaks } from "../backend";
 import { BinauralMenu, layoutChoiceLabel } from "./BinauralMenu";
 import { AmbisonicFormatDialog, ChannelOrderDialog,
@@ -43,6 +43,13 @@ type Props = {
   /* 원본 _on_drag_region — 영역/세그먼트를 DAW 로 떨어뜨렸을 때.
      상위가 stop_on_drag 설정을 보고 재생을 멈춘다 (선택 영역은 남긴다). */
   onRegionDropped?: () => void;
+  /** 모노로 합치기 켜짐 (2026-10-14) — 버튼·파형 표시, 영역 내보내기를 모노로 */
+  mono?: boolean;
+  onMonoToggle?: () => void;
+  /** 모노를 켜고 끄라는 요청 — 바이노럴과 둘 중 하나만 켜지게 할 때 */
+  onMonoChange?: (on: boolean) => void;
+  /** 화면 가운데 짧은 안내 */
+  onNotify?: (text: string) => void;
   onRate?: (rate: number) => void;
   onVolume?: (gain: number) => void;
   /* 원본 config volume_pos1k / speed_rate 저장용 */
@@ -72,6 +79,9 @@ const RULER_STEPS = [0.0001, 0.0002, 0.0005, 0.001, 0.002, 0.005, 0.01, 0.02, 0.
                      0.1, 0.2, 0.5, 1, 2, 5, 10, 30, 60, 300, 600];
 /* 원본이 파형을 그릴 수 있는 확장자 (WAVEFORM_EXTS) */
 const WAVEFORM_EXTS = new Set(["wav", "flac", "aif", "aiff", "ogg", "oga", "w64", "rf64", "mp3"]);
+/* 파형 판정은 원본처럼 **파일 확장자**로 한다. row.fmt 는 화면 배지용(실제 형식, 모르면 "")이라
+   그걸 쓰면 분석 전 파일의 파형이 꺼진다 (2026-10-14 배지를 실제 형식으로 바꾸면서 분리). */
+const waveExt = (name: string) => (name.split(".").pop() ?? "").toLowerCase();
 
 /* 원본 _fmt_ruler_label — step 크기에 따라 분/초/ms 전환 */
 function fmtRulerLabel(t: number, step: number) {
@@ -204,7 +214,8 @@ function EditableValue({
   );
 }
 
-export function Player({ row, playing, onToggle, onStop, onSeek, onRegionDropped,
+export function Player({ row, playing, onToggle, onStop, onSeek, onRegionDropped, mono, onMonoToggle,
+                         onMonoChange, onNotify,
                         onRate, onVolume, onPersist, onBinaural, onForcePlay,
                         initialVolPos, initialSpeedRate,
                         cmdToggleLoop = 0, cmdToggleSegments = 0, cmdSeekToStart = 0,
@@ -667,7 +678,8 @@ export function Player({ row, playing, onToggle, onStop, onSeek, onRegionDropped
     const startSec = dur > 0 ? from * dur : null;
     const endSec = dur > 0 ? to * dur : null;
     setOperationError("");
-    void exportRegion(row.fullPath, startSec, endSec, speed).then((exportPath) => {
+    void exportRegion(row.fullPath, startSec, endSec, speed, Boolean(mono),
+                      currentOverride).then((exportPath) => {
       /* 자르기가 끝났을 때 이미 손을 뗐으면 드래그를 시작하지 않는다 — 시작하면
          가짜 드롭이 되어 재생이 멈춘다 (위 주석). */
       if (!pressedRef.current) return;
@@ -794,7 +806,7 @@ export function Player({ row, playing, onToggle, onStop, onSeek, onRegionDropped
     let alive = true;
     let timers: number[] = [];
     const full = row?.fullPath;
-    if (!full || !row || !WAVEFORM_EXTS.has(row.fmt.toLowerCase())) {
+    if (!full || !row || !WAVEFORM_EXTS.has(waveExt(row.name))) {
       setWave(null);
       setWaveFailed(false);
       setWaveLoading(false);
@@ -904,7 +916,7 @@ export function Player({ row, playing, onToggle, onStop, onSeek, onRegionDropped
          full 추출이 새 파일 파형을 직렬로 가로막지 않도록 같은 시점에 중단한다. */
       void cancelWaveform();
     };
-  }, [row?.fullPath, row?.fmt, waveReload]);
+  }, [row?.fullPath, row?.name, waveReload]);
 
   /* config 는 비동기로 읽힌다 — 값이 도착하면 반영한다 (원본은 시작 시 이미 반영된 상태).
      ⚠ **최초 한 번만** 반영해야 한다. 볼륨·배속은 아래에서 바뀔 때마다 설정에
@@ -1075,6 +1087,43 @@ export function Player({ row, playing, onToggle, onStop, onSeek, onRegionDropped
             [volPos, speed]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { onBinaural?.(binaural); }, [binaural]);
+
+  /* ── 모노·바이노럴은 둘 중 하나만 (사용자 결정 2026-10-14) ──────────────────────
+     둘 다 켜진 것처럼 보이면 지금 어떤 소리를 듣는지 알 수 없다 (엔진은 모노가 이긴다).
+     · 모노를 켜면 바이노럴을 끄고 **기억**해 둔다 → 모노가 꺼지면(직접·자동 모두) 다시 켠다.
+     · 바이노럴을 켜면 모노를 끈다 (이때는 되돌릴 것이 없다). */
+  const binauralBeforeMonoRef = useRef(false);
+  const firstMonoRef = useRef(true);
+  useEffect(() => {
+    if (firstMonoRef.current) { firstMonoRef.current = false; return; }
+    if (mono) {
+      if (binaural) {
+        binauralBeforeMonoRef.current = true;
+        setBinaural(false);
+        onNotify?.("바이노럴을 끄고 모노로 전환");
+      }
+    } else if (binauralBeforeMonoRef.current) {
+      binauralBeforeMonoRef.current = false;
+      setBinaural(true);
+      onNotify?.("모노를 끄고 바이노럴로 복귀");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mono]);
+  useEffect(() => {
+    if (binaural && mono) {
+      binauralBeforeMonoRef.current = false;
+      onMonoChange?.(false);
+      onNotify?.("모노를 끄고 바이노럴로 전환");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [binaural]);
+  /* 비교 창에서 바이노럴을 켤 때 — 엔진에 순서대로 직접 알린다 (상태 반영을 기다리면
+     배치 미리듣기 명령이 먼저 도착해 바이노럴이 아닌 소리로 한 번 재생된다). */
+  const startBinauralForCompare = () => {
+    if (mono) { void audioBridge.mono(false); }
+    void audioBridge.binaural(true);
+    setBinaural(true);
+  };
   /* 판별 중 표시는 **버튼 안에서** 한다 (사용자 지시 2026-09-03).
      예전에는 재생 중 바이노럴을 켜면 소리를 멈추고 중앙 로더를 띄웠다 — 중앙 로더가
      입력을 막으니 소리까지 멈춰야 했던 것인데, 그 흐름 자체가 불쾌했다.
@@ -1245,6 +1294,21 @@ export function Player({ row, playing, onToggle, onStop, onSeek, onRegionDropped
           {operationError} <button className="btn" onClick={() => setOperationError("")}>닫기</button>
         </div>}
         <div className="binaural-row">
+        {/* 모노로 합치기 (Sum to Mono, 2026-10-14) — 바이노럴과 같은 '어떻게 들을지' 묶음이라
+            바로 옆에 둔다. 켜면 바이노럴보다 우선한다 (바이노럴은 입체 출력). */}
+        {/* 체크박스 (사용자 지시 2026-10-14 — 눌렸는지 명백히, 켜지면 글자 주황).
+            ⚠ 포커스를 받지 않는다 (mousedown 기본 동작 막음 + 포커스 안 받는 span). 버튼이었을 때
+              누른 뒤 스페이스로 재생하면 키를 뗄 때 이 버튼까지 눌려 모노가 도로 꺼졌다. */}
+        <label className={"mono-check" + (mono ? " on" : "")}
+               data-tip={"모노로 듣기 (" + (mono ? "켜짐" : "꺼짐") + ")\n"
+                 + "스테레오·멀티채널을 한 채널로 합쳐 듣고, DAW 로 끌어낼 때도 `이름_mono.wav` 로 보냅니다.\n"
+                 + "앰비소닉은 전 방향(W) 채널만, 5.1·7.1 은 LFE 를 빼고 합칩니다. 바이노럴과는 하나만 켜집니다.\n"
+                 + "언제 꺼지는지는 환경설정 › 재생에서 고릅니다."}
+               onMouseDown={(event) => event.preventDefault()}
+               onClick={() => onMonoToggle?.()}>
+          <span className={"check" + (mono ? " on" : "")} role="checkbox" aria-checked={Boolean(mono)}><IcoCheck size={10} /></span>
+          모노로 듣기
+        </label>
         <button className={"binaural-main" + (binaural ? " on" : "")
                   + (indicator === "needs-layout" ? " needs-layout" : "")
                   + (indicator === "probing" || indicator === "loading" ? " probing" : "")
@@ -1456,7 +1520,10 @@ export function Player({ row, playing, onToggle, onStop, onSeek, onRegionDropped
                비교하게 되어 비교 자체가 의미가 없다 (조사 Q03).
                꺼져 있을 때는 판정만 미리듣기 값으로 바꿔 둔다. */
             setPreviewPreset(value);
-            if (!binaural) { void audioBridge.layout(value, false, false); return; }
+            /* 바이노럴이 꺼져 있으면 켜고(모노는 끄고) 바로 듣는다 (사용자 결정 2026-10-14).
+               예전엔 판정 값만 바꾸고 재생하지 않아 버튼이 고장 난 것처럼 보였다.
+               명령 순서를 직접 보낸다 — 모노 끔 → 바이노럴 켬 → 배치 미리듣기. */
+            if (!binaural) startBinauralForCompare();
             onForcePlay?.();
             void audioBridge.layout(value, false, true);
           }}
@@ -1491,7 +1558,7 @@ export function Player({ row, playing, onToggle, onStop, onSeek, onRegionDropped
                비교하게 되어 비교 자체가 의미가 없다 (조사 Q03).
                꺼져 있을 때는 판정만 미리듣기 값으로 바꿔 둔다. */
             setPreviewPreset(value);
-            if (!binaural) { void audioBridge.layout(value, false, false); return; }
+            if (!binaural) startBinauralForCompare();
             setPos(0); resetPlayhead(0); onForcePlay?.();
             void audioBridge.layout(value, true, true);
           }}
@@ -1554,6 +1621,7 @@ export function Player({ row, playing, onToggle, onStop, onSeek, onRegionDropped
       {/* 원본 is_header_visible: 토글 ON + 세그먼트 1개 이상일 때만 헤더 영역을 뺀다 */}
       <div className={"wave-wrap" + (segmentsVisible && segRatios.length > 0 ? " segments-on" : "")} ref={wrapRef} onWheel={onWheel}
            onContextMenu={(e) => { e.preventDefault(); setSel(null); }}
+           data-mono={mono ? "on" : undefined}
            /* ── 파형 마우스 (원본 WaveformView.mousePressEvent/Move/Release, 2268) ──
               누른 지점이 기존 선택 영역 **안**이면 "extdrag" — 임계값(6px)을 넘으면
               그 영역을 잘라 DAW 로 끌어낸다 (dragRegionRequested). 밖이면 "select" —
@@ -1612,9 +1680,10 @@ export function Player({ row, playing, onToggle, onStop, onSeek, onRegionDropped
              window.addEventListener("mousemove", move);
              window.addEventListener("mouseup", up);
            }}>
+        {mono && row && <div className="mono-badge" aria-hidden="true">MONO</div>}
         {row ? (
           <>
-            {!WAVEFORM_EXTS.has(row.fmt.toLowerCase())
+            {!WAVEFORM_EXTS.has(waveExt(row.name))
               ? <div className="wave-empty">이 포맷은 파형 미지원 (재생만 가능)</div>
               : waveLoading
                 /* 원본 paintEvent 의 _loading 분기 — 배경만 깔고 가운데 문구.

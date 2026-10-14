@@ -3303,12 +3303,13 @@ dependencies = [
 
 [[package]]
 name = "soundfield"
-version = "2.1.7"
+version = "2.2.0"
 dependencies = [
  "base64 0.22.1",
  "rusqlite",
  "serde",
  "serde_json",
+ "sha2",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",

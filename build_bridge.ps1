@@ -39,6 +39,12 @@ $GameThesaurus = Join-Path $PyRoot "app\data\game_sfx_thesaurus.tsv"
 if (-not (Test-Path $GameThesaurus)) {
   throw "게임 사운드 동의어 사전을 찾을 수 없습니다: $GameThesaurus"
 }
+# UCS 분류 ID 대응표 (2026-10-14) — 순위 점수가 'WEAPSwrd_…' 를 sword 로 친다. 빠지면 그 반영만
+# 조용히 사라진다. 보관 중인 ucs_codes.json 과 다른 파일이다 (만드는 법: tools\build_ucs_catid.py).
+$UcsCatId = Join-Path $PyRoot "app\data\ucs_catid.json"
+if (-not (Test-Path $UcsCatId)) {
+  throw "UCS 분류 ID 대응표를 찾을 수 없습니다: $UcsCatId"
+}
 
 # ── 동의어 실험 보관 모듈 — 설치본 제외 (사용자 결정 2026-10-07) ─────────────
 # '같은 뜻' 새 사전·UCS 분류 약어·칩은 써 보고 되돌렸다. 코드는 저장소에만 둔다:
@@ -68,6 +74,7 @@ python -m PyInstaller --noconfirm --onedir --name sf_bridge `
   --add-binary "$Sidecar;monitor" `
   --add-data "$Thesaurus;app\data" `
   --add-data "$GameThesaurus;app\data" `
+  --add-data "$UcsCatId;app\data" `
   --distpath $DistRoot --workpath $WorkRoot `
   (Join-Path $ProjectRoot "src-tauri\python\sf_bridge.py")
 
@@ -140,6 +147,12 @@ if (Test-Path $BundledGame) {
   Write-Host "게임 사운드 동의어 사전 포함 확인: $BundledGame"
 } else {
   throw "게임 사운드 동의어 사전이 번들에 들어가지 않았습니다: $BundledGame"
+}
+$BundledCatId = Join-Path $DistRoot "sf_bridge\_internal\app\data\ucs_catid.json"
+if (Test-Path $BundledCatId) {
+  Write-Host "UCS 분류 ID 대응표 포함 확인: $BundledCatId"
+} else {
+  throw "UCS 분류 ID 대응표가 번들에 들어가지 않았습니다: $BundledCatId"
 }
 foreach ($parkedData in @("sfx_synonyms.json", "ucs_codes.json")) {
   if (Test-Path (Join-Path $DistRoot "sf_bridge\_internal\app\data\$parkedData")) {

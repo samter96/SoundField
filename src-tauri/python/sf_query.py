@@ -166,6 +166,8 @@ def _run_query(req):
         channels=req.get("channels"),
         min_channels=req.get("min_channels"),
         path_prefixes=req.get("path_prefixes") or None,
+        # 탭별 블랙리스트 (2026-10-14) — 지금 탭 이름('all'·'fav'·'user:이름'). 없으면 '전체' 탭 목록.
+        apply_blacklist=req.get("blacklist_tab") or True,
         precise=bool(req.get("precise")),
         limit=int(req.get("limit") or 5000),
         # 환경설정 '동의어도 함께 찾기' — 값이 없으면(옛 화면) 켠 것으로 본다

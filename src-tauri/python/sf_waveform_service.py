@@ -73,7 +73,7 @@ from app.ui.player_widget import (  # noqa: E402
 )
 from app.binaural import (  # noqa: E402
     _PRESET_FILM_ORDER, _PRESET_WAVE_ORDER, _PRESET_SMPTE_ORDER, read_wave_channel_mask, resolve_layout)
-from app.region_export import crop_wav_region, render_speed_wav  # noqa: E402
+from app.region_export import crop_wav_region, mono_wav, render_speed_wav  # noqa: E402
 
 # 최근 파일 하나의 추출 결과만 붙잡아 둔다 (원본도 위젯이 현재 파일만 들고 있다).
 # ⚠ 경로만으로 판정하지 말 것 (조사 Q15). 같은 경로의 파일이 바뀌면 옛 파형을
@@ -272,7 +272,7 @@ def _respond(obj):
     sys.stdout.flush()
 
 
-def _region(path: str, start_sec, end_sec, rate) -> dict:
+def _region(path: str, start_sec, end_sec, rate, mono=False, override="") -> dict:
     r"""DAW 로 끌어낼 파일 경로를 만든다 — 원본 _resolve_export_path 규칙 그대로.
       1) 영역(세그먼트 헤더 드래그 범위 또는 사용자 선택)이 있으면 crop_wav_region
          으로 잘라 임시 WAV 를 만든다 (bext/iXML/cue 청크 보존).
@@ -280,8 +280,19 @@ def _region(path: str, start_sec, end_sec, rate) -> dict:
       2) 배속이 1.0x 가 아니면 그 결과에 render_speed_wav 로 배리스피드를 렌더한다
          (`이름_0.45x.wav`) — 누엔도가 1.0x 원본과 다른 파일로 인식하게.
          렌더 실패 시 오류를 반환한다.
-    임시 파일은 원본과 같은 %TEMP%\SoundField_regions 에 쌓이고 24시간 뒤 정리된다."""
+    임시 파일은 원본과 같은 %TEMP%\SoundField_regions 에 쌓이고 24시간 뒤 정리된다.
+      (2026-10-14) mono 면 자른 뒤·배속 전에 모노로 합친다 (`이름_mono.wav`). 가중치는 **원본**의
+      채널 배치로 정한다 — 파일명 표시(AmbiX 등)는 원본 이름에 있다."""
     export = path
+    weights = None
+    if mono:
+        import soundfile as _sf
+        from app.binaural import layout_channel_roles, resolve_layout
+        from app.downmix import mono_weights
+        ch = int(_sf.info(path).channels or 0)
+        layout = resolve_layout(path, ch, override or "") if ch > 2 else None
+        roles = layout_channel_roles(layout) if layout is not None else ()
+        weights = mono_weights(getattr(layout, "topology", ""), getattr(layout, "preset", ""), roles, ch)
     if start_sec is not None or end_sec is not None:
         if start_sec is None or end_sec is None:
             raise ValueError("선택 구간의 시작과 끝이 필요합니다")
@@ -293,6 +304,11 @@ def _region(path: str, start_sec, end_sec, rate) -> dict:
             # 프런트가 "내보내기를 중단했습니다: " 를 앞에 붙이므로 여기선 원인만 적는다
             raise RuntimeError("선택 구간을 잘라내지 못했습니다")
         export = cropped
+    if mono:
+        summed = mono_wav(export, weights)
+        if not summed:
+            raise RuntimeError("모노로 합친 파일을 만들지 못했습니다 (자세한 원인은 로그의 [mono] 항목)")
+        export = summed
     rate = float(1.0 if rate is None else rate)
     if not math.isfinite(rate) or rate <= 0:
         raise ValueError("배속 값이 올바르지 않습니다")
@@ -333,7 +349,7 @@ def main():
                 data = _quick(path)
             elif command == "region":
                 data = _region(path, req.get("start_sec"), req.get("end_sec"),
-                               req.get("rate"))
+                               req.get("rate"), bool(req.get("mono")), req.get("override") or "")
             elif command == "layout":
                 data = _layout(path, req.get("channels") or 0, req.get("override") or "")
             else:

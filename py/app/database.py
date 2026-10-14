@@ -127,6 +127,17 @@ class Database:
                     added_at REAL DEFAULT (strftime('%s','now'))
                 )
             """)
+            # 탭별 블랙리스트 (2026-10-14 사용자 결정 — 탭마다 완전히 따로).
+            # '전체' 탭 목록은 위 blacklist_paths 그대로, 즐겨찾기('fav')·개인 탭('user:이름')은 여기.
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS blacklist_tab_paths (
+                    tab TEXT NOT NULL,
+                    path TEXT NOT NULL,
+                    description TEXT,
+                    added_at REAL DEFAULT (strftime('%s','now')),
+                    PRIMARY KEY (tab, path)
+                )
+            """)
             # 중복 수리 = 검색 숨김 플래그 (1회 마이그레이션). 인덱스에서 지우지 않고
             # 행에 hidden=1 만 세움 — 재스캔이 다시 등록할 일도, FTS 삭제 비용도 없음.
             try:
@@ -469,6 +480,14 @@ class Database:
                     description TEXT,
                     added_at REAL DEFAULT (strftime('%s','now'))
                 );
+
+                CREATE TABLE IF NOT EXISTS blacklist_tab_paths (
+                    tab TEXT NOT NULL,
+                    path TEXT NOT NULL,
+                    description TEXT,
+                    added_at REAL DEFAULT (strftime('%s','now')),
+                    PRIMARY KEY (tab, path)
+                );
             """)
             conn.commit()
         finally:
@@ -558,16 +577,43 @@ class Database:
         finally:
             conn.close()
 
-    def get_blacklist_paths(self) -> List[Dict]:
+    def get_blacklist_paths(self, tab: Optional[str] = None) -> List[Dict]:
+        """tab 이 없거나 'all' 이면 '전체' 탭 목록(blacklist_paths), 아니면 그 탭 목록(blacklist_tab_paths).
+        탭별 표가 아직 없는 DB(만들기 전)면 빈 목록."""
         conn = self._connect()
         try:
             cur = conn.cursor()
-            cur.execute(
-                "SELECT path, description, added_at FROM blacklist_paths ORDER BY path"
-            )
+            if not tab or tab == "all":
+                cur.execute(
+                    "SELECT path, description, added_at FROM blacklist_paths ORDER BY path"
+                )
+            else:
+                try:
+                    cur.execute(
+                        "SELECT path, description, added_at FROM blacklist_tab_paths "
+                        "WHERE tab = ? ORDER BY path", (tab,))
+                except sqlite3.OperationalError:
+                    return []
             return [dict(r) for r in cur.fetchall()]
         finally:
             conn.close()
+
+    @staticmethod
+    def _blacklist_tab_of(apply_blacklist) -> Optional[str]:
+        """apply_blacklist 값 → 탭 이름. True(옛 호출)·'all' 은 '전체' 탭(None).
+        탭별 블랙리스트 (2026-10-14): 검색 요청이 지금 탭 이름을 문자열로 넘긴다."""
+        if isinstance(apply_blacklist, str) and apply_blacklist and apply_blacklist != "all":
+            return apply_blacklist
+        return None
+
+    @staticmethod
+    def _blacklist_source_sql(tab: Optional[str]) -> str:
+        """블랙리스트가 100개를 넘을 때 쓰는 CTE 의 FROM 대상. 탭 이름은 SQL 글자로 넣는다
+        (이 CTE 는 인자를 받지 않는 자리라 — 쿼리 인자 순서가 'CTE 인자 없음' 을 전제한다)."""
+        if not tab:
+            return "blacklist_paths"
+        lit = "'" + tab.replace("'", "''") + "'"
+        return f"(SELECT path FROM blacklist_tab_paths WHERE tab = {lit})"
 
     def update_root_indexed_at(self, path: str):
         conn = self._connect()
@@ -799,6 +845,16 @@ class Database:
                 (pat, prefix.rstrip("\\/"))
             )
             bl_removed = cur.rowcount
+            # 탭별 블랙리스트(2026-10-14)도 같은 범위 — 표가 없는 DB 면 건너뛴다
+            try:
+                cur.execute(
+                    "DELETE FROM blacklist_tab_paths WHERE path LIKE ? COLLATE NOCASE "
+                    "OR rtrim(path, '\\/') = ? COLLATE NOCASE",
+                    (pat, prefix.rstrip("\\/"))
+                )
+                bl_removed += cur.rowcount
+            except sqlite3.OperationalError:
+                pass
             # 고아 중복 후보 — 삭제된 그룹 중 보이는 사본이 0개가 된 그룹만.
             # 복원은 UI 팝업 승인 후 (orphan_ids 반환).
             orphan_ids = self._find_orphan_dup_candidates(cur)
@@ -2752,7 +2808,7 @@ class Database:
         """같이 찾을 말 — UCS 사전의 보완 규칙(thesaurus.related). 4글자 이상 단어만."""
         token = (token or "").strip().rstrip("*")
         if thesaurus.basehead_mode():
-            # 2.1.7 기본: 게임 사운드 사전(베이스헤드 형식). UCS 의 혼입을 줄이려던 규제(4글자 이상·
+            # 기본: 게임 사운드 사전(베이스헤드 형식). UCS 의 혼입을 줄이려던 규제(4글자 이상·
             # 3글자 미만 동의어 버림·제외 단어)는 고른 사전이라 풀었다 (사용자 결정 2026-10-13).
             return thesaurus.basehead().related(token) if token else []
         if len(token) < 4:
@@ -2789,14 +2845,21 @@ class Database:
         tok = esc_like(token)
         return (f"{column} LIKE ? ESCAPE '\\' COLLATE NOCASE", [f"%{tok}%"])
 
-    def _direct_fts(self, tokens: List[str]) -> str:
+    # 상한을 넘는 넓게 찾기에서 담는 순서 (사용자 결정 2026-10-14): 이름에 든 파일 → 제목·키워드·분류 →
+    # 설명·코멘트. 예전엔 일곱 칸을 한 번에 OR 로 걸어, 설명에만 'footstep' 이 든 파일이 이름에 든
+    # 파일 자리를 차지했다.
+    _DIRECT_STAGES = (("file_name",), ("title", "keywords", "category", "sub_category"),
+                      ("description", "comments"))
+
+    def _direct_fts(self, tokens: List[str], fields=None) -> str:
         """_direct_filter_clause 와 같은 단어·칸을 search_fts(trigram) MATCH 문자열로.
         trigram 은 대소문자 무시 글자 일부 일치라 LIKE '%단어%' 를 빠짐없이 덮는다 (더 넓을 수는 있다)."""
         tokens = [t for t in tokens[:3] if t and len(t) >= 3]
-        cols = "{file_name title keywords category sub_category description comments}"
+        cols = "{" + " ".join(fields or ("file_name", "title", "keywords", "category", "sub_category",
+                                         "description", "comments")) + "}"
         return cols + ": (" + " OR ".join(f'"{self._fts_escape(t)}"' for t in tokens) + ")"
 
-    def _direct_filter_clause(self, tokens: List[str]) -> Tuple[str, List[str]]:
+    def _direct_filter_clause(self, tokens: List[str], fields=None) -> Tuple[str, List[str]]:
         tokens = [t for t in tokens[:3] if t and len(t) >= 3]
         if not tokens:
             return "", []
@@ -2806,6 +2869,9 @@ class Database:
 
         primary_fields = ("file_name", "title", "keywords")
         secondary_fields = ("category", "sub_category", "description", "comments")
+        if fields:
+            primary_fields = tuple(f for f in primary_fields if f in fields)
+            secondary_fields = tuple(f for f in secondary_fields if f in fields)
         clauses: List[str] = []
         params: List[str] = []
         for tok in tokens:
@@ -2916,7 +2982,8 @@ class Database:
         if apply_blacklist:
             try:
                 bl = [p for p in ((row.get("path") or "").rstrip("\\/")
-                                  for row in self.get_blacklist_paths()) if p]
+                                  for row in self.get_blacklist_paths(
+                                      self._blacklist_tab_of(apply_blacklist))) if p]
             except sqlite3.OperationalError:
                 bl = []
             for p in bl:
@@ -3230,7 +3297,8 @@ class Database:
         if apply_blacklist:
             try:
                 bl_paths = [p for p in ((row.get("path") or "").rstrip("\\/")
-                                        for row in self.get_blacklist_paths()) if p]
+                                        for row in self.get_blacklist_paths(
+                                            self._blacklist_tab_of(apply_blacklist))) if p]
             except sqlite3.OperationalError:
                 bl_paths = []
             if len(bl_paths) <= 100:
@@ -3241,7 +3309,8 @@ class Database:
                 ctes.append(
                     "_bl(p, pat) AS MATERIALIZED ("
                     " SELECT rtrim(path, '\\/'), rtrim(path, '\\/') || '\\%'"
-                    " FROM blacklist_paths WHERE rtrim(path, '\\/') <> '')")
+                    f" FROM {self._blacklist_source_sql(self._blacklist_tab_of(apply_blacklist))}"
+                    " WHERE rtrim(path, '\\/') <> '')")
                 conds.append("NOT EXISTS (SELECT 1 FROM _bl WHERE a.file_path = _bl.p COLLATE NOCASE"
                              " OR a.file_path LIKE _bl.pat)")
         return ctes, conds, params
@@ -3264,6 +3333,114 @@ class Database:
             for rx in syn_res:
                 if rx.search(v):
                     s += w * self._SYNONYM_RANK_FACTOR
+        return s
+
+    # ── 순위 점수 v3 (사용자 결정 2026-10-14) ─────────────────────────────────
+    # v2 는 칸마다 점수를 **더해서** 제목·키워드·설명을 다 채운 팩이 위를 독차지했다
+    # (실측: 넓게 찾기 위 100개의 채워진 칸 평균 8.0/8, footstep 위 100개 중 99개가 한 팩).
+    # 정확한 검색의 bm25 는 반대로 글이 짧은 — 정보가 빈 — 파일을 올렸다 (위 100개 평균 0~1.2칸).
+    # v3: 친 단어마다 **가장 좋은 자리 한 곳**만 친다 (같은 말이 여러 칸에 반복돼도 더 주지 않는다).
+    #     단어 시작에 걸리면 그 자리 점수 그대로, 단어 중간(train 안의 rain)이면 절반.
+    #     + 친 단어들이 그 순서로 붙어 있으면 가산 (이름·제목 +12, 설명·키워드·코멘트 +5) —
+    #       실측: 'magic spell' 이름이 딱 Magic Spell 인 파일 618개가 위 50에 0개, 첫 88위였다.
+    _RANK_V3_FIELDS = (("file_name", 10), ("title", 8), ("keywords", 5), ("category", 4), ("sub_category", 4),
+                       ("description", 3), ("comments", 2), ("source", 2), ("artist", 1), ("album", 1),
+                       ("genre", 1), ("file_path", 0.5))
+    _PHRASE_BONUS_NAME = 12
+    _PHRASE_BONUS_META = 5
+    _CAMEL_RE = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
+    # UCS 분류 ID (사용자 결정 2026-10-14): 파일 이름이 분류 ID 로 시작하고(WEAPSwrd_…) 그 분류·하위분류
+    # 이름이 친 단어와 같으면 **그 단어가 이름에 있는 것으로 친다** (이름에 'sword' 글자가 없어도 칼 소리라고
+    # 표시한 파일). 대응표는 data/ucs_catid.json (tools/build_ucs_catid.py).
+    # ⚠ 점수를 따로 더하지 말 것 — +6 을 더했더니 위쪽이 UCS 이름을 쓰는 몇 팩으로 다시 몰렸다
+    #   (실측 위 100개 라이브러리 종류 whoosh 67→26, laser 51→16, magic 49→10). 이 방식은 67→50·51→47·49→47.
+    _CATID_RE = re.compile(r"([A-Za-z]+)[_\- ]")
+    _CATID_MAP = None
+
+    @classmethod
+    def _ucs_catid_words(cls) -> Dict[str, set]:
+        """분류 ID → 그 분류·하위분류 이름의 단어들 (소문자, 복수형 뗀 꼴 포함). 'CRASH & DEBRIS' → crash, debris."""
+        if cls._CATID_MAP is None:
+            m: Dict[str, set] = {}
+            try:
+                path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "ucs_catid.json")
+                with open(path, encoding="utf-8") as f:
+                    for cid, cat, sub in json.load(f)["rows"]:
+                        ws = set()
+                        for name in (cat, sub):
+                            for w in re.split(r"[\s&]+", name.lower()):
+                                if len(w) >= 3:
+                                    ws.add(w)
+                                    if w.endswith("s") and not w.endswith("ss"):
+                                        ws.add(w[:-1])   # FOOTSTEPS → footstep, DOORS → door
+                        m[cid] = ws
+            except Exception as e:
+                logger.warning(f"UCS 분류 ID 대응표 로드 실패 (분류 ID 순위 반영 없음): {e}")
+            cls._CATID_MAP = m
+        return cls._CATID_MAP
+
+    def _rank_v3_prep(self, tokens: List[str]):
+        """정렬 한 번에 한 번만 — 단어별 (단어 시작 정규식, 글자 일부 꼴들), 붙은 구문 정규식."""
+        toks = []
+        for t in tokens:
+            if not t:
+                continue
+            vs = [v.lower() for v in self._token_variants(t)] or [t]
+            start = re.compile(r"(?<![a-z0-9])(?:" + "|".join(re.escape(v) for v in vs) + ")")
+            forms = {t.lower()}
+            if t.lower().endswith("s") and not t.lower().endswith("ss"):
+                forms.add(t.lower()[:-1])
+            cats = {cid for cid, ws in self._ucs_catid_words().items() if ws & forms}
+            toks.append((start, vs, cats))
+        phrase = None
+        words = [t for t in tokens if t]
+        if len(words) >= 2:
+            phrase = re.compile(r"(?<![a-z0-9])" + r"[\s_\-.]*".join(re.escape(w) for w in words))
+        catids = set().union(*(c for _, _, c in toks)) if toks else set()
+        return toks, phrase, catids
+
+    def _rank_score_v3(self, row: Dict, prep, syn_res) -> float:
+        toks, phrase, catids = prep
+        texts = {}
+        for f, _ in self._RANK_V3_FIELDS:
+            v = row.get(f)
+            if v:
+                if f in ("file_name", "title"):
+                    v = self._CAMEL_RE.sub(" ", v)     # 붙여 쓴 이름(MagicSpell)도 단어로 본다
+                texts[f] = v.lower()
+        cid = None
+        if catids:
+            m = self._CATID_RE.match(row.get("file_name") or "")
+            cid = m.group(1) if m and m.group(1) in catids else None
+        s = 0.0
+        for start, vs, cats in toks:
+            best = 0.0
+            if cid and cid in cats:
+                best = self._RANK_V3_FIELDS[0][1]   # 분류 ID 가 이 단어 = 이름에 이 단어가 있는 것과 같다
+            for f, w in self._RANK_V3_FIELDS:
+                v = texts.get(f)
+                if not v or w <= best:
+                    continue
+                if start.search(v):
+                    best = w
+                elif any(x in v for x in vs):
+                    best = max(best, w * 0.5)
+            s += best
+        if phrase is not None:
+            if any(phrase.search(texts.get(f, "")) for f in ("file_name", "title")):
+                s += self._PHRASE_BONUS_NAME
+            elif any(phrase.search(texts.get(f, "")) for f in ("keywords", "description", "comments")):
+                s += self._PHRASE_BONUS_META
+        if syn_res and s == 0:
+            # 동의어 점수는 원래 단어가 안 걸린 파일끼리 줄 세울 때만 — 원래 단어로 찾은 파일에 더하면
+            # 키워드에 'Whoosh, Woosh, Swoosh, Swish…' 를 통째로 붙인 팩이 다시 위를 독차지했다
+            # (실측: 정확한 검색 whoosh 위 100개 중 한 팩 57 → 95).
+            best = 0.0
+            for f, w in self._RANK_V3_FIELDS:
+                v = texts.get(f)
+                if v and w > best and any(rx.search(v) for rx in syn_res):
+                    best = w
+            s += best * self._SYNONYM_RANK_FACTOR
         return s
 
     # ── 철자 제안 (결과 0건일 때) ──
@@ -3429,6 +3606,7 @@ class Database:
             with_sql = ("WITH " + ", ".join(ctes) + " ") if ctes else ""
             where = " AND ".join(conds)
             ordered = False
+            precise_orig_n = 0
             if expr is None:
                 run(f"{with_sql}SELECT a.* FROM audio_files a WHERE {where}", cond_params, int(limit))
             else:
@@ -3496,6 +3674,7 @@ class Database:
                     # 점수를 매기면 동의어(machete 등)만 든 파일이 원래 단어 파일보다 앞설 수 있다.
                     fts_orig = self._fts_string(expr, with_syns=False)
                     rows_out = precise_fetch(fts_orig, want) if fts_orig else []
+                    precise_orig_n = len(rows_out)   # 아래 정렬이 '원래 단어 먼저' 경계로 쓴다
                     if fts_orig != fts and len(rows_out) < want:
                         have = {r.get('file_path') for r in rows_out}
                         more = precise_fetch(fts, want + len(rows_out))
@@ -3530,23 +3709,40 @@ class Database:
                     params = set_params + cond_params
                     # 결과가 limit 보다 많을 때 '원래 단어가 이름·제목 등에 있는' 행을 먼저
                     # 모은다 — 예전 엔진의 direct pass 와 같은 이유 (LIMIT 이 아무 행이나 자름).
-                    direct_clause, direct_params = self._direct_filter_clause(rank_tokens)
-                    if direct_clause:
+                    # 이름 → 제목·키워드·분류 → 설명·코멘트 단계로 (_DIRECT_STAGES, 2026-10-14).
+                    # ⚠ 단계마다 따로 돌리지 말 것 — 'library' 가 2.3초 → 6.3초였다. 칸을 좁힌 trigram
+                    #   MATCH 도 단어 하나에 0.9초씩 든다(칸 제한이 색인 읽기 양을 못 줄인다). 그래서
+                    #   hit 와 dhit(일곱 칸 전체)는 예전처럼 한 번만 만들고, 단계는 그 작은 dhit 위에서
+                    #   LIKE 로만 나눈다 — 한 문장의 UNION ALL, 위 단계부터 읽다가 limit 에서 멈춘다.
+                    #   앞 단계에 든 행은 NOT 으로 뺀다(같은 행이 LIMIT 자리를 두 번 먹지 않게).
+                    #   빈 칸(NULL)이 NOT 을 NULL 로 만들어 행이 사라지지 않도록 IFNULL(…, 0).
+                    direct_fts = self._direct_fts(rank_tokens)
+                    selects: List[str] = []
+                    sel_params: List = []
+                    prev: List[Tuple[str, List[str]]] = []
+                    for stage_fields in self._DIRECT_STAGES:
+                        direct_clause, direct_params = self._direct_filter_clause(rank_tokens, stage_fields)
+                        if not direct_clause:
+                            break
+                        not_prev = "".join(f" AND NOT IFNULL({c}, 0)" for c, _ in prev)
+                        selects.append("SELECT a.* FROM dhit "
+                                       f"CROSS JOIN {table} f ON f.rowid = dhit.r "
+                                       f"CROSS JOIN audio_files a ON a.id = f.file_id "
+                                       f"WHERE {where} AND {direct_clause}{not_prev}")
+                        sel_params += cond_params + direct_params + [p for _, ps in prev for p in ps]
+                        prev.append((direct_clause, direct_params))
+                    if selects:
                         # ⚠ 결과 전체(hit)에 LIKE 를 하나씩 대지 말 것 — 폴더 이름에 흔한 말('library',
                         #   '[Library]')은 hit 가 130만 행이라 10~15초 걸렸다(예전 엔진도 같았다).
                         #   이름·제목 등 칸에 그 말이 든 행을 trigram 색인으로 먼저 좁히고(dhit),
-                        #   그 위에 예전 LIKE 를 그대로 다시 건다 — trigram 은 LIKE 를 빠짐없이 덮으므로
-                        #   결과는 예전과 같다. 실측 2026-10-08 'library' 15.1→?초.
-                        direct_fts = self._direct_fts(rank_tokens)
+                        #   그 위에 예전 LIKE 를 그대로 다시 건다 — trigram 은 LIKE 를 빠짐없이 덮는다.
                         # ⚠ INTERSECT 로 쓰지 말 것 — 순서가 바뀌어 limit 에서 잘리는 행이 달라진다
                         #   (25검색어 × 필터 4종 중 20건이 1~55행씩 달랐다). hit 순서 그대로 거른다.
                         ctes_d = ctes + [f"hit(r) AS MATERIALIZED ({set_sql})",
                                          "dhit(r) AS MATERIALIZED (SELECT r FROM hit WHERE r IN "
                                          "(SELECT rowid FROM search_fts WHERE search_fts MATCH ?))"]
-                        run("WITH " + ", ".join(ctes_d) + " SELECT a.* FROM dhit "
-                            f"CROSS JOIN {table} f ON f.rowid = dhit.r "
-                            f"CROSS JOIN audio_files a ON a.id = f.file_id WHERE {where} AND {direct_clause}",
-                            set_params + [direct_fts] + cond_params + direct_params, int(limit))
+                        run("WITH " + ", ".join(ctes_d) + " " + " UNION ALL ".join(selects),
+                            set_params + [direct_fts] + sel_params, int(limit))
                     if cancel_check is None or not cancel_check():
                         remaining = max(0, int(limit) - len(results))
                         if remaining > 0:
@@ -3570,18 +3766,31 @@ class Database:
         if not ordered and rank_tokens and len(results) > 1:
             # 정렬 3단 (2026-10-12 사용자 결정): ① 원래 친 단어가 파일 정보(이름·설명·키워드…)에 있는
             # 파일 → ② 원래 단어가 폴더 이름에만 있는 파일 → ③ 동의어로만 걸린 파일. 같은 단 안에서는
-            # 예전 점수(_rank_score_v2). 단어 꼴 변형(doors→door, clicking→click)도 원래 단어로 친다.
+            # 순위 점수(_rank_score_v3, 2026-10-14). 단어 꼴 변형(doors→door, clicking→click)도 원래 단어로 친다.
             variants = [[v.lower() for v in self._token_variants(t)] for t in rank_tokens if t]
             meta_cols = ("file_name", "title", "artist", "album", "genre", "comments",
                          "description", "keywords", "category", "sub_category", "source")
+            prep = self._rank_v3_prep(rank_tokens)
 
             def order_key(row):
                 meta = " ".join((row.get(c) or "") for c in meta_cols).lower()
                 path = (row.get("file_path") or "").lower()
                 in_meta = sum(1 for vs in variants if any(v in meta for v in vs))
                 in_any = sum(1 for vs in variants if any(v in meta or v in path for v in vs))
-                return (in_meta, in_any, self._rank_score_v2(row, rank_tokens, syn_res))
+                # 동점은 파일 고유번호 순서 (사용자 결정 2026-10-14) — 경로에서 계산한 번호라 어느 팩에도
+                # 유리하지 않아 위쪽이 고루 섞인다. 정확한 검색도 같은 규칙.
+                return (in_meta, in_any, self._rank_score_v3(row, prep, syn_res),
+                        -Database.fts_rowid(row.get("id") or "0"))
             results.sort(key=order_key, reverse=True)
+        elif ordered and rank_tokens and len(results) > 1:
+            # 정확한 검색도 같은 점수로 (2026-10-14) — bm25 는 정보가 빈 짧은 파일을 올렸다.
+            # 원래 친 단어로 찾은 파일 먼저, 동의어로 찾은 파일은 뒤 (위 두 단계 규칙) 는 그대로.
+            # 동점은 파일 고유번호 순서 (사용자 결정 2026-10-14) — 예전 bm25 순서는 정보가 빈 짧은 파일을,
+            # 그래서 한 팩을 위로 몰았다 (실측 whoosh 위 100개 중 한 팩 57 → 고유번호 순 23, 30개 팩).
+            prep = self._rank_v3_prep(rank_tokens)
+            stage = {id(r): (1 if i < precise_orig_n else 0) for i, r in enumerate(results)}
+            results.sort(key=lambda r: (stage[id(r)], self._rank_score_v3(r, prep, syn_res),
+                                        -Database.fts_rowid(r.get("id") or "0")), reverse=True)
         if len(results) > int(limit):
             results = results[:int(limit)]
         if info is not None:
@@ -3791,7 +4000,7 @@ class Database:
                 bl_paths = [
                     p for p in (
                         (row.get("path") or "").rstrip("\\/")
-                        for row in self.get_blacklist_paths()
+                        for row in self.get_blacklist_paths(self._blacklist_tab_of(apply_blacklist))
                     ) if p
                 ]
             except sqlite3.OperationalError:
@@ -3809,7 +4018,8 @@ class Database:
                 sql = (
                     "WITH _bl(p, pat) AS MATERIALIZED ("
                     " SELECT rtrim(path, '\\/'), rtrim(path, '\\/') || '\\%'"
-                    " FROM blacklist_paths WHERE rtrim(path, '\\/') <> '') "
+                    f" FROM {self._blacklist_source_sql(self._blacklist_tab_of(apply_blacklist))}"
+                    " WHERE rtrim(path, '\\/') <> '') "
                 ) + sql
                 sql += (
                     " AND NOT EXISTS (SELECT 1 FROM _bl"
