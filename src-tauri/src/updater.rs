@@ -361,6 +361,12 @@ fn download_with(src: &str, root: &Path, emit: &mut dyn FnMut(Progress)) -> Resu
     emit(Progress { done, total });
     for f in &blobs {
         let blob = stage.join(&f.sha256);
+        /* 빈 파일은 받지 않고 여기서 만든다 — GitHub 릴리스는 크기 0 자산을 거부한다 (HTTP 400,
+           2026-10-14 실제로 겪음). 브리지 안에 빈 파일(__init__ 표시 등)이 실제로 있다. */
+        if f.size == 0 {
+            std::fs::write(&blob, b"").map_err(|e| format!("받기 폴더에 쓸 수 없습니다: {e}"))?;
+            continue;
+        }
         if std::fs::metadata(&blob).map(|m| m.len() == f.size).unwrap_or(false)
             && sha256_file(&blob).map(|s| s == f.sha256).unwrap_or(false) {
             done += f.size;
@@ -653,8 +659,10 @@ mod tests {
         std::fs::write(install.join("unins000.exe"), b"not ours").unwrap();
         write_json(&install.join(LOCAL_MANIFEST), &manifest("2.2.0+A", &a)).unwrap();
         let b: Vec<(&str, &[u8])> = vec![("SoundField.exe", b"exe-B!"), ("bridge/keep.dll", b"same"),
-                                          ("bridge/sub/mod.pyd", b"mod-B"), ("bridge/new/added.bin", b"new file")];
-        for (_, bytes) in &b { std::fs::write(share.join(sha(bytes)), bytes).unwrap(); }
+                                          ("bridge/sub/mod.pyd", b"mod-B"), ("bridge/new/added.bin", b"new file"),
+                                          ("bridge/new/empty.txt", b"")];
+        /* 빈 파일은 올리는 곳에 없다 (GitHub 이 받지 않으므로 도구가 건너뛴다) */
+        for (_, bytes) in &b { if !bytes.is_empty() { std::fs::write(share.join(sha(bytes)), bytes).unwrap(); } }
         write_json(&share.join(LATEST), &manifest("2.3.0+B", &b)).unwrap();
         (install, share, root)
     }
@@ -664,7 +672,7 @@ mod tests {
         let (install, share, root) = setup("ok");
         let src = share.to_string_lossy().to_string();
         let info = check_with(&install, &src, &root).unwrap().expect("새 버전이 있어야 한다");
-        assert_eq!(info.files, 3);                       // exe·mod 바뀜 + added 새로 (keep 은 그대로)
+        assert_eq!(info.files, 4);                       // exe·mod 바뀜 + added·empty 새로 (keep 은 그대로)
         assert_eq!(info.bytes, 6 + 5 + 8);
         let mut last = Progress { done: 0, total: 0 };
         download_with(&src, &root, &mut |p| last = p).unwrap();
@@ -674,6 +682,7 @@ mod tests {
         assert_eq!(std::fs::read(install.join("SoundField.exe")).unwrap(), b"exe-B!");
         assert_eq!(std::fs::read(install.join("bridge/sub/mod.pyd")).unwrap(), b"mod-B");
         assert_eq!(std::fs::read(install.join("bridge/new/added.bin")).unwrap(), b"new file");
+        assert_eq!(std::fs::read(install.join("bridge/new/empty.txt")).unwrap(), b"", "빈 파일은 받지 않고 만든다");
         assert!(!install.join("bridge/old_only.dll").exists(), "옛 목록에만 있던 파일은 지운다");
         assert!(install.join("unins000.exe").exists(), "목록에 없는 파일은 손대지 않는다");
         let left: Vec<_> = walk(&install).into_iter()

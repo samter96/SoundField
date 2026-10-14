@@ -145,7 +145,8 @@ def cmd_publish_github(repo, tag):
             old = json.load(open(os.path.join(tmp, LATEST), encoding="utf-8"))
         if old.get("brand") != manifest["brand"] or old.get("app") != manifest["app"]:
             sys.exit(f"다른 판의 릴리스입니다: {old.get('app')}/{old.get('brand')} — 올리지 않습니다")
-    todo = [(sha, src) for sha, (src, _size) in blobs.items() if sha not in names]
+    # 빈 파일은 올리지 않는다 — GitHub 이 크기 0 자산을 거부한다(HTTP 400). 앱은 빈 파일을 받지 않고 만든다.
+    todo = [(sha, src) for sha, (src, size) in blobs.items() if sha not in names and size > 0]
     with tempfile.TemporaryDirectory() as tmp:
         paths = []
         for sha, src in todo:
