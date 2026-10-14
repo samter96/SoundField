@@ -718,7 +718,10 @@ export async function loadLayoutInfo(path: string, channels: number,
 
 /* ── 자동 업데이트 (src-tauri/src/updater.rs) ───────────────────────────────────
    올리는 곳(update.cfg)이 비어 있으면 확인은 늘 null 이다 — 기능이 꺼진 상태. */
-export type UpdateInfo = { version: string; current: string; build: string; files: number; bytes: number };
+/** 버전별 업데이트 내역 — 사용자 버전보다 새 것만, 최신부터 (updater.rs notes_between) */
+export type UpdateNote = { version: string; text: string };
+export type UpdateInfo = { version: string; current: string; build: string; files: number; bytes: number;
+                           notes: UpdateNote[] };
 export type UpdateProgress = { done: number; total: number };
 export type UpdateFinished = { ok: boolean; error: string };
 

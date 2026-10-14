@@ -1661,10 +1661,13 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 }
 .transport { flex: 0 0 auto; }
 .monitoring-row { justify-content: flex-start; min-width: 0; }
+/* 아주 좁을 때(창 최소 폭 근처·큰 배율)는 SPD·VOL 을 다음 줄로 내린다 — 넘쳐서 잘리지 않게 (2026-10-14) */
+.monitoring-row { flex-wrap: wrap; row-gap: 3px; }
 /* 2행 모드에서 SPD/VOL/세그먼트를 오른쪽 끝으로 밀어내는 신축 여백.
    바이노럴 출력 컨트롤만 왼쪽에 남는다. */
 .monitoring-spacer { flex: 1 1 auto; min-width: 8px; }
 .tbtn {
+  flex: 0 0 auto;   /* 좁아져도 재생 버튼은 줄지 않는다 — 줄어드는 건 파일 이름·바이노럴 상자 */
   width: 30px; height: 26px;
   border-radius: 2px;
   border: 1px solid color-mix(in srgb, var(--accent) 58%, transparent);
@@ -1733,15 +1736,19 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 /* 원본 #fileLabel: text, 12px (_ElidedLabel — 폭 넘치면 말줄임) */
 .track-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-size: 12px; }
 .track-meta { color: var(--text-muted); font-size: 11px; white-space: nowrap; }
+/* ⚠ 폭이 모자라면 **줄어든다** (상자 글자는 말줄임). 예전엔 345px·320px 고정이라 화면 배율이
+     커져 플레이어가 좁아지면 줄어들지 못하고 SPD·VOL 칸을 덮었다 (2026-10-14 사용자 신고). */
 .split-output {
   width: 345px;
-  flex: 0 0 345px;
+  flex: 0 1 345px;
+  min-width: 190px;
   display: flex;
   align-items: flex-start;
   gap: 1px;
 }
 .binaural-main {
-  width: 320px;
+  flex: 1 1 auto;
+  min-width: 0;
   height: 22px;
   border-radius: 2px;
   border: 1px solid var(--line-strong);
@@ -1782,7 +1789,8 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
    상태가 아니라 위의 무채색을 그대로 쓴다 (Player.tsx chipTone). */
 .state-chip.off { background: var(--danger); color: #ffffff; font-weight: 600; }
 .state-chip.on { background: var(--active-green); color: #08170d; font-weight: 600; }
-.binaural-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.binaural-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.binaural-main > .state-dot, .binaural-main > .state-chip, .binaural-main > .state-probe { flex-shrink: 0; }
 /* '모노로 듣기' 체크박스 (2026-10-14) — 상태줄 '인덱싱 집중' 과 같은 체크 모양. 켜지면 글자 주황 */
 .mono-check {
   flex: 0 0 auto;
@@ -1857,6 +1865,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 }
 
 .time {
+  flex: 0 0 auto;
   font-family: var(--font-num);
   font-variant-numeric: tabular-nums;
   font-size: 11.5px;
@@ -2121,6 +2130,24 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 
 /* 자동 업데이트 창의 받기 진행 (components/UpdateDialog.tsx) */
 .update-progress { display: flex; flex-direction: column; gap: 10px; }
+/* 업데이트 내역 — 창 가운데 스크롤 칸 (사용자 버전 이후 버전들, 최신부터) */
+.modal.update { width: min(600px, calc(100vw - 80px)); }
+.update-notes {
+  margin-top: 14px;
+  max-height: min(340px, calc(100vh - 360px));
+  overflow-y: auto;
+  padding: 4px 12px 10px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--bg-sunken, var(--bg-control));
+}
+.un-ver + .un-ver { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line-soft); }
+.un-ver-head { margin-top: 8px; font-size: 12.5px; font-weight: 700; color: var(--text); }
+.un-sec { margin-top: 8px; font-size: 11px; font-weight: 600; color: var(--accent); }
+.un-item, .un-text { position: relative; margin-top: 3px; font-size: 11.5px; line-height: 1.5; color: var(--text-secondary); }
+.un-item::before { content: "•"; position: absolute; margin-left: -10px; color: var(--text-muted); }
+.un-item.sub { font-size: 11px; color: var(--text-muted); }
+.un-item.sub::before { content: "–"; }
 
 /* ── 진행 막대 ────────────────────────────────────────── */
 .progress {
@@ -3668,7 +3695,8 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 }
 /* split-output 은 경고 줄을 포함하므로 세로로 쌓는다 (원본 binaural_stack, spacing 1) */
 .split-output { flex-direction: column; gap: 1px; }
-.split-output > .binaural-row { display: flex; gap: 1px; }
+.split-output > .binaural-row { display: flex; gap: 1px; width: 100%; min-width: 0; }
+.binaural-menu { flex: 0 0 24px; }
 
 /* 루트 재정렬 드래그 중인 행 (원본 folder_tree.drawRow, folder_tree.py:2191)
    배경 rgba(78,144,232,42), 1px 테두리 rgba(126,181,255,160), 좌측 3px #7eb5ff.

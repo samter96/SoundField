@@ -26,6 +26,7 @@ import datetime
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -36,6 +37,40 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APP = os.path.join(ROOT, "app")
 MANIFEST = os.path.join(APP, "update_manifest.json")
 LATEST = "latest.json"
+NOTES = os.path.join(ROOT, "UPDATE_NOTES.md")
+
+
+def vkey(version):
+    """'2.2.0' → (2, 2, 0). 꼬리(-test, +빌드)는 버린다 — 앱(updater.rs ver_key)과 같은 규칙."""
+    head = re.split(r"[+-]", version)[0]
+    return tuple(int(x) if x.isdigit() else 0 for x in head.split("."))
+
+
+def load_notes(version):
+    """UPDATE_NOTES.md → [{version, text}] (이 버전 이하만). 이 버전 칸이 없으면 멈춘다 —
+    버전마다 내역을 적게 하려는 장치다. 앱은 사용자 버전보다 새 것만 골라 보여 준다."""
+    if not os.path.isfile(NOTES):
+        sys.exit("UPDATE_NOTES.md 가 없습니다")
+    text = re.sub(r"<!--.*?-->", "", open(NOTES, encoding="utf-8").read(), flags=re.S)
+    notes, cur = [], None
+    for line in text.splitlines():
+        m = re.match(r"^##\s+(\S+)\s*$", line)
+        if m:
+            cur = {"version": m.group(1), "lines": []}
+            notes.append(cur)
+        elif cur is not None and not line.startswith("# "):
+            cur["lines"].append(line.rstrip())
+    out = [{"version": n["version"], "text": "\n".join(n["lines"]).strip("\n")}
+           for n in notes if vkey(n["version"]) <= vkey(version)]
+    if not any(vkey(n["version"]) == vkey(version) for n in out):
+        sys.exit(f"UPDATE_NOTES.md 에 {version} 칸이 없습니다 — 이번 버전 내역을 먼저 적으세요")
+    return out
+
+
+def latest_of(manifest):
+    latest = dict(manifest)
+    latest["notes"] = load_notes(manifest["version"])
+    return latest
 
 
 def sha256(path):
@@ -98,6 +133,7 @@ def load_manifest():
 
 def cmd_publish_folder(dest):
     manifest, blobs = load_manifest()
+    latest_of(manifest)   # 내역 칸이 없으면 아무것도 올리기 전에 멈춘다
     os.makedirs(dest, exist_ok=True)
     latest = os.path.join(dest, LATEST)
     if os.path.isfile(latest):
@@ -115,9 +151,10 @@ def cmd_publish_folder(dest):
         os.replace(part, target)
         sent += 1
         sent_bytes += size
+    body = latest_of(manifest)   # 내역이 없으면 여기서 멈춘다 — 본체를 올리기 전에 확인하는 게 낫다
     tmp = latest + ".tmp"
     with open(tmp, "w", encoding="utf-8", newline="\n") as f:
-        json.dump(manifest, f, ensure_ascii=False, indent=1)
+        json.dump(body, f, ensure_ascii=False, indent=1)
     os.replace(tmp, latest)
     print(f"올림 — {manifest['build']} → {dest}")
     print(f"  새 파일 {sent}개 {sent_bytes / 1048576:.1f}MB (이미 있던 {len(blobs) - sent}개 건너뜀), "
@@ -131,6 +168,7 @@ def gh(*argv, capture=True):
 
 def cmd_publish_github(repo, tag):
     manifest, blobs = load_manifest()
+    latest_of(manifest)   # 내역 칸이 없으면 아무것도 올리기 전에 멈춘다
     try:
         names = set(gh("release", "view", tag, "-R", repo, "--json", "assets",
                        "-q", ".assets[].name").split())
@@ -157,7 +195,7 @@ def cmd_publish_github(repo, tag):
             gh("release", "upload", tag, "-R", repo, *paths[i:i + 20], capture=False)
         latest = os.path.join(tmp, LATEST)
         with open(latest, "w", encoding="utf-8", newline="\n") as f:
-            json.dump(manifest, f, ensure_ascii=False, indent=1)
+            json.dump(latest_of(manifest), f, ensure_ascii=False, indent=1)
         gh("release", "upload", tag, "-R", repo, latest, "--clobber", capture=False)
     print(f"올림 — {manifest['build']} → github {repo} 릴리스 '{tag}', 새 파일 {len(todo)}개")
 

@@ -1289,17 +1289,14 @@ export function Player({ row, playing, onToggle, onStop, onSeek, onRegionDropped
 
   const monitoringControls = (pushRight: boolean) => (
     <>
-      <div className="split-output">
-        {operationError && <div role="alert" className="binaural-warn">
-          {operationError} <button className="btn" onClick={() => setOperationError("")}>닫기</button>
-        </div>}
-        <div className="binaural-row">
-        {/* 모노로 합치기 (Sum to Mono, 2026-10-14) — 바이노럴과 같은 '어떻게 들을지' 묶음이라
-            바로 옆에 둔다. 켜면 바이노럴보다 우선한다 (바이노럴은 입체 출력). */}
-        {/* 체크박스 (사용자 지시 2026-10-14 — 눌렸는지 명백히, 켜지면 글자 주황).
-            ⚠ 포커스를 받지 않는다 (mousedown 기본 동작 막음 + 포커스 안 받는 span). 버튼이었을 때
-              누른 뒤 스페이스로 재생하면 키를 뗄 때 이 버튼까지 눌려 모노가 도로 꺼졌다. */}
-        <label className={"mono-check" + (mono ? " on" : "")}
+      {/* 모노로 합치기 (Sum to Mono, 2026-10-14) — 바이노럴과 같은 '어떻게 들을지' 묶음이라
+          바로 옆에 둔다. 켜면 바이노럴보다 우선한다 (바이노럴은 입체 출력).
+          ⚠ .split-output **밖에** 둔다. 그 칸은 폭이 정해져 있어 안에 넣으면 바이노럴 상자의
+            화살표 버튼이 SPD 위로 넘쳐 겹친다 (2026-10-14 사용자 신고 — 모든 배율에서 겹침). */}
+      {/* 체크박스 (사용자 지시 2026-10-14 — 눌렸는지 명백히, 켜지면 글자 주황).
+          ⚠ 포커스를 받지 않는다 (mousedown 기본 동작 막음 + 포커스 안 받는 span). 버튼이었을 때
+            누른 뒤 스페이스로 재생하면 키를 뗄 때 이 버튼까지 눌려 모노가 도로 꺼졌다. */}
+      <label className={"mono-check" + (mono ? " on" : "")}
                data-tip={"모노로 듣기 (" + (mono ? "켜짐" : "꺼짐") + ")\n"
                  + "스테레오·멀티채널을 한 채널로 합쳐 듣고, DAW 로 끌어낼 때도 `이름_mono.wav` 로 보냅니다.\n"
                  + "앰비소닉은 전 방향(W) 채널만, 5.1·7.1 은 LFE 를 빼고 합칩니다. 바이노럴과는 하나만 켜집니다.\n"
@@ -1308,7 +1305,12 @@ export function Player({ row, playing, onToggle, onStop, onSeek, onRegionDropped
                onClick={() => onMonoToggle?.()}>
           <span className={"check" + (mono ? " on" : "")} role="checkbox" aria-checked={Boolean(mono)}><IcoCheck size={10} /></span>
           모노로 듣기
-        </label>
+      </label>
+      <div className="split-output">
+        {operationError && <div role="alert" className="binaural-warn">
+          {operationError} <button className="btn" onClick={() => setOperationError("")}>닫기</button>
+        </div>}
+        <div className="binaural-row">
         <button className={"binaural-main" + (binaural ? " on" : "")
                   + (indicator === "needs-layout" ? " needs-layout" : "")
                   + (indicator === "probing" || indicator === "loading" ? " probing" : "")

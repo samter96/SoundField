@@ -50,6 +50,35 @@ pub struct Manifest {
     pub version: String,
     pub build: String,
     pub files: Vec<FileEntry>,
+    /* 버전별 업데이트 내역 (UPDATE_NOTES.md → publish 가 latest.json 에만 넣는다) */
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub notes: Vec<Note>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Note {
+    pub version: String,
+    pub text: String,
+}
+
+/* "2.2.0" → [2, 2, 0]. 숫자가 아닌 꼬리(-test, +빌드)는 버린다. 비교만 쓴다. */
+fn ver_key(v: &str) -> Vec<u64> {
+    v.split(['+', '-']).next().unwrap_or("").split('.')
+        .map(|p| p.trim().parse::<u64>().unwrap_or(0)).collect()
+}
+
+/* 지금 버전보다 새롭고 받을 버전 이하인 내역을 최신부터. 하나도 없으면(같은 번호 재빌드·되돌림)
+   받을 버전 자신의 내역을 보여 준다. */
+fn notes_between(all: &[Note], current: &str, target: &str) -> Vec<Note> {
+    let (cur, new) = (ver_key(current), ver_key(target));
+    let mut out: Vec<Note> = all.iter()
+        .filter(|n| { let k = ver_key(&n.version); k > cur && k <= new })
+        .cloned().collect();
+    if out.is_empty() {
+        out = all.iter().filter(|n| ver_key(&n.version) == new).cloned().collect();
+    }
+    out.sort_by(|a, b| ver_key(&b.version).cmp(&ver_key(&a.version)));
+    out
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -68,6 +97,7 @@ pub struct UpdateInfo {
     build: String,
     files: usize,
     bytes: u64,
+    notes: Vec<Note>,
 }
 
 #[derive(Serialize, Clone)]
@@ -315,6 +345,7 @@ fn check_with(install: &Path, src: &str, root: &Path) -> Result<Option<UpdateInf
         build: remote.build.clone(),
         files: needed.len(),
         bytes,
+        notes: notes_between(&remote.notes, &local.version, &remote.version),
     };
     log(&format!("확인 — 새 빌드 {} (지금 {}) 바뀐 파일 {}개, 지울 파일 {}개, 받을 크기 {}바이트",
                  remote.build, local.build, needed.len(), removed.len(), bytes));
@@ -640,6 +671,7 @@ mod tests {
             format: 1, app: "SoundField".into(), brand: "brand-a".into(),
             version: build.split('+').next().unwrap().into(), build: build.into(),
             files: files.iter().map(|(p, b)| FileEntry { path: p.to_string(), size: b.len() as u64, sha256: sha(b) }).collect(),
+            notes: Vec::new(),
         }
     }
 
@@ -734,6 +766,17 @@ mod tests {
         m.brand = "brand-b".into();
         write_json(&share.join(LATEST), &m).unwrap();
         assert!(check_with(&install, &share.to_string_lossy(), &root).unwrap().is_none());
+    }
+
+    #[test]
+    fn notes_newer_than_current() {
+        let n = |v: &str| Note { version: v.into(), text: format!("v{v}") };
+        let all = vec![n("2.1.4"), n("2.2.0"), n("2.1.10"), n("2.1.7"), n("2.2.1")];
+        let pick = |cur: &str, to: &str| notes_between(&all, cur, to).into_iter().map(|x| x.version).collect::<Vec<_>>();
+        assert_eq!(pick("2.1.7", "2.2.1"), ["2.2.1", "2.2.0", "2.1.10"]);   // 2.1.10 > 2.1.7 (숫자 비교)
+        assert_eq!(pick("2.1.3", "2.2.0"), ["2.2.0", "2.1.10", "2.1.7", "2.1.4"]);
+        assert_eq!(pick("2.2.1", "2.2.0"), ["2.2.0"], "되돌림이면 받을 버전 자신의 내역");
+        assert_eq!(pick("2.2.0", "2.2.0"), ["2.2.0"], "같은 번호 재빌드도 자신의 내역");
     }
 
     #[test]

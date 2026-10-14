@@ -13,6 +13,26 @@ import { t } from "../i18n";
 
 type Phase = "ask" | "down" | "restart" | "error";
 
+/* 버전 하나의 내역 (UPDATE_NOTES.md 의 "## 번호" 칸) — "### 묶음", "- 항목", 들여쓴 "  - 세부" 만 쓴다 */
+function NoteBody({ text }: { text: string }) {
+  return (
+    <>
+      {text.split("\n").map((line, index) => {
+        if (!line.trim()) return null;
+        const heading = line.match(/^###\s+(.*)$/);
+        if (heading) return <div key={index} className="un-sec">{heading[1]}</div>;
+        const item = line.match(/^(\s*)[-*]\s+(.*)$/);
+        if (item) {
+          const depth = Math.floor(item[1].length / 2);
+          return <div key={index} className={"un-item" + (depth ? " sub" : "")}
+                      style={{ paddingLeft: 14 + depth * 14 }}>{item[2]}</div>;
+        }
+        return <div key={index} className="un-text">{line.trim()}</div>;
+      })}
+    </>
+  );
+}
+
 const toMb = (bytes: number) => (bytes / 1048576).toFixed(bytes < 10 * 1048576 ? 1 : 0);
 
 /* 같은 버전 번호를 다시 올린 경우에는 빌드 시각으로 구분해 보여 준다 ("2.2.0+20261014T1015Z") */
@@ -93,16 +113,30 @@ export function UpdateDialog({ onBeforeRestart, onOpenChange }: {
   const pct = progress.total > 0 ? Math.min(100, (progress.done / progress.total) * 100) : 0;
   return (
     <div className="scrim">
-      <div className="modal sm" role="dialog" aria-modal="true">
+      <div className="modal update" role="dialog" aria-modal="true">
         <div className="modal-head"><span className="modal-title">{t("업데이트")}</span></div>
         <div className="modal-body">
           {phase === "ask" && (
-            <div className="confirm-text pre">
-              {t("새 버전이 있습니다.")}{"\n\n"}
-              {t("지금 {0} → 새 버전 {1}", info.current, label(info))}{"\n"}
-              {t("바뀐 파일 {0}개 · 받을 크기 {1} MB", info.files, toMb(info.bytes))}{"\n\n"}
-              {t("다 받으면 SoundField 가 다시 시작됩니다.")}
-            </div>
+            <>
+              <div className="confirm-text pre">
+                {t("새 버전이 있습니다.")}{"\n\n"}
+                {t("지금 {0} → 새 버전 {1}", info.current, label(info))}{"\n"}
+                {t("바뀐 파일 {0}개 · 받을 크기 {1} MB", info.files, toMb(info.bytes))}{"\n"}
+                {t("다 받으면 SoundField 가 다시 시작됩니다.")}
+              </div>
+              {/* 지금 버전보다 새 버전들의 내역, 최신부터 (2026-10-14 사용자 요청).
+                  고르는 건 앱(updater.rs notes_between) — 2.1.7 사용자는 2.2.0·2.2.1 을 모두 본다. */}
+              {info.notes.length > 0 && (
+                <div className="update-notes">
+                  {info.notes.map((note) => (
+                    <section key={note.version} className="un-ver">
+                      <div className="un-ver-head">v{note.version}</div>
+                      <NoteBody text={note.text} />
+                    </section>
+                  ))}
+                </div>
+              )}
+            </>
           )}
           {phase === "down" && (
             <div className="update-progress">
