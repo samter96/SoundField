@@ -1661,8 +1661,16 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 }
 .transport { flex: 0 0 auto; }
 .monitoring-row { justify-content: flex-start; min-width: 0; }
-/* 아주 좁을 때(창 최소 폭 근처·큰 배율)는 SPD·VOL 을 다음 줄로 내린다 — 넘쳐서 잘리지 않게 (2026-10-14) */
-.monitoring-row { flex-wrap: wrap; row-gap: 3px; }
+/* 좁은 재생 패널(플레이어 920px 미만, Player.tsx controls-compact) — 셋째 줄로 나누되 **빈 곳 없이 채운다**.
+     둘째 줄 = 모노 + 바이노럴 상자(나머지 폭 전부), 셋째 줄 = SPD · VOL(슬라이더가 늘어나 폭 전부).
+   ⚠ 그냥 flex-wrap 만 걸면 넘어간 칸이 왼쪽에 몰려 오른쪽 아래가 통째로 빈다 (2026-10-14 사용자 신고).
+     모노·바이노럴 뒤의 여백(.monitoring-spacer)을 한 줄 전체 폭으로 만들어 줄을 확실히 끊는다. */
+.player.controls-compact .monitoring-row { flex-wrap: wrap; row-gap: 3px; }
+.player.controls-compact .monitoring-spacer { flex: 0 0 100%; min-width: 0; height: 0; }
+.player.controls-compact .split-output { flex: 1 1 0; width: auto; max-width: none; }
+.player.controls-compact .control-group.speed,
+.player.controls-compact .control-group.volume { flex: 1 1 0; min-width: 0; }
+.player.controls-compact .control-group .slider { flex: 1 1 auto; width: auto; min-width: 40px; }
 /* 2행 모드에서 SPD/VOL/세그먼트를 오른쪽 끝으로 밀어내는 신축 여백.
    바이노럴 출력 컨트롤만 왼쪽에 남는다. */
 .monitoring-spacer { flex: 1 1 auto; min-width: 8px; }

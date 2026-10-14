@@ -29,6 +29,7 @@ const CURATED_EN: Record<string, string> = {
   "다 받으면 SoundField 가 다시 시작됩니다.": "SoundField will restart when the download finishes.",
   "받는 중… {0} / {1} MB": "Downloading… {0} / {1} MB",
   "다시 시작하는 중…": "Restarting…",
+  "이전 크기로": "Restore down",
   "확인": "OK",
   "업데이트를 받지 못했습니다. 지금 버전으로 계속 사용합니다.":
     "Couldn't download the update. You can keep using the current version.",

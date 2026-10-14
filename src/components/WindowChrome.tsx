@@ -1,5 +1,5 @@
-import { IcoMin, IcoMax, IcoX, YsgMark } from "../icons";
-import { winMinimize, winToggleMax, winClose } from "../win";
+import { IcoMin, IcoMax, IcoRestore, IcoX, YsgMark } from "../icons";
+import { winMinimize, winToggleMax, winClose, useWinMaximized } from "../win";
 /* 허브 열기 — 원본 QDesktopServices.openUrl 자리를 그대로 쓴다 (backend.ts).
    Rust 쪽 sf_open_url 이 **https 주소만** 통과시킨다. */
 import { openExternal } from "../backend";
@@ -8,6 +8,7 @@ import { t, type Lang } from "../i18n";
 import { BRAND } from "../brand";
 
 export function WindowChrome({ onLangChange }: { onLangChange?: (lang: Lang) => void }) {
+  const maximized = useWinMaximized();
   return (
     <div className="chrome" data-tauri-drag-region>
       {/* 윗줄(타이틀바) = 브랜드 로고 + 브랜드명. 아랫줄(헤더) = 툴 로고 + 제품명 + 버전.
@@ -38,7 +39,11 @@ export function WindowChrome({ onLangChange }: { onLangChange?: (lang: Lang) => 
         {/* 표시 언어 전환 — 창 버튼 왼쪽 (사용자 지시 2026-09-08) */}
         <LangToggle onChange={onLangChange} />
         <button className="chrome-btn" aria-label={t("최소화")} onClick={winMinimize}><IcoMin size={13} /></button>
-        <button className="chrome-btn" aria-label={t("최대화")} onClick={winToggleMax}><IcoMax size={11} /></button>
+        {/* 최대화돼 있으면 겹친 ㅁ(이전 크기로), 아니면 ㅁ(최대화) — 윈도우 기본 창과 같다 */}
+        <button className="chrome-btn" aria-label={maximized ? t("이전 크기로") : t("최대화")}
+                onClick={winToggleMax}>
+          {maximized ? <IcoRestore size={11} /> : <IcoMax size={11} />}
+        </button>
         <button className="chrome-btn close" aria-label={t("닫기")} onClick={winClose}><IcoX size={13} /></button>
       </div>
     </div>
