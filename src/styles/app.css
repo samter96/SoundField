@@ -1676,16 +1676,14 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 }
 .transport { flex: 0 0 auto; }
 .monitoring-row { justify-content: flex-start; min-width: 0; }
-/* 좁은 재생 패널(플레이어 920px 미만, Player.tsx controls-compact) — 셋째 줄로 나누되 **빈 곳 없이 채운다**.
-     둘째 줄 = 모노 + 바이노럴 상자(나머지 폭 전부), 셋째 줄 = SPD · VOL(슬라이더가 늘어나 폭 전부).
-   ⚠ 그냥 flex-wrap 만 걸면 넘어간 칸이 왼쪽에 몰려 오른쪽 아래가 통째로 빈다 (2026-10-14 사용자 신고).
-     모노·바이노럴 뒤의 여백(.monitoring-spacer)을 한 줄 전체 폭으로 만들어 줄을 확실히 끊는다. */
-.player.controls-compact .monitoring-row { flex-wrap: wrap; row-gap: 3px; }
-.player.controls-compact .monitoring-spacer { flex: 0 0 100%; min-width: 0; height: 0; }
-.player.controls-compact .split-output { flex: 1 1 0; width: auto; max-width: none; }
-.player.controls-compact .control-group.speed,
-.player.controls-compact .control-group.volume { flex: 1 1 0; min-width: 0; }
-.player.controls-compact .control-group .slider { flex: 1 1 auto; width: auto; min-width: 40px; }
+/* 재생 패널 아래는 **두 줄 이하** (사용자 지시 2026-10-15) — 좁아지면 줄을 늘리지 않고 칸을 줄인다.
+     줄어드는 칸 = 바이노럴 상자(345 → 최소 110px, 글자 말줄임) · SPD/VOL 슬라이더(최소 36px).
+     늘어나지는 않는다 — 남는 폭은 .monitoring-spacer 가 가진다.
+   ⚠ flex-wrap 을 걸지 말 것. 걸면 넘어간 칸이 셋째 줄을 만들고(2026-10-14), 그 줄을 채우려고 늘리면
+     슬라이더가 한 줄을 통째로 차지하고 바이노럴 상자가 지나치게 길어진다(2026-10-15 사용자 지적). */
+.control-group.speed, .control-group.volume { flex: 0 1 auto; min-width: 0; }
+.control-group > :not(.slider) { flex-shrink: 0; }
+.control-group > .slider { flex: 0 1 auto; min-width: 36px; }
 /* 2행 모드에서 SPD/VOL/세그먼트를 오른쪽 끝으로 밀어내는 신축 여백.
    바이노럴 출력 컨트롤만 왼쪽에 남는다. */
 .monitoring-spacer { flex: 1 1 auto; min-width: 8px; }
@@ -1764,7 +1762,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .split-output {
   width: 345px;
   flex: 0 1 345px;
-  min-width: 190px;
+  min-width: 110px;
   display: flex;
   align-items: flex-start;
   gap: 1px;
@@ -2154,10 +2152,14 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 /* 자동 업데이트 창의 받기 진행 (components/UpdateDialog.tsx) */
 .update-progress { display: flex; flex-direction: column; gap: 10px; }
 /* 업데이트 내역 — 창 가운데 스크롤 칸 (사용자 버전 이후 버전들, 최신부터) */
-.modal.update { width: min(600px, calc(100vw - 80px)); }
+/* 크기 고정 (사용자 지시 2026-10-15) — 내역이 짧거나 없어도 창이 줄지 않는다. 가운데 칸이 남는 높이를 다 쓴다.
+   510px = 머리 48 + 본문 여백 32 + 안내 한 줄 + 내역 칸 340 + 바닥 56 (최신 안내 화면 기준) */
+.modal.update { width: min(600px, calc(100vw - 80px)); height: min(510px, calc(100vh - 110px)); }
+.modal.update > .modal-body { display: flex; flex-direction: column; min-height: 0; }
 .update-notes {
+  flex: 1 1 auto;
+  min-height: 0;
   margin-top: 14px;
-  max-height: min(340px, calc(100vh - 360px));
   overflow-y: auto;
   padding: 4px 12px 10px;
   border: 1px solid var(--line);
