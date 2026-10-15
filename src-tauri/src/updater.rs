@@ -173,6 +173,7 @@ fn source() -> Option<String> {
         let v = v.trim().to_string();
         if !v.is_empty() { return Some(v); }
     }
+    if let Some(dev) = dev_source() { return Some(dev); }
     let text = std::fs::read_to_string(install_dir().ok()?.join(CONFIG)).ok()?;
     for line in text.lines() {
         let line = line.trim().trim_start_matches('\u{feff}').trim();
@@ -185,6 +186,47 @@ fn source() -> Option<String> {
         if !value.is_empty() { return Some(value.to_string()); }
     }
     None
+}
+
+/* ── 개발자 배포 (2026-10-15 사용자 결정) ────────────────────────────────────────
+   정식 배포 = 검증 끝난 빌드를 모든 사용자에게, 개발자 배포 = 개발자 PC 에서만 검증·QA.
+   개발자 PC 에만 `%LOCALAPPDATA%\SoundField\update\dev.cfg` 를 둔다 (설치본에 들어가지 않는다).
+   한 줄 = `<갈래 이름> = <개발자 배포 위치>` (폴더 경로 또는 https 주소). 갈래 이름은 update_manifest.json 의 brand.
+   설치본 갈래와 같은 줄만 쓴다 — 한 PC 에 갈래가 여럿 깔려 있어도 각자 제 위치를 본다.
+   이 파일을 지우면 다음에 켤 때 정식 최신으로 되돌아간다 (지문 비교라 번호가 낮아도 맞춘다). */
+const DEV_CONFIG: &str = "dev.cfg";
+
+fn local_brand() -> Option<String> {
+    let local: Manifest = read_json(&install_dir().ok()?.join(LOCAL_MANIFEST)).ok()?;
+    Some(local.brand)
+}
+
+fn dev_source() -> Option<String> {
+    let path = std::env::var_os("LOCALAPPDATA")
+        .map(|p| PathBuf::from(p).join("SoundField").join("update").join(DEV_CONFIG))?;
+    let text = std::fs::read_to_string(path).ok()?;
+    let brand = local_brand()?;
+    for line in text.lines() {
+        let line = line.trim().trim_start_matches('\u{feff}').trim();
+        if line.is_empty() || line.starts_with('#') { continue; }
+        if let Some((key, value)) = line.split_once('=') {
+            let value = value.trim().trim_matches('"').trim();
+            if key.trim().eq_ignore_ascii_case(&brand) && !value.is_empty() {
+                return Some(value.to_string());
+            }
+        }
+    }
+    None
+}
+
+/* "dev"(개발자 배포를 받는 중) / "official" / "off"(올리는 곳 없음) — 헤더 DEV 배지와 업데이트 창 제목 */
+#[tauri::command]
+pub fn sf_update_channel() -> String {
+    if std::env::var("SOUNDFIELD_UPDATE_SOURCE").map(|v| !v.trim().is_empty()).unwrap_or(false)
+        || dev_source().is_some() {
+        return "dev".into();
+    }
+    if source().is_some() { "official".into() } else { "off".into() }
 }
 
 fn is_url(src: &str) -> bool {

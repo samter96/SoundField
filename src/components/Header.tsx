@@ -1,6 +1,6 @@
 import { IcoGear, IcoPlus, IcoRefresh, IcoStop, WaveMark } from "../icons";
 import { pickLibraryFolder } from "../dialog";
-import { useAppVersion } from "../version";
+import { useAppVersion, useDevChannel } from "../version";
 import { SEARCH_HELP } from "./SearchPanel";
 import { t } from "../i18n";
 
@@ -26,6 +26,8 @@ export function Header({ onOpen, onLibraryPicked, ftsStale, onFtsRebuild,
                         cancelDisabled = false, onCancelIndex, hintLeft = 0 }: Props) {
   /* 버전은 실행 중인 exe 에서 읽는다 — version.ts 주석 참고 (글자로 박지 말 것) */
   const version = useAppVersion();
+  /* 개발자 배포를 받는 PC 에서만 버전 옆에 DEV — 일반 사용자 화면에는 절대 안 나온다 */
+  const dev = useDevChannel();
   return (
     <header className="header">
       <div className="brand">
@@ -33,6 +35,7 @@ export function Header({ onOpen, onLibraryPicked, ftsStale, onFtsRebuild,
         <WaveMark size={17} />
         <span className="brand-name">SoundField</span>
         {version && <span className="brand-ver">V{version}</span>}
+        {dev && <span className="dev-badge" data-tip={t("개발자 배포를 받고 있습니다 — 이 PC 의 dev.cfg 를 지우면 정식 배포로 돌아갑니다")}>DEV</span>}
       </div>
 
       <button className="settings-btn" data-tip={t("환경설정 (Ctrl+P)")} aria-label={t("환경설정")}

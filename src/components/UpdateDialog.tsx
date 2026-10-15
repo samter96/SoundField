@@ -4,6 +4,7 @@ import {
   type UpdateInfo, type UpdateNote, type UpdateProgress,
 } from "../backend";
 import { t } from "../i18n";
+import { useDevChannel } from "../version";
 
 /* ── 자동 업데이트 창 (2026-10-14 준비 — 사용자 결정) ─────────────────────────────
    켤 때 새 버전이 있으면 "업데이트 / 나중에" 를 묻는다. 업데이트를 고르면 바뀐 파일만
@@ -70,6 +71,7 @@ export function UpdateDialog({ onBeforeRestart, onOpenChange, openToken = 0 }: {
   const [progress, setProgress] = useState<UpdateProgress>({ done: 0, total: 0 });
   const [error, setError] = useState("");
   const cancelledRef = useRef(false);
+  const dev = useDevChannel();
 
   useEffect(() => { onOpenChange?.(open); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -160,7 +162,7 @@ export function UpdateDialog({ onBeforeRestart, onOpenChange, openToken = 0 }: {
   return (
     <div className="scrim">
       <div className="modal update" role="dialog" aria-modal="true">
-        <div className="modal-head"><span className="modal-title">{t("업데이트")}</span></div>
+        <div className="modal-head"><span className="modal-title">{dev ? t("업데이트 (개발자 배포)") : t("업데이트")}</span></div>
         <div className="modal-body">
           {phase === "checking" && (
             <div className="confirm-text">{t("새 버전을 확인하는 중…")}</div>

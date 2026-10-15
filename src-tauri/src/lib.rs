@@ -2833,6 +2833,7 @@ pub fn run() {
             updater::sf_update_apply,
             updater::sf_update_enabled,
             updater::sf_update_manual,
+            updater::sf_update_channel,
         ])
         /* 창 위치·크기·최대화 상태를 기억한다 (조사 Q14).
            ⚠ 이동 중에는 이벤트가 초당 수십 번 온다. 그때마다 파일을 쓰면 디스크를

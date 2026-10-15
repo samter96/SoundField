@@ -150,6 +150,19 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
   flex: 0 0 16px;
 }
 
+/* 개발자 배포 표시 — 헤더 버전 옆 작은 주황 배지 (dev.cfg 가 있는 PC 에서만) */
+.dev-badge {
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: #f0a43c;
+  color: #1b1206;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  line-height: 1.4;
+}
+
 /* ── 업데이트(렌치) 버튼 (2026-10-15) — 언어 토글 왼쪽의 작은 원. 높이는 토글과 같은 20px */
 .chrome-update {
   width: 20px;

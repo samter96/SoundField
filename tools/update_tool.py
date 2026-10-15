@@ -13,6 +13,17 @@
       공개 GitHub 의 릴리스 'update' 에 자산으로 올린다 (gh 로그인 계정으로).
       앱의 update.cfg 에는 https://github.com/samter96/SoundField/releases/download/update 를 적는다.
 
+배포는 두 가지 (2026-10-15 사용자 결정 — 올리는 순간 모든 사용자가 자동으로 받으므로):
+  개발자 배포 — 개발자 PC 만 받는다 (그 PC 의 %LOCALAPPDATA%\\SoundField\\update\\dev.cfg 가 가리키는 곳).
+      python tools/update_tool.py publish --dest <개발자 폴더>
+      python tools/update_tool.py publish --github <owner/repo> --tag update-dev
+  정식 배포 — 개발자 배포에서 검증한 빌드를 **다시 빌드하지 않고** 그대로 정식 위치로 올린다.
+      python tools/update_tool.py promote --from <개발자 폴더> --to <정식 폴더>
+      python tools/update_tool.py promote --github <owner/repo>        (update-dev → update)
+  ⚠ 정식 위치(update.cfg 의 source)에는 publish 로 바로 올리지 않는다 — 막혀 있다 (--official 로만 강제).
+  정식으로 올린 빌드는 목록을 보관한다 (폴더: releases/<빌드>.json, GitHub: release-<빌드>.json) — 되돌리기용.
+  내역(notes)은 승격할 때 지금의 UPDATE_NOTES.md 로 다시 붙인다 (본체 파일은 검증한 그대로).
+
 올리는 곳의 모양 (폴더·릴리스 모두 평평하다 — 릴리스 자산은 폴더를 못 가진다):
   latest.json      최신 버전의 파일 목록 (manifest 와 같은 내용)
   <sha256>         파일 본체. 버전끼리 같은 파일은 한 번만 올라간다.
@@ -131,7 +142,56 @@ def load_manifest():
     return manifest, blobs
 
 
-def cmd_publish_folder(dest):
+def official_source():
+    """이 판의 정식 위치 = update.cfg 의 source (없으면 None)"""
+    path = os.path.join(ROOT, "update.cfg")
+    if not os.path.isfile(path):
+        return None
+    for line in open(path, encoding="utf-8-sig").read().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        key, _, value = line.partition("=")
+        value = (value if key.strip().lower() == "source" else line).strip().strip('"')
+        if value:
+            return value
+    return None
+
+
+def is_official_folder(dest):
+    off = official_source()
+    return bool(off) and os.path.normcase(os.path.normpath(off)) == os.path.normcase(os.path.normpath(dest))
+
+
+def is_official_tag(repo, tag):
+    off = (official_source() or "").rstrip("/").lower()
+    return off.endswith(f"/{repo.lower()}/releases/download/{tag.lower()}")
+
+
+def guard_official(is_official, official_ok, where):
+    if is_official and not official_ok:
+        sys.exit(f"{where} 은(는) 정식 위치입니다 — 정식 배포는 개발자 배포에서 검증한 빌드를 promote 로 올립니다.\n"
+                 f"  (꼭 바로 올려야 하면 --official)")
+
+
+def safe_build(build):
+    return re.sub(r"[^0-9A-Za-z._-]", "_", build)
+
+
+def check_brand(old, body, where):
+    if old.get("brand") != body["brand"] or old.get("app") != body["app"]:
+        sys.exit(f"다른 판의 올리는 곳입니다 ({where}: {old.get('app')}/{old.get('brand')}) — 올리지 않습니다")
+
+
+def write_json_atomic(path, body):
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+        json.dump(body, f, ensure_ascii=False, indent=1)
+    os.replace(tmp, path)
+
+
+def cmd_publish_folder(dest, official_ok=False):
+    guard_official(is_official_folder(dest), official_ok, dest)
     manifest, blobs = load_manifest()
     latest_of(manifest)   # 내역 칸이 없으면 아무것도 올리기 전에 멈춘다
     os.makedirs(dest, exist_ok=True)
@@ -156,6 +216,9 @@ def cmd_publish_folder(dest):
     with open(tmp, "w", encoding="utf-8", newline="\n") as f:
         json.dump(body, f, ensure_ascii=False, indent=1)
     os.replace(tmp, latest)
+    if is_official_folder(dest):
+        os.makedirs(os.path.join(dest, "releases"), exist_ok=True)
+        write_json_atomic(os.path.join(dest, "releases", safe_build(body["build"]) + ".json"), body)
     print(f"올림 — {manifest['build']} → {dest}")
     print(f"  새 파일 {sent}개 {sent_bytes / 1048576:.1f}MB (이미 있던 {len(blobs) - sent}개 건너뜀), "
           f"{time.time() - started:.1f}초")
@@ -166,17 +229,24 @@ def gh(*argv, capture=True):
                           capture_output=capture).stdout
 
 
-def cmd_publish_github(repo, tag):
-    manifest, blobs = load_manifest()
-    latest_of(manifest)   # 내역 칸이 없으면 아무것도 올리기 전에 멈춘다
+def ensure_release(repo, tag):
+    """릴리스(태그)의 자산 이름들. 없으면 시험판 릴리스로 만든다."""
     try:
-        names = set(gh("release", "view", tag, "-R", repo, "--json", "assets",
-                       "-q", ".assets[].name").split())
+        return set(gh("release", "view", tag, "-R", repo, "--json", "assets",
+                      "-q", ".assets[].name").split())
     except subprocess.CalledProcessError:
-        gh("release", "create", tag, "-R", repo, "--title", "SoundField update store",
+        title = "SoundField developer builds" if tag.endswith("-dev") else "SoundField update store"
+        gh("release", "create", tag, "-R", repo, "--title", title,
            "--notes", "Files for in-app updates. Install SoundField from the latest release instead.",
            "--prerelease", capture=False)
-        names = set()
+        return set()
+
+
+def cmd_publish_github(repo, tag, official_ok=False):
+    guard_official(is_official_tag(repo, tag), official_ok, f"github {repo} '{tag}'")
+    manifest, blobs = load_manifest()
+    latest_of(manifest)   # 내역 칸이 없으면 아무것도 올리기 전에 멈춘다
+    names = ensure_release(repo, tag)
     if LATEST in names:
         with tempfile.TemporaryDirectory() as tmp:
             gh("release", "download", tag, "-R", repo, "-p", LATEST, "-D", tmp)
@@ -197,7 +267,71 @@ def cmd_publish_github(repo, tag):
         with open(latest, "w", encoding="utf-8", newline="\n") as f:
             json.dump(latest_of(manifest), f, ensure_ascii=False, indent=1)
         gh("release", "upload", tag, "-R", repo, latest, "--clobber", capture=False)
+        if is_official_tag(repo, tag):
+            keep = os.path.join(tmp, "release-" + safe_build(manifest["build"]) + ".json")
+            shutil.copyfile(latest, keep)
+            gh("release", "upload", tag, "-R", repo, keep, "--clobber", capture=False)
     print(f"올림 — {manifest['build']} → github {repo} 릴리스 '{tag}', 새 파일 {len(todo)}개")
+
+
+def cmd_promote_folder(src, dst):
+    """개발자 폴더의 빌드를 그대로 정식 폴더로 — 본체는 지문 그대로 복사, 내역만 지금 기록으로."""
+    body = json.load(open(os.path.join(src, LATEST), encoding="utf-8"))
+    body["notes"] = load_notes(body["version"])
+    os.makedirs(dst, exist_ok=True)
+    latest = os.path.join(dst, LATEST)
+    if os.path.isfile(latest):
+        check_brand(json.load(open(latest, encoding="utf-8")), body, dst)
+    started = time.time()
+    sent = 0
+    blobs = {f["sha256"]: f["size"] for f in body["files"]}
+    for sha, size in blobs.items():
+        target = os.path.join(dst, sha)
+        if os.path.isfile(target) and os.path.getsize(target) == size:
+            continue
+        part = target + ".part"
+        shutil.copyfile(os.path.join(src, sha), part)
+        if sha256(part) != sha:
+            os.remove(part)
+            sys.exit(f"개발자 폴더의 파일이 손상됐습니다: {sha} — 승격하지 않습니다")
+        os.replace(part, target)
+        sent += 1
+    os.makedirs(os.path.join(dst, "releases"), exist_ok=True)
+    write_json_atomic(os.path.join(dst, "releases", safe_build(body["build"]) + ".json"), body)
+    write_json_atomic(latest, body)
+    print(f"승격 — {body['build']} : {src} → {dst}, 새 파일 {sent}개, {time.time() - started:.1f}초")
+
+
+def cmd_promote_github(repo, from_tag, to_tag):
+    with tempfile.TemporaryDirectory() as tmp:
+        gh("release", "download", from_tag, "-R", repo, "-p", LATEST, "-D", tmp)
+        body = json.load(open(os.path.join(tmp, LATEST), encoding="utf-8"))
+    body["notes"] = load_notes(body["version"])
+    names = ensure_release(repo, to_tag)
+    if LATEST in names:
+        with tempfile.TemporaryDirectory() as tmp:
+            gh("release", "download", to_tag, "-R", repo, "-p", LATEST, "-D", tmp)
+            check_brand(json.load(open(os.path.join(tmp, LATEST), encoding="utf-8")), body, to_tag)
+    blobs = {f["sha256"]: f["size"] for f in body["files"]}
+    need = [sha for sha, size in blobs.items() if size > 0 and sha not in names]
+    with tempfile.TemporaryDirectory() as tmp:
+        for i in range(0, len(need), 20):
+            part = need[i:i + 20]
+            args = ["release", "download", from_tag, "-R", repo, "-D", tmp, "--clobber"]
+            for sha in part:
+                args += ["-p", sha]
+            gh(*args)
+            for sha in part:
+                if sha256(os.path.join(tmp, sha)) != sha:
+                    sys.exit(f"개발자 배포의 파일이 손상됐습니다: {sha} — 승격하지 않습니다")
+            gh("release", "upload", to_tag, "-R", repo, *[os.path.join(tmp, sha) for sha in part], capture=False)
+        latest = os.path.join(tmp, LATEST)
+        write_json_atomic(latest, body)
+        keep = os.path.join(tmp, "release-" + safe_build(body["build"]) + ".json")
+        shutil.copyfile(latest, keep)
+        gh("release", "upload", to_tag, "-R", repo, keep, "--clobber", capture=False)
+        gh("release", "upload", to_tag, "-R", repo, latest, "--clobber", capture=False)
+    print(f"승격 — {body['build']} : github {repo} '{from_tag}' → '{to_tag}', 새 파일 {len(need)}개")
 
 
 def main():
@@ -207,14 +341,28 @@ def main():
     pub = sub.add_parser("publish")
     pub.add_argument("--dest", help="올리는 곳 폴더")
     pub.add_argument("--github", help="owner/repo")
-    pub.add_argument("--tag", default="update")
+    pub.add_argument("--tag", default="update-dev", help="GitHub 릴리스 태그 (기본: 개발자 배포 update-dev)")
+    pub.add_argument("--official", action="store_true", help="정식 위치에 바로 올리기 (평소엔 promote 를 쓴다)")
+    pro = sub.add_parser("promote", help="개발자 배포의 빌드를 그대로 정식 위치로")
+    pro.add_argument("--from", dest="src", help="개발자 폴더")
+    pro.add_argument("--to", dest="dst", help="정식 폴더 (생략하면 update.cfg 의 source)")
+    pro.add_argument("--github", help="owner/repo")
+    pro.add_argument("--from-tag", default="update-dev")
+    pro.add_argument("--to-tag", default="update")
     args = p.parse_args()
     if args.cmd == "manifest":
         cmd_manifest(args)
+    elif args.cmd == "promote":
+        if args.github:
+            cmd_promote_github(args.github, args.from_tag, args.to_tag)
+        elif args.src:
+            cmd_promote_folder(args.src, args.dst or official_source() or sys.exit("--to 를 주세요"))
+        else:
+            sys.exit("--from 또는 --github 를 주세요")
     elif args.dest:
-        cmd_publish_folder(args.dest)
+        cmd_publish_folder(args.dest, args.official)
     elif args.github:
-        cmd_publish_github(args.github, args.tag)
+        cmd_publish_github(args.github, args.tag, args.official)
     else:
         sys.exit("--dest 또는 --github 를 주세요")
 

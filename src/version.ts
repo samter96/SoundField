@@ -15,6 +15,26 @@ import { useEffect, useState } from "react";
    물어보는 데 시간이 조금 걸리므로, 값을 알기 전에는 **빈 문자열**을 준다.
    틀린 번호를 잠깐이라도 보여주는 것보다 잠깐 안 보이는 편이 낫다. */
 
+/* 개발자 배포를 받는 PC 인지 — 헤더 DEV 배지와 업데이트 창 제목에 쓴다 (2026-10-15).
+   한 번만 묻는다 (dev.cfg 는 앱을 켜 둔 동안 바뀔 일이 거의 없다). */
+let devCached: boolean | null = null;
+let devInflight: Promise<boolean> | null = null;
+
+export function useDevChannel(): boolean {
+  const [dev, setDev] = useState(devCached ?? false);
+  useEffect(() => {
+    if (devCached !== null) return;
+    devInflight ??= import("./backend")
+      .then((m) => m.updateChannel())
+      .then((c) => { devCached = c === "dev"; return devCached; })
+      .catch(() => { devCached = false; return false; });
+    let alive = true;
+    void devInflight.then((v) => { if (alive) setDev(v); });
+    return () => { alive = false; };
+  }, []);
+  return dev;
+}
+
 let cached: string | null = null;
 let inflight: Promise<string> | null = null;
 

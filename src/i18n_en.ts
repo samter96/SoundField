@@ -31,6 +31,9 @@ const CURATED_EN: Record<string, string> = {
   "다시 시작하는 중…": "Restarting…",
   "이전 크기로": "Restore down",
   "업데이트 확인·내역 보기": "Check for updates · release notes",
+  "업데이트 (개발자 배포)": "Update (developer build)",
+  "개발자 배포를 받고 있습니다 — 이 PC 의 dev.cfg 를 지우면 정식 배포로 돌아갑니다":
+    "Receiving developer builds — delete dev.cfg on this PC to return to official releases",
   "새 버전을 확인하는 중…": "Checking for a new version…",
   "지금 최신 버전입니다 ({0}).": "You have the latest version ({0}).",
   "확인": "OK",

@@ -743,6 +743,8 @@ export const updateEnabled = (): Promise<boolean> => invoke<boolean>("sf_update_
 /** 렌치 버튼 — 새 버전이 있으면 update, 없으면 지금 버전까지의 내역 전체(notes) */
 export type UpdateManual = { current: string; update: UpdateInfo | null; notes: UpdateNote[] };
 export const updateManual = (): Promise<UpdateManual> => invoke<UpdateManual>("sf_update_manual");
+/** "dev" = 이 PC 가 개발자 배포를 받는 중 (%LOCALAPPDATA%\SoundField\update\dev.cfg) / "official" / "off" */
+export const updateChannel = (): Promise<string> => invoke<string>("sf_update_channel").catch(() => "off");
 
 export function onUpdateProgress(cb: (value: UpdateProgress) => void): () => void {
   let stop: (() => void) | null = null;
