@@ -73,7 +73,13 @@ export type UserConfig = {
     maxDur: number;
     sampleRateIndex: number;
     channelsIndex: number;
+    exact?: boolean;
   } | null;
+  /* 검색 탭 (2026-10-15 사용자 결정) — 최대 3개, 껐다 켜도 전부 되살린다.
+     탭마다 검색어 필터(+고급 필터·정확한 검색) · 결과 정렬 · 왼쪽 폴더 선택을 따로 기억한다.
+     없으면(예전 설정) 위 filters / lastSelection 으로 첫 탭을 만든다. */
+  searchTabs: SavedSearchTab[] | null;
+  searchTabActive: number;
   /* 원본 config "favorites" / "tabs" / "last_selection" */
   favorites: string[];
   userTabs: Array<{ name: string; items: string[]; excluded?: string[] }>;
@@ -85,6 +91,12 @@ export type UserConfig = {
   /* 표시 언어 (기본 한국어) — 창 제어줄의 슬라이드 토글로 바꾼다 */
   lang: UiLang;
   loadedFromFile: boolean;
+};
+
+export type SavedSearchTab = {
+  filters: UserConfig["filters"];
+  sort: { key: string; dir: "asc" | "desc" } | null;
+  selection: { tab: string; sel: string; items: string[] } | null;
 };
 
 export const CONFIG_DEFAULTS: UserConfig = {
@@ -108,6 +120,8 @@ export const CONFIG_DEFAULTS: UserConfig = {
   columns: null,
   folderDisplayNames: {},
   filters: null,
+  searchTabs: null,
+  searchTabActive: 0,
   favorites: [],
   userTabs: [],
   lastSelection: null,
@@ -176,8 +190,42 @@ export async function loadUserConfig(): Promise<UserConfig> {
           maxDur: Math.max(0, Math.min(36000, Number(f.max_dur) || 0)),
           sampleRateIndex: Number.isInteger(f.sample_rate) ? Number(f.sample_rate) : 0,
           channelsIndex: Number.isInteger(f.channels) ? Number(f.channels) : 0,
+          exact: Boolean(f.exact),
         };
       })(),
+      searchTabs: (() => {
+        const list = d.search_tabs as Array<Record<string, unknown>> | undefined;
+        if (!Array.isArray(list) || !list.length) return null;
+        return list.slice(0, 3).map((t) => {
+          const f = t.filters as Record<string, unknown> | null | undefined;
+          const so = t.sort as Record<string, unknown> | null | undefined;
+          const se = t.selection as Record<string, unknown> | null | undefined;
+          return {
+            filters: f && typeof f === "object" ? {
+              matchers: Array.isArray(f.matchers)
+                ? (f.matchers as Array<Record<string, unknown>>).map((m) => ({
+                    field: (m.field as string) ?? null,
+                    operator: (m.operator as string) ?? null,
+                    value: String(m.value ?? ""),
+                  }))
+                : [],
+              minDur: Math.max(0, Math.min(36000, Number(f.min_dur) || 0)),
+              maxDur: Math.max(0, Math.min(36000, Number(f.max_dur) || 0)),
+              sampleRateIndex: Number.isInteger(f.sample_rate) ? Number(f.sample_rate) : 0,
+              channelsIndex: Number.isInteger(f.channels) ? Number(f.channels) : 0,
+              exact: Boolean(f.exact),
+            } : null,
+            sort: so && typeof so.key === "string" && (so.dir === "asc" || so.dir === "desc")
+              ? { key: so.key, dir: so.dir } : null,
+            selection: se && typeof se.tab === "string" ? {
+              tab: String(se.tab),
+              sel: String(se.sel ?? "@all"),
+              items: Array.isArray(se.items) ? (se.items as unknown[]).map(String) : ["@all"],
+            } : null,
+          };
+        });
+      })(),
+      searchTabActive: Number.isInteger(d.search_tab_active) ? Number(d.search_tab_active) : 0,
       favorites: Array.isArray(d.favorites) ? (d.favorites as string[]) : [],
       userTabs: Array.isArray(d.tabs)
         ? (d.tabs as Array<Record<string, unknown>>)
@@ -241,7 +289,23 @@ export async function saveUserConfig(config: UserConfig,
           max_dur: config.filters.maxDur,
           sample_rate: config.filters.sampleRateIndex,
           channels: config.filters.channelsIndex,
+          exact: Boolean(config.filters.exact),
         },
+      } : {}),
+      ...(config.searchTabs ? {
+        search_tabs: config.searchTabs.map((t) => ({
+          filters: t.filters ? {
+            matchers: t.filters.matchers,
+            min_dur: t.filters.minDur,
+            max_dur: t.filters.maxDur,
+            sample_rate: t.filters.sampleRateIndex,
+            channels: t.filters.channelsIndex,
+            exact: Boolean(t.filters.exact),
+          } : null,
+          sort: t.sort,
+          selection: t.selection,
+        })),
+        search_tab_active: config.searchTabActive,
       } : {}),
       favorites: config.favorites,
       tabs: config.userTabs,

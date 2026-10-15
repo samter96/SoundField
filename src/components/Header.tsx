@@ -43,19 +43,9 @@ export function Header({ onOpen, onLibraryPicked, ftsStale, onFtsRebuild,
         <IcoGear size={14} />
       </button>
 
-      {/* 검색 필터 힌트 — 원래 검색 칸 위에 한 줄로 있었는데, 그 줄 때문에 첫 필터
-          행이 밀려 사이드바 헤더와 줄이 어긋났다. 이 줄로 올려 두면 빈 공간을 쓰고
-          검색 칸은 맨 위에서 시작한다 (사용자 지시 2026-09-08).
-
-          ⚠ 위치는 **검색 필터 열에 맞춘다.** 흐름에 그냥 두면 제품 이름 옆에 붙은
-            설명처럼 보인다는 지적을 받았다 (2026-09-08). 아래 첫 필터의 [전체]
-            드롭다운과 **첫 글자가 세로로 맞아야** 한다. 사이드바 폭은 사용자가
-            끌어 바꾸므로 그 값을 받아서(hintLeft) 따라가게 한다.
-          도움말은 전역 툴팁(data-tip)에 맡긴다 — 전용 툴팁 코드를 따로 두지 않는다. */}
-      <div className="header-hint" style={{ left: hintLeft }}>
-        <span>{t("Tab/Enter 필터 추가 · Backspace 이동/제거")}</span>
-        <button className="help-dot" aria-label={t("검색 도움말")} data-tip={t(SEARCH_HELP)}>?</button>
-      </div>
+      {/* 검색 필터 힌트(Tab/Enter 필터 추가 · Backspace 이동/제거)는 2026-10-15 에 뺐다
+          (사용자 지시 — 쓰다 보면 자연스럽게 안다). 검색 도움말 "?" 는 검색 탭 줄 오른쪽 끝으로 옮겼다
+          (App.tsx searchTabStrip). 헤더 줄은 제품 이름 줄로만 쓴다. */}
 
       <div className="global-loader" aria-hidden="true" />
       <div className="header-spacer" />

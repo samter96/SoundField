@@ -5,9 +5,9 @@ import { WindowChrome } from "./components/WindowChrome";
 import { TooltipLayer } from "./components/TooltipLayer";
 import { onAudioEvent, onAudioPos, onIndexEvent } from "./backend";
 import { Header } from "./components/Header";
-import { Sidebar } from "./components/Sidebar";
-import { SearchPanel } from "./components/SearchPanel";
-import { ResultsTable } from "./components/ResultsTable";
+import { Sidebar, type SidebarSelection } from "./components/Sidebar";
+import { SearchPanel, SEARCH_HELP } from "./components/SearchPanel";
+import { ResultsTable, type TableView } from "./components/ResultsTable";
 import { Player } from "./components/Player";
 import { HistoryDrawer } from "./components/HistoryDrawer";
 import { Modals } from "./components/Modals";
@@ -19,9 +19,9 @@ import { UpdateDialog } from "./components/UpdateDialog";
 import { type Lib, type Row, type TreeNode } from "./data";
 import { addBlacklistPath, appLoaded, audioBridge, cancelAdmin, loadFtsStale, onAdminOpProgress, loadHidden, setRootOrder, loadBlacklistPaths, loadFolderTree, loadIndexedCount, loadInitialRows, loadLibraryRoots, loadLibraryRootsBasic, loadRowByPath, recordHistory, runAdmin, searchRows, type AdminRequest, type BlacklistEntry, type SearchRequest, type SpellSuggestion } from "./backend";
 import { applyTheme, loadTheme, type ThemeName } from "./theme";
-import { CONFIG_DEFAULTS, loadUserConfig, saveUserConfig, type UserConfig } from "./config";
-import { setLang, useLang } from "./i18n";
-import { IcoCheck } from "./icons";
+import { CONFIG_DEFAULTS, loadUserConfig, saveUserConfig, type SavedSearchTab, type UserConfig } from "./config";
+import { setLang, t, useLang } from "./i18n";
+import { IcoCheck, IcoPlus, IcoX } from "./icons";
 import { setDragMono, setDragStatusSink } from "./drag";
 
 /* 인덱스에 없는 파일을 **경로만으로** 재생용 항목으로 만든다 (조사 H02).
@@ -1613,6 +1613,166 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
   /* 철자 제안을 누르면 검색창의 그 단어를 바꾼다 — 필터 상태는 SearchPanel 안에 있다 */
   const [replaceSignal, setReplaceSignal] = useState<{ from: string; to: string; n: number } | null>(null);
 
+  /* ── 검색 탭 (2026-10-15 사용자 결정) ─────────────────────────────────────────
+     최대 3개. 탭마다 따로: 검색어 필터(+고급 필터·정확한 검색) · 결과 목록(정렬·스크롤·선택한 줄) ·
+     왼쪽 파일 브라우저에서 고른 폴더. 공통: 재생·파형 (다른 탭에서 다른 소리를 재생해야 넘어간다).
+     껐다 켜도 탭 전부를 되살린다 (설정 search_tabs — 결과 목록 자체는 저장하지 않고 다시 찾는다).
+     방식: 검색 패널과 결과 목록은 **지금 탭 것 하나만** 그리고, 탭을 옮기면 key 를 바꿔 새로 그리면서
+     떠나는 탭의 상태(결과·보기·선택)를 sessionTabs 에 넣어 두었다가 돌아올 때 되살린다.
+     ⚠ 돌아온 탭은 검색을 다시 하지 않는다 — 같은 조건(sig)이면 그대로 둔다. */
+  type SessionTab = {
+    req: SearchRequest | null;
+    rows: Row[] | null;
+    extras: { suggestions: SpellSuggestion[] };
+    sig: string;
+    shownSig: string;
+    view: TableView | null;
+    selected: Row | null;
+    scope: string[] | null;
+  };
+  const MAX_SEARCH_TABS = 3;
+  const tabSeq = useRef(1);
+  const [searchTabs, setSearchTabs] = useState<Array<SavedSearchTab & { id: number }>>(
+    () => [{ id: 0, filters: null, sort: null, selection: null }]);
+  const [activeSearchTab, setActiveSearchTab] = useState(0);
+  const activeSearchTabRef = useRef(0);
+  activeSearchTabRef.current = activeSearchTab;
+  const sessionTabs = useRef<Record<number, Partial<SessionTab>>>({});
+  /* 새로 그릴 때 넘기는 값 — 탭을 옮기는 순간에만 정한다 (입력할 때마다 바뀌면 안 된다) */
+  const [mountFilters, setMountFilters] = useState<UserConfig["filters"]>(null);
+  const [mountView, setMountView] = useState<TableView | null>(null);
+  const [selectionSignal, setSelectionSignal] = useState<{ n: number; state: SidebarSelection } | null>(null);
+  const tabsRestored = useRef(false);
+
+  /* 설정을 읽으면 저장된 탭을 되살린다. 예전 설정(탭 없음)은 지난 검색어로 첫 탭을 만든다 */
+  useEffect(() => {
+    if (tabsRestored.current || !config.loadedFromFile) return;
+    tabsRestored.current = true;
+    const saved: SavedSearchTab[] = config.searchTabs?.length
+      ? config.searchTabs
+      : [{ filters: config.filters, sort: null, selection: null }];
+    const list = saved.map((tab) => ({ ...tab, id: tabSeq.current++ }));
+    const active = Math.min(Math.max(0, config.searchTabActive || 0), list.length - 1);
+    setSearchTabs(list);
+    setActiveSearchTab(active);
+    setMountFilters(list[active].filters);
+    setMountView(list[active].sort
+      ? { sort: list[active].sort, scrollTop: 0, selectedIds: [], anchor: null } : null);
+    const sel = list[active].selection;
+    if (sel) setSelectionSignal({ n: 1, state: sel });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.loadedFromFile]);
+
+  /* 탭 구성이 바뀔 때마다 저장 (설정을 읽기 전에는 저장하지 않는다 — 빈 탭으로 덮어쓰지 않게) */
+  useEffect(() => {
+    if (!tabsRestored.current) return;
+    patchConfig({
+      searchTabs: searchTabs.map(({ filters, sort, selection }) => ({ filters, sort, selection })),
+      searchTabActive: activeSearchTab,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTabs, activeSearchTab]);
+
+  const patchActiveTab = (patch: Partial<SavedSearchTab>) => {
+    setSearchTabs((tabs) => tabs.map((tab, index) => {
+      if (index !== activeSearchTabRef.current) return tab;
+      const changed = (Object.keys(patch) as Array<keyof SavedSearchTab>)
+        .some((key) => JSON.stringify(tab[key]) !== JSON.stringify(patch[key]));
+      return changed ? { ...tab, ...patch } : tab;
+    }));
+  };
+
+  /* 떠나는 탭의 지금 상태를 넣어 둔다 */
+  const saveSearchSession = (index: number) => {
+    const id = searchTabs[index]?.id;
+    if (id === undefined) return;
+    sessionTabs.current[id] = {
+      ...sessionTabs.current[id],
+      req: searchReq,
+      rows,
+      extras: searchExtras,
+      sig: lastQuerySig.current,
+      shownSig: shownQuerySig.current,
+      selected,
+      scope: scopePrefixes,
+    };
+  };
+
+  /* 탭을 연다 — 결과·보기·선택·검색 범위를 되살리고, 왼쪽 트리에도 그 탭의 폴더 선택을 알린다 */
+  const openSearchTab = (index: number, list = searchTabs) => {
+    const info = list[index];
+    const s = sessionTabs.current[info.id] ?? {};
+    setMountFilters(info.filters);
+    setMountView(s.view ?? (info.sort ? { sort: info.sort, scrollTop: 0, selectedIds: [], anchor: null } : null));
+    setRows(s.rows ?? []);
+    setSearchExtras(s.extras ?? { suggestions: [] });
+    lastQuerySig.current = s.sig ?? "";
+    shownQuerySig.current = s.shownSig ?? "";
+    setSelected(s.selected ?? null);
+    setSearchReq(s.req ?? null);
+    if (s.scope) setScopePrefixes(s.scope);
+    setSelectionSignal((prev) => ({
+      n: (prev?.n ?? 0) + 1,
+      state: info.selection ?? { tab: "all", sel: "@all", items: ["@all"] },
+    }));
+    setActiveSearchTab(index);
+  };
+
+  const switchSearchTab = (index: number) => {
+    if (index === activeSearchTab) return;
+    saveSearchSession(activeSearchTab);
+    openSearchTab(index);
+  };
+
+  /* 새 탭은 빈 검색 + 파일 브라우저 '전체' 에서 시작한다 */
+  const addSearchTab = () => {
+    if (searchTabs.length >= MAX_SEARCH_TABS) return;
+    saveSearchSession(activeSearchTab);
+    const list = [...searchTabs, { id: tabSeq.current++, filters: null, sort: null, selection: null }];
+    setSearchTabs(list);
+    openSearchTab(list.length - 1, list);
+  };
+
+  const closeSearchTab = (index: number) => {
+    if (searchTabs.length <= 1) return;
+    const list = searchTabs.filter((_, i) => i !== index);
+    delete sessionTabs.current[searchTabs[index].id];
+    setSearchTabs(list);
+    if (index === activeSearchTab) {
+      openSearchTab(Math.min(index, list.length - 1), list);
+    } else if (index < activeSearchTab) {
+      setActiveSearchTab(activeSearchTab - 1);
+    }
+  };
+
+  /* 검색어 첫 줄 바로 위에 붙는 탭 줄 — 이름은 자리 순서대로 검색1·2·3 (사용자 결정) */
+  const searchTabStrip = (
+    <div className="stabs" role="tablist">
+      {searchTabs.map((tab, index) => (
+        <div key={tab.id} role="tab" aria-selected={index === activeSearchTab}
+             className={"stab" + (index === activeSearchTab ? " active" : "")}
+             onMouseDown={(event) => { if (event.button === 1) { event.preventDefault(); closeSearchTab(index); } }}
+             onClick={() => switchSearchTab(index)}>
+          {t("검색{0}", index + 1)}
+          {searchTabs.length > 1 && (
+            <button className="stab-close" aria-label={t("이 검색 탭 닫기")}
+                    onClick={(event) => { event.stopPropagation(); closeSearchTab(index); }}>
+              <IcoX size={9} />
+            </button>
+          )}
+        </div>
+      ))}
+      {searchTabs.length < MAX_SEARCH_TABS && (
+        <button className="stab-add" aria-label={t("검색 탭 추가")}
+                data-tip={t("검색 탭 추가 (최대 3개)")} onClick={addSearchTab}>
+          <IcoPlus size={11} />
+        </button>
+      )}
+      <span className="stabs-grow" />
+      <button className="help-dot" aria-label={t("검색 도움말")} data-tip={t(SEARCH_HELP)}>?</button>
+    </div>
+  );
+
   useEffect(() => {
     if (searchReq !== null) return;   // 검색 요청이 있으면 초기 목록을 읽지 않는다
     const sig = `init:${config.searchLimit}`;
@@ -1983,7 +2143,10 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
                    /* 원본 config favorites / tabs / last_selection */
                    initialFavorites={config.favorites}
                    initialTabs={config.userTabs}
-                   initialSelection={config.lastSelection}
+                   initialSelection={config.searchTabs ? null : config.lastSelection}
+                   /* 검색 탭마다 따로 기억하는 폴더 선택 (2026-10-15) */
+                   onSelectionState={(state) => patchActiveTab({ selection: state })}
+                   selectionSignal={selectionSignal}
                    pruneSignal={pruneSignal}
                    onFavoritesChange={(favorites) => patchConfig({ favorites })}
                    onTabsChange={(userTabs) => patchConfig({ userTabs })}
@@ -1998,6 +2161,8 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
 
         <div className="center">
           <SearchPanel
+            key={"search-" + (searchTabs[activeSearchTab]?.id ?? 0)}
+            tabStrip={searchTabStrip}
             onStatus={() => setModal("status")}
             onContext={openCtx}
             addedLibs={addedLibs}
@@ -2008,8 +2173,8 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
             synonymsEnabled={config.searchSynonyms}
             replaceSignal={replaceSignal}
             /* 원본 _restore_filters — 재시작 후 검색어/길이/SR/채널 복원 */
-            initialFilters={config.loadedFromFile ? config.filters : null}
-            onFiltersChange={(next) => patchConfig({ filters: next })}
+            initialFilters={mountFilters}
+            onFiltersChange={(next) => { patchConfig({ filters: next }); patchActiveTab({ filters: next }); }}
             onHistory={() => {
               /* ⚠ 열 때도 저장해야 한다 (조사 C02). 원본은 저장할 때마다
                  history_panel.is_expanded() 의 **그 순간 실제 상태**를 적으므로,
@@ -2028,6 +2193,13 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
           <div className="results-history-wrap">
             <div className="results-slot">
               <ResultsTable
+                key={"results-" + (searchTabs[activeSearchTab]?.id ?? 0)}
+                initialView={mountView}
+                onViewChange={(view) => {
+                  const id = searchTabs[activeSearchTabRef.current]?.id;
+                  if (id !== undefined) sessionTabs.current[id] = { ...sessionTabs.current[id], view };
+                  patchActiveTab({ sort: view.sort });
+                }}
                 compact={compact}
                 doubleClickToPlay={config.doubleClickToPlay}
                 savedColumns={config.columns}

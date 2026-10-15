@@ -20,6 +20,14 @@ type Column = {
 
 type SortState = { key: ColumnKey; dir: "asc" | "desc" } | null;
 
+/** 검색 탭(2026-10-15)마다 따로 기억하는 목록 보기 — 정렬 · 스크롤 위치 · 선택한 줄 */
+export type TableView = {
+  sort: { key: string; dir: "asc" | "desc" } | null;
+  scrollTop: number;
+  selectedIds: number[];
+  anchor: number | null;
+};
+
 const STORE_KEY = "soundfield.results.columns.v1";
 const ROW_H_NORMAL = 30;
 const ROW_H_COMPACT = 22;   /* 원본 set_config: 작게 모드 22px */
@@ -141,6 +149,8 @@ export function ResultsTable({
   scrollResetKey,
   pip,
   playedPaths,
+  initialView,
+  onViewChange,
 }: {
   rows: Row[];
   playing: number | null;
@@ -169,6 +179,10 @@ export function ResultsTable({
   onDragDropped?: () => void;
   /** 바뀌면 목록을 맨 위로 — 새 검색 결과가 도착했을 때 (App 이 올린다) */
   scrollResetKey?: number;
+  /** 검색 탭을 다시 열 때 되살릴 보기 (탭마다 key 를 바꿔 새로 그린다) */
+  initialView?: TableView | null;
+  /** 정렬 · 스크롤 · 선택이 바뀔 때 — 탭을 떠날 때 되살리려고 App 이 받아 둔다 */
+  onViewChange?: (view: TableView) => void;
 }) {
   const [columns, setColumns] = useState<Column[]>(loadColumns);
   /* 원본 앱이 저장해 둔 컬럼 배치를 최초 1회 적용 (PoC 로컬 배치가 없을 때만).
@@ -191,10 +205,18 @@ export function ResultsTable({
     if (hadLocalColumns.current) return;
     setColumns(mergeColumns(savedColumns));
   }, [savedColumns]);
-  const [sort, setSort] = useState<SortState>(null);
-  const [scrollTop, setScrollTop] = useState(0);
+  const [sort, setSort] = useState<SortState>((initialView?.sort as SortState) ?? null);
+  const [scrollTop, setScrollTop] = useState(initialView?.scrollTop ?? 0);
+  /* 탭을 다시 열면 보던 위치로 (첫 그림 전에 — 맨 위가 잠깐 보이지 않게) */
+  useLayoutEffect(() => {
+    if (initialView?.scrollTop && boxRef.current) boxRef.current.scrollTop = initialView.scrollTop;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  /* 새로 그려질 때 이미 있던 값은 '새 결과' 가 아니다 — 탭을 바꿔 다시 그릴 때 맨 위로 튀지 않게 */
+  const mountResetKey = useRef(scrollResetKey);
   /* 새 검색 결과 → 맨 위부터 (전엔 보던 스크롤 위치에 그대로 남아 새 결과의 중간이 보였다) */
   useEffect(() => {
+    if (scrollResetKey === mountResetKey.current) return;
     if (!scrollResetKey || !boxRef.current) return;
     boxRef.current.scrollTop = 0;
     setScrollTop(0);
@@ -219,7 +241,7 @@ export function ResultsTable({
     if (scrollRaf.current !== null) cancelAnimationFrame(scrollRaf.current);
   }, []);
   const [height, setHeight] = useState(300);
-  const [selected, setSelected] = useState<Set<number>>(() => new Set());
+  const [selected, setSelected] = useState<Set<number>>(() => new Set(initialView?.selectedIds ?? []));
   const [headerMenu, setHeaderMenu] = useState<{ x: number; y: number } | null>(null);
   const [draggingKey, setDraggingKey] = useState<ColumnKey | null>(null);
 
@@ -283,7 +305,7 @@ export function ResultsTable({
   useEffect(() => () => {
     if (tipTimer.current !== null) window.clearTimeout(tipTimer.current);
   }, []);
-  const anchorRef = useRef<number | null>(null);
+  const anchorRef = useRef<number | null>(initialView?.anchor ?? null);
   const activationTimer = useRef<number | null>(null);
 
   useLayoutEffect(() => {
@@ -384,7 +406,14 @@ export function ResultsTable({
        · Shift 범위 선택의 기준점(앵커)이 새 목록의 엉뚱한 줄을 가리켰다.
      ⚠ rows 는 같은 검색을 다시 돌려도 새 배열로 온다 — 원본도 그때 선택을
        비우므로 같은 동작이다. */
-  const rowsSeenRef = useRef<Row[] | null>(null);
+  /* 보기가 바뀔 때마다 알린다 (스크롤은 이미 프레임당 한 번으로 묶여 있다) */
+  useEffect(() => {
+    onViewChange?.({ sort, scrollTop, selectedIds: [...selected], anchor: anchorRef.current });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sort, scrollTop, selected]);
+
+  /* 탭을 되살릴 때는 처음 받은 목록이 '새 결과' 가 아니다 — 되살린 선택을 지우지 않는다 */
+  const rowsSeenRef = useRef<Row[] | null>(initialView ? rows : null);
   useEffect(() => {
     if (rowsSeenRef.current === rows) return;
     rowsSeenRef.current = rows;

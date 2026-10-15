@@ -156,6 +156,8 @@ type Props = {
     maxDur: number;
     sampleRateIndex: number;
     channelsIndex: number;
+    /** 정확한 검색(과녁) 켜짐 — 검색 탭마다 기억 (2026-10-15) */
+    exact?: boolean;
   } | null;
   /* 필터가 바뀔 때마다 상위에 알려 config 에 저장한다 (원본은 _save_config 디바운스) */
   onFiltersChange?: (next: {
@@ -164,14 +166,17 @@ type Props = {
     maxDur: number;
     sampleRateIndex: number;
     channelsIndex: number;
+    exact: boolean;
   }) => void;
+  /** 검색 탭 줄 — 첫 검색어 줄 바로 위에 붙여 그린다 (App 이 만든다) */
+  tabStrip?: React.ReactNode;
 };
 
 export function SearchPanel({ onStatus, addedLibs, libraries, onContext, onHistory, historyOpen,
                              historyToggled,
                               searchLimit, pathPrefixes, onSearchChange,
                              synonymsEnabled, replaceSignal,
-                             initialFilters, onFiltersChange }: Props) {
+                             initialFilters, onFiltersChange, tabStrip }: Props) {
   const [filters, setFilters] = useState<Filter[]>([
     { id: 1, logic: null, field: "전체", text: "" },
   ]);
@@ -203,6 +208,7 @@ export function SearchPanel({ onStatus, addedLibs, libraries, onContext, onHisto
     setMaxDur(initialFilters.maxDur > 0 ? String(initialFilters.maxDur) : "");
     setSampleRate(SR_OPTIONS[initialFilters.sampleRateIndex] ?? "전체");
     setChannels(CH_OPTIONS[initialFilters.channelsIndex] ?? "전체");
+    setExact(Boolean(initialFilters.exact));
   }, [initialFilters]);
 
   /* 값이 바뀌면 상위에 알려 저장한다 (복원 직후 1회는 같은 값이라 무해) */
@@ -217,9 +223,10 @@ export function SearchPanel({ onStatus, addedLibs, libraries, onContext, onHisto
       maxDur: durationNumber(maxDur),
       sampleRateIndex: Math.max(0, SR_OPTIONS.indexOf(sampleRate)),
       channelsIndex: Math.max(0, CH_OPTIONS.indexOf(channels)),
+      exact,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, minDur, maxDur, sampleRate, channels]);
+  }, [filters, minDur, maxDur, sampleRate, channels, exact]);
 
   useLayoutEffect(() => {
     if (!focusRequest) return;
@@ -356,7 +363,9 @@ export function SearchPanel({ onStatus, addedLibs, libraries, onContext, onHisto
           {/* 힌트글(Tab/Enter…)은 **앱 헤더 줄**로 올렸다 (사용자 지시 2026-09-08).
               여기 두면 힌트 한 줄(29px) + 여백(4px) 때문에 첫 필터 행이 밀려
               사이드바의 [파일 브라우저] 헤더와 줄이 어긋났다. 이제 첫 필터 행이
-              이 칸의 맨 위라 두 줄이 나란히 맞는다 (Header.tsx header-hint). */}
+              이 칸의 맨 위라 두 줄이 나란히 맞는다 (Header.tsx header-hint).
+              2026-10-15: 검색 탭 줄을 첫 필터 행 바로 위에 붙인다 (사용자 지시 — 검색 영역에 있어야 정돈돼 보인다). */}
+          {tabStrip}
           {filters.map((filter, index) => (
             <div className={"filter-row" + (filter.logic ? " child" : "")} key={filter.id}>
               {filter.logic ? (

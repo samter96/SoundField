@@ -30,6 +30,10 @@ const CURATED_EN: Record<string, string> = {
   "받는 중… {0} / {1} MB": "Downloading… {0} / {1} MB",
   "다시 시작하는 중…": "Restarting…",
   "이전 크기로": "Restore down",
+  "검색{0}": "Search {0}",
+  "이 검색 탭 닫기": "Close this search tab",
+  "검색 탭 추가": "Add search tab",
+  "검색 탭 추가 (최대 3개)": "Add search tab (up to 3)",
   "업데이트 확인·내역 보기": "Check for updates · release notes",
   "업데이트 (개발자 배포)": "Update (developer build)",
   "개발자 배포를 받고 있습니다 — 이 PC 의 dev.cfg 를 지우면 정식 배포로 돌아갑니다":

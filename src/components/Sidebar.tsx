@@ -57,6 +57,10 @@ type Props = {
   /* 결과 우클릭 → "이 라이브러리 파일 브라우저에서 보기" 로 들어오는 경로.
      원본 FolderTree.focus_path 처럼 조상까지 펼치고 그 노드를 선택한다. */
   focusPath?: string | null;
+  /** 검색 탭(2026-10-15)마다 따로 기억하는 폴더 선택 — 바뀔 때마다 알린다 */
+  onSelectionState?: (state: SidebarSelection) => void;
+  /** 이 값의 n 이 바뀌면 그 선택(브라우저 탭 + 폴더들)으로 되돌린다 — 검색 탭을 옮길 때 */
+  selectionSignal?: { n: number; state: SidebarSelection } | null;
   /** 등록된 라이브러리 루트 경로 — 원본 ROLE_IS_ROOT 판정에 쓴다 (깊이가 아니라 등록 여부) */
   rootPaths?: string[];
   onFocusHandled?: () => void;
@@ -118,12 +122,17 @@ function normPath(path: string) {
    우클릭·이름변경은 전부 막는다 (nodeById 에 없어 경로가 빈 값이다). */
 const TAB_ALL_ID = "__tab_all__";
 
+/** 파일 브라우저 선택 한 벌 — 브라우저 탭 키("all" | "fav" | "user:이름") + 고른 항목들.
+    항목은 **경로**로 적는다 (노드 번호는 다시 켜면 달라질 수 있다). 특수 행은 "@all"(전체 라이브러리),
+    "@taball"(사용자 탭의 '전체' 행). 껐다 켜도 되살리려고 설정 파일에 그대로 저장된다. */
+export type SidebarSelection = { tab: string; sel: string; items: string[] };
+
 export function Sidebar({ onContext, onBlacklistDetail, onNotify, tree, blacklistEntries, blacklistH: savedBlacklistH, onScope, focusPath, onFocusHandled, rootPaths,
                          displayNames, openBlacklistTick, onReorderRoots,
                          initialFavorites, initialTabs, initialSelection, pruneSignal,
                          onFavoritesChange, onTabsChange, onSelectionChange,
                          onBlacklistHeightCommit, onBlacklistChanged, rootCount,
-                         onBlacklistTab, onBlacklistDrop }: Props) {
+                         onBlacklistTab, onBlacklistDrop, onSelectionState, selectionSignal }: Props) {
   const treeData = tree ?? { id: "root", label: "", path: "", count: 0, children: [] };
   /* 원본 _can_move_root 판정용 — 루트(라이브러리)의 형제 안 위치 */
   const rootIndexOf = (id: string) =>
@@ -891,6 +900,43 @@ export function Sidebar({ onContext, onBlacklistDetail, onNotify, tree, blacklis
     }
     onFocusHandled?.();
   }, [focusPath, flatNodes, chainOf]);
+
+  /* ── 검색 탭별 폴더 선택 (2026-10-15 사용자 결정: 왼쪽 폴더 선택은 검색 탭마다 따로) ── */
+  const selToken = (id: string) =>
+    id === "all" ? "@all" : id === TAB_ALL_ID ? "@taball" : (nodeById[id]?.path || "#" + id);
+  useEffect(() => {
+    onSelectionState?.({ tab, sel: selToken(sel), items: [...multiSel].map(selToken) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sel, multiSel, tab]);
+  /* 되살리기는 트리가 도착한 뒤에 한다 (앱을 막 켰을 때는 트리가 늦게 온다) */
+  const pendingSelRef = useRef<SidebarSelection | null>(null);
+  const lastSelSignal = useRef(0);
+  useEffect(() => {
+    if (selectionSignal && selectionSignal.n !== lastSelSignal.current) {
+      lastSelSignal.current = selectionSignal.n;
+      pendingSelRef.current = selectionSignal.state;
+    }
+    const want = pendingSelRef.current;
+    if (!want) return;
+    const needsTree = [want.sel, ...want.items].some((t) => !t.startsWith("@"));
+    if (needsTree && !flatNodes.length) return;          // 트리가 오면 다시
+    pendingSelRef.current = null;
+    const byPath = new Map<string, string>();
+    for (const node of flatNodes) if (node.path) byPath.set(normPath(node.path).toLowerCase(), node.id);
+    const idOf = (token: string): string | null =>
+      token === "@all" ? "all" : token === "@taball" ? TAB_ALL_ID
+        : token.startsWith("#") ? token.slice(1)
+        : byPath.get(normPath(token).toLowerCase()) ?? null;
+    const tabKey = want.tab === "all" || want.tab === "fav" ? want.tab
+      : want.tab.startsWith("user:") && userTabs.includes(want.tab.slice(5)) ? want.tab : "all";
+    const ids = want.items.map(idOf).filter((id): id is string => Boolean(id));
+    const first = idOf(want.sel) ?? ids[0] ?? "all";
+    setTab(tabKey);
+    setOpen((prev) => new Set([...prev, ...ids.flatMap((id) => chainOf[id] ?? [])]));
+    setSel(first);
+    setMultiSel(new Set(ids.length ? ids : [first]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectionSignal, flatNodes, chainOf, userTabs]);
 
   /* 원본 _pending_last_selection — 저장된 경로를 그 탭에서 펼쳐 선택한다.
      원본 select_saved (library_tabs.py:783) 는 순서가 정해져 있다:

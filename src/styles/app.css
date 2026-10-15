@@ -1014,6 +1014,64 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .search-help { width: 24px; height: 24px; margin-left: 0; }
 /* .root-glow-gap (힌트글과 첫 필터 사이 4px)도 함께 없앴다 — 위 주석 참고 */
 
+/* ── 검색 탭 줄 (2026-10-15 사용자 지시) — 첫 검색어 줄 바로 위에 **딱 붙인다** (검색 영역의 일부로 보이게).
+   헤더(제품 이름 줄)와는 떨어뜨린다. .search-main 의 줄 간격(5px)을 아래 여백으로 지운다.
+   ⚠ 위 .search-main 주석의 "필터 위에 한 줄을 만들지 말 것" 은 힌트글 이야기다 — 탭 줄은 사용자가 정한 자리다. */
+.stabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 24px;
+  margin-bottom: -5px;
+  border-bottom: 1px solid var(--line-strong);
+}
+.stab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 10px 0 11px;
+  margin-bottom: -1px;
+  border: 1px solid var(--line);
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  background: var(--bg-control);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.stab:hover { color: var(--text); }
+.stab.active {
+  height: 24px;
+  border-color: var(--line-strong);
+  background: var(--bg-panel);
+  color: var(--text);
+  font-weight: 600;
+}
+.stab-close {
+  width: 14px;
+  height: 14px;
+  display: grid;
+  place-items: center;
+  border-radius: 3px;
+  color: var(--text-muted);
+}
+.stab-close:hover { background: var(--bg-control-hi); color: var(--text); }
+.stab-add {
+  width: 22px;
+  height: 20px;
+  margin: 0 0 1px 2px;
+  display: grid;
+  place-items: center;
+  border-radius: 3px;
+  color: var(--text-muted);
+}
+.stab-add:hover { background: var(--bg-control-hi); color: var(--text); }
+.stabs-grow { flex: 1; }
+.stabs > .help-dot { margin-bottom: 2px; }
+
 .filter-row { display: flex; align-items: center; gap: 4px; height: 28px; }
 .filter-row.child { padding-left: 56px; }
 .select {
