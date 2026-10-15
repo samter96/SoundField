@@ -150,6 +150,21 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
   flex: 0 0 16px;
 }
 
+/* ── 업데이트(렌치) 버튼 (2026-10-15) — 언어 토글 왼쪽의 작은 원. 높이는 토글과 같은 20px */
+.chrome-update {
+  width: 20px;
+  height: 20px;
+  margin: 0 5px 0 2px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-elev);
+  color: var(--text-secondary);
+  transition: border-color var(--t-hover) var(--ease), color var(--t-hover) var(--ease);
+}
+.chrome-update:hover { border-color: var(--accent); color: var(--text); }
+
 /* ── 표시 언어 슬라이드 토글 (사용자 지시 2026-09-08) ──────────────────────
    창 버튼(ㅡ ㅁ ✕) 왼쪽에 놓인다. 손잡이가 좌우로 미끄러지며 켜진 쪽을 덮고,
    덮인 쪽 글자만 밝아진다. 타이틀바 높이(34px) 안에 들어가야 하므로 20px 이다.

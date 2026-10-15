@@ -738,6 +738,11 @@ export async function updateCheck(): Promise<UpdateInfo | null> {
 export const updateDownload = (): Promise<void> => invoke<void>("sf_update_download");
 export const updateCancel = (): Promise<void> => invoke<void>("sf_update_cancel").catch(() => {});
 export const updateApply = (): Promise<void> => invoke<void>("sf_update_apply");
+/** 올리는 곳이 정해져 있는지 — 타이틀바 렌치 버튼을 보일지 */
+export const updateEnabled = (): Promise<boolean> => invoke<boolean>("sf_update_enabled").catch(() => false);
+/** 렌치 버튼 — 새 버전이 있으면 update, 없으면 지금 버전까지의 내역 전체(notes) */
+export type UpdateManual = { current: string; update: UpdateInfo | null; notes: UpdateNote[] };
+export const updateManual = (): Promise<UpdateManual> => invoke<UpdateManual>("sf_update_manual");
 
 export function onUpdateProgress(cb: (value: UpdateProgress) => void): () => void {
   let stop: (() => void) | null = null;

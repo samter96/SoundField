@@ -1450,6 +1450,8 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
   const [exitAsk, setExitAsk] = useState(false);
   /* 자동 업데이트 창이 떠 있는 동안은 앱 단축키를 막는다 (components/UpdateDialog.tsx) */
   const [updateOpen, setUpdateOpen] = useState(false);
+  /* 타이틀바 렌치 버튼을 누를 때마다 올려서 업데이트 창을 직접 연다 */
+  const [updateToken, setUpdateToken] = useState(0);
   /* Enter 와 [종료] 버튼 클릭이 겹쳐도 종료 절차는 한 번만 돈다 */
   const exitingRef = useRef(false);
 
@@ -1851,7 +1853,8 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
     <div className="app">
       {/* 표시 언어 토글은 창 제어줄 안에 있다 (LangToggle 주석 참고).
           바뀐 값은 다른 설정과 같은 1초 디바운스로 저장된다. */}
-      <WindowChrome onLangChange={(lang) => patchConfig({ lang })} />
+      <WindowChrome onLangChange={(lang) => patchConfig({ lang })}
+                    onUpdateClick={() => setUpdateToken((n) => n + 1)} />
       {/* 업데이트 정비 화면 — 할 일이 있을 때만. 제목줄은 덮지 않는다 (닫기 가능). */}
       {maint && (
         <div className="maint-overlay" role="dialog" aria-modal="true">
@@ -2469,7 +2472,8 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
       <CenterToast message={toast} />
       <CenterLoader tasks={loaderTasks} />
       {/* 자동 업데이트 — update.cfg 가 비어 있으면 아무것도 안 그린다 */}
-      <UpdateDialog onBeforeRestart={flushConfigSave} onOpenChange={setUpdateOpen} />
+      <UpdateDialog onBeforeRestart={flushConfigSave} onOpenChange={setUpdateOpen}
+                    openToken={updateToken} />
     </div>
   );
 }

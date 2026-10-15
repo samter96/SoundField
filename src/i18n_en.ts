@@ -30,6 +30,9 @@ const CURATED_EN: Record<string, string> = {
   "받는 중… {0} / {1} MB": "Downloading… {0} / {1} MB",
   "다시 시작하는 중…": "Restarting…",
   "이전 크기로": "Restore down",
+  "업데이트 확인·내역 보기": "Check for updates · release notes",
+  "새 버전을 확인하는 중…": "Checking for a new version…",
+  "지금 최신 버전입니다 ({0}).": "You have the latest version ({0}).",
   "확인": "OK",
   "업데이트를 받지 못했습니다. 지금 버전으로 계속 사용합니다.":
     "Couldn't download the update. You can keep using the current version.",

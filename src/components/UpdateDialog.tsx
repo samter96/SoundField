@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  onUpdateDone, onUpdateProgress, updateApply, updateCancel, updateCheck, updateDownload,
-  type UpdateInfo, type UpdateProgress,
+  onUpdateDone, onUpdateProgress, updateApply, updateCancel, updateCheck, updateDownload, updateManual,
+  type UpdateInfo, type UpdateNote, type UpdateProgress,
 } from "../backend";
 import { t } from "../i18n";
 
@@ -9,9 +9,11 @@ import { t } from "../i18n";
    켤 때 새 버전이 있으면 "업데이트 / 나중에" 를 묻는다. 업데이트를 고르면 바뀐 파일만
    받는 진행 막대를 보여 주고, 다 받으면 설정을 저장한 뒤 앱이 다시 시작된다
    (교체는 앱이 꺼진 뒤 도우미가 한다 — src-tauri/src/updater.rs).
-   올리는 곳(update.cfg)이 비어 있으면 확인이 늘 null 이라 이 창은 영영 안 뜬다. */
+   올리는 곳(update.cfg)이 비어 있으면 확인이 늘 null 이라 이 창은 영영 안 뜬다.
+   타이틀바 렌치 버튼(2026-10-15)으로도 연다 — 새 버전이 있으면 같은 업데이트 창,
+   없으면 "최신 버전" 안내와 지금 버전까지의 내역 전체. */
 
-type Phase = "ask" | "down" | "restart" | "error";
+type Phase = "checking" | "ask" | "latest" | "down" | "restart" | "error";
 
 /* 버전 하나의 내역 (UPDATE_NOTES.md 의 "## 번호" 칸) — "### 묶음", "- 항목", 들여쓴 "  - 세부" 만 쓴다 */
 function NoteBody({ text }: { text: string }) {
@@ -33,39 +35,83 @@ function NoteBody({ text }: { text: string }) {
   );
 }
 
+function NoteList({ notes }: { notes: UpdateNote[] }) {
+  if (notes.length === 0) return null;
+  return (
+    <div className="update-notes">
+      {notes.map((note) => (
+        <section key={note.version} className="un-ver">
+          <div className="un-ver-head">v{note.version}</div>
+          <NoteBody text={note.text} />
+        </section>
+      ))}
+    </div>
+  );
+}
+
 const toMb = (bytes: number) => (bytes / 1048576).toFixed(bytes < 10 * 1048576 ? 1 : 0);
 
 /* 같은 버전 번호를 다시 올린 경우에는 빌드 시각으로 구분해 보여 준다 ("2.2.0+20261014T1015Z") */
 const label = (info: UpdateInfo) =>
   info.version === info.current ? `${info.version} (${info.build.split("+")[1] ?? info.build})` : info.version;
 
-export function UpdateDialog({ onBeforeRestart, onOpenChange }: {
+export function UpdateDialog({ onBeforeRestart, onOpenChange, openToken = 0 }: {
   /** 다시 시작 전에 설정을 저장한다 (App 의 flushConfigSave) */
   onBeforeRestart: () => Promise<void>;
   /** 창이 떠 있는 동안 앱 단축키(스페이스 재생 등)를 막도록 알린다 */
   onOpenChange?: (open: boolean) => void;
+  /** 값이 바뀔 때마다 직접 연다 (타이틀바 렌치 버튼) */
+  openToken?: number;
 }) {
+  const [open, setOpen] = useState(false);
   const [info, setInfo] = useState<UpdateInfo | null>(null);
+  const [latest, setLatest] = useState<{ current: string; notes: UpdateNote[] } | null>(null);
   const [phase, setPhase] = useState<Phase>("ask");
   const [progress, setProgress] = useState<UpdateProgress>({ done: 0, total: 0 });
   const [error, setError] = useState("");
   const cancelledRef = useRef(false);
 
-  useEffect(() => { onOpenChange?.(info !== null); }, [info]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { onOpenChange?.(open); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     /* 시작 직후의 트리·검색 준비와 겹치지 않게 조금 뒤에 확인한다 */
     const timer = window.setTimeout(() => {
-      void updateCheck().then((value) => { if (value) setInfo(value); });
+      void updateCheck().then((value) => {
+        if (!value) return;
+        setInfo(value);
+        setPhase((current) => (current === "down" || current === "restart" ? current : "ask"));
+        setOpen(true);
+      });
     }, 2500);
     return () => window.clearTimeout(timer);
   }, []);
+
+  /* 렌치 버튼 — 받는 중·다시 시작 중이면 그 화면을 그대로 다시 보여 주기만 한다 */
+  useEffect(() => {
+    if (openToken === 0) return;
+    if (open && (phase === "down" || phase === "restart")) return;
+    setOpen(true);
+    setPhase("checking");
+    setError("");
+    updateManual().then((value) => {
+      if (value.update) {
+        setInfo(value.update);
+        setPhase("ask");
+      } else {
+        setLatest({ current: value.current, notes: value.notes });
+        setPhase("latest");
+      }
+    }).catch((e) => {
+      setError(String(e));
+      setPhase("error");
+    });
+  }, [openToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const stopProgress = onUpdateProgress(setProgress);
     const stopDone = onUpdateDone((value) => {
       if (!value.ok) {
-        if (cancelledRef.current) { setInfo(null); return; }   // 취소는 조용히 닫는다
+        if (cancelledRef.current) { setOpen(false); return; }   // 취소는 조용히 닫는다
         setError(value.error);
         setPhase("error");
         return;
@@ -90,15 +136,15 @@ export function UpdateDialog({ onBeforeRestart, onOpenChange }: {
     updateDownload().catch((e) => { setError(String(e)); setPhase("error"); });
   };
   const cancel = () => { cancelledRef.current = true; void updateCancel(); };
-  const later = () => setInfo(null);
+  const close = () => setOpen(false);
 
-  /* Esc = 나중에(받는 중이면 취소), Enter = 업데이트 */
+  /* Esc = 나중에·닫기(받는 중이면 취소), Enter = 업데이트 */
   useEffect(() => {
-    if (!info) return;
+    if (!open) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        if (phase === "ask" || phase === "error") later();
+        if (phase === "ask" || phase === "error" || phase === "latest" || phase === "checking") close();
         else if (phase === "down") cancel();
       } else if (event.key === "Enter" && phase === "ask") {
         event.preventDefault();
@@ -107,16 +153,19 @@ export function UpdateDialog({ onBeforeRestart, onOpenChange }: {
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [info, phase]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!info) return null;
+  if (!open) return null;
   const pct = progress.total > 0 ? Math.min(100, (progress.done / progress.total) * 100) : 0;
   return (
     <div className="scrim">
       <div className="modal update" role="dialog" aria-modal="true">
         <div className="modal-head"><span className="modal-title">{t("업데이트")}</span></div>
         <div className="modal-body">
-          {phase === "ask" && (
+          {phase === "checking" && (
+            <div className="confirm-text">{t("새 버전을 확인하는 중…")}</div>
+          )}
+          {phase === "ask" && info && (
             <>
               <div className="confirm-text pre">
                 {t("새 버전이 있습니다.")}{"\n\n"}
@@ -126,16 +175,13 @@ export function UpdateDialog({ onBeforeRestart, onOpenChange }: {
               </div>
               {/* 지금 버전보다 새 버전들의 내역, 최신부터 (2026-10-14 사용자 요청).
                   고르는 건 앱(updater.rs notes_between) — 2.1.7 사용자는 2.2.0·2.2.1 을 모두 본다. */}
-              {info.notes.length > 0 && (
-                <div className="update-notes">
-                  {info.notes.map((note) => (
-                    <section key={note.version} className="un-ver">
-                      <div className="un-ver-head">v{note.version}</div>
-                      <NoteBody text={note.text} />
-                    </section>
-                  ))}
-                </div>
-              )}
+              <NoteList notes={info.notes} />
+            </>
+          )}
+          {phase === "latest" && latest && (
+            <>
+              <div className="confirm-text">{t("지금 최신 버전입니다 ({0}).", latest.current)}</div>
+              <NoteList notes={latest.notes} />
             </>
           )}
           {phase === "down" && (
@@ -160,11 +206,14 @@ export function UpdateDialog({ onBeforeRestart, onOpenChange }: {
           {phase === "ask" && (
             <>
               <button className="btn btn-primary" autoFocus onClick={start}>{t("업데이트")}</button>
-              <button className="btn" onClick={later}>{t("나중에")}</button>
+              <button className="btn" onClick={close}>{t("나중에")}</button>
             </>
           )}
+          {(phase === "latest" || phase === "checking") && (
+            <button className="btn btn-primary" autoFocus onClick={close}>{t("닫기")}</button>
+          )}
           {phase === "down" && <button className="btn" onClick={cancel}>{t("취소")}</button>}
-          {phase === "error" && <button className="btn btn-primary" autoFocus onClick={later}>{t("확인")}</button>}
+          {phase === "error" && <button className="btn btn-primary" autoFocus onClick={close}>{t("확인")}</button>}
         </div>
       </div>
     </div>

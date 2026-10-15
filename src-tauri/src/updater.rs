@@ -285,6 +285,51 @@ pub fn sf_update_check() -> Result<Option<UpdateInfo>, String> {
         .map_err(|e| { log(&format!("확인 실패: {e}")); e })
 }
 
+/* 올리는 곳이 정해져 있는지 — 타이틀바 업데이트(렌치) 버튼을 보일지 정한다 */
+#[tauri::command]
+pub fn sf_update_enabled() -> bool {
+    source().is_some()
+}
+
+#[derive(Serialize, Clone)]
+pub struct ManualCheck {
+    current: String,
+    /** 새 버전이 있으면 켤 때 뜨는 창과 같은 정보 */
+    update: Option<UpdateInfo>,
+    /** 최신이면 지금 버전까지의 내역 전체 (최신부터) */
+    notes: Vec<Note>,
+}
+
+/* 타이틀바 렌치 버튼 (2026-10-15 사용자 요청) — 켜 둔 동안 언제든 같은 창을 띄운다.
+   새 버전이 있으면 업데이트 창, 없으면 "최신 버전" 안내와 지금 버전까지의 내역 전체. */
+#[tauri::command(async)]
+pub fn sf_update_manual() -> Result<ManualCheck, String> {
+    let src = source().ok_or("업데이트를 받는 곳이 정해져 있지 않습니다")?;
+    let install = install_dir()?;
+    let root = update_root()?;
+    let local: Manifest = read_json(&install.join(LOCAL_MANIFEST))?;
+    let update = check_with(&install, &src, &root)
+        .map_err(|e| { log(&format!("확인 실패(버튼): {e}")); e })?;
+    let mut notes = Vec::new();
+    if update.is_none() {
+        let remote = fetch_remote(&src, &root)?;
+        if remote.app.eq_ignore_ascii_case(&local.app) && remote.brand.eq_ignore_ascii_case(&local.brand) {
+            let cur = ver_key(&local.version);
+            notes = remote.notes.into_iter().filter(|n| ver_key(&n.version) <= cur).collect();
+            notes.sort_by(|a, b| ver_key(&b.version).cmp(&ver_key(&a.version)));
+        }
+    }
+    Ok(ManualCheck { current: local.version, update, notes })
+}
+
+fn fetch_remote(src: &str, root: &Path) -> Result<Manifest, String> {
+    let latest_tmp = root.join("latest.download");
+    fetch_to(src, LATEST, &latest_tmp, &mut |_| {})?;
+    let remote: Manifest = read_json(&latest_tmp)?;
+    let _ = std::fs::remove_file(&latest_tmp);
+    Ok(remote)
+}
+
 /* 경로를 인자로 받는 본체 — 시험(tests)이 임시 폴더로 돌릴 수 있게 */
 fn check_with(install: &Path, src: &str, root: &Path) -> Result<Option<UpdateInfo>, String> {
     let install = install.to_path_buf();
@@ -293,10 +338,7 @@ fn check_with(install: &Path, src: &str, root: &Path) -> Result<Option<UpdateInf
         Ok(m) => m,
         Err(e) => { log(&format!("확인 건너뜀 — 설치 폴더 목록 없음: {e}")); return Ok(None); }
     };
-    let latest_tmp = root.join("latest.download");
-    fetch_to(src, LATEST, &latest_tmp, &mut |_| {})?;
-    let remote: Manifest = read_json(&latest_tmp)?;
-    let _ = std::fs::remove_file(&latest_tmp);
+    let remote = fetch_remote(src, root)?;
 
     /* 다른 갈래(brand)나 다른 앱의 목록이면 절대 받지 않는다 */
     if !remote.app.eq_ignore_ascii_case(&local.app) || !remote.brand.eq_ignore_ascii_case(&local.brand) {

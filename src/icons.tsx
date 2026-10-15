@@ -98,6 +98,8 @@ export function IcoTarget({ size = 20, className }: P) {
 export const IcoMin     = S("M3.5 8h9");
 export const IcoMax     = S("M3.6 3.6h8.8v8.8H3.6z");
 /* 최대화된 창의 "이전 크기로" — 겹친 네모 두 개 (윈도우·크롬·엣지와 같은 모양, 2026-10-14) */
+/* 업데이트(렌치) — 타이틀바 원형 버튼 안 (2026-10-15) */
+export const IcoWrench  = S("M10.6 2.4a3.2 3.2 0 0 0-3.1 4.1L2.9 11.1a1.25 1.25 0 0 0 1.8 1.8l4.6-4.6a3.2 3.2 0 0 0 4.1-3.1l-1.9 1.9-1.6-.4-.4-1.6z");
 export const IcoRestore = S("M5.6 5.6V3.6h6.8v6.8h-2M3.6 5.6h6.8v6.8H3.6z");
 export const IcoSun     = S("M8 11a3 3 0 1 0 0-6a3 3 0 0 0 0 6M8 1.6v1.6M8 12.8v1.6M1.6 8h1.6M12.8 8h1.6M3.5 3.5l1.1 1.1M11.4 11.4l1.1 1.1M12.5 3.5l-1.1 1.1M4.6 11.4l-1.1 1.1");
 export const IcoDup     = S("M5.6 5.6V3.4h7v7h-2.2M3.4 5.6h7v7h-7z");
