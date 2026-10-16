@@ -19,6 +19,8 @@ type DbRow = {
   album: string | null;
   genre: string | null;
   comments: string | null;
+  /** 동의어가 있어야 걸린 행이면 1 (검색 결과에만, database.SYN_HIT_KEY) */
+  syn_hit?: number;
 };
 
 type DbRoot = {
@@ -98,6 +100,7 @@ function toRow(row: DbRow, index: number): Row {
     genre: row.genre ?? "",
     comments: row.comments ?? "",
     bitrate: Number(row.bitrate) || 0,
+    synHit: !!row.syn_hit,
   };
 }
 

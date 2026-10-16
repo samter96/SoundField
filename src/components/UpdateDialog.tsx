@@ -56,13 +56,17 @@ const toMb = (bytes: number) => (bytes / 1048576).toFixed(bytes < 10 * 1048576 ?
 const label = (info: UpdateInfo) =>
   info.version === info.current ? `${info.version} (${info.build.split("+")[1] ?? info.build})` : info.version;
 
-export function UpdateDialog({ onBeforeRestart, onOpenChange, openToken = 0 }: {
+export function UpdateDialog({ onBeforeRestart, onOpenChange, onStartupDone, openToken = 0 }: {
   /** 다시 시작 전에 설정을 저장한다 (App 의 flushConfigSave) */
   onBeforeRestart: () => Promise<void>;
   /** 창이 떠 있는 동안 앱 단축키(스페이스 재생 등)를 막도록 알린다 */
   onOpenChange?: (open: boolean) => void;
   /** 값이 바뀔 때마다 직접 연다 (타이틀바 렌치 버튼) */
   openToken?: number;
+  /** 시작 시 업데이트 확인이 끝났다 — 업데이트가 없거나, 안내 창을 닫았을 때(나중에·실패) 한 번.
+      '업데이트' 로 다시 시작하면 부르지 않는다 (새 버전이 정비·인덱싱을 한다). App 이 이걸 기다려
+      정비·인덱싱을 시작한다 (사용자 결정 2026-10-16: 업데이트가 먼저). */
+  onStartupDone?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [info, setInfo] = useState<UpdateInfo | null>(null);
@@ -75,18 +79,31 @@ export function UpdateDialog({ onBeforeRestart, onOpenChange, openToken = 0 }: {
 
   useEffect(() => { onOpenChange?.(open); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /* 시작 확인 상태: wait = 확인 중, shown = 안내 창을 띄움, done = App 에 알림 */
+  const startupRef = useRef<"wait" | "shown" | "done">("wait");
+  const startupDone = () => {
+    if (startupRef.current === "done") return;
+    startupRef.current = "done";
+    onStartupDone?.();
+  };
+  /* 시작 때 띄운 안내 창이 닫히면(나중에·취소·실패 후 확인) 정비·인덱싱을 시작하게 한다 */
+  useEffect(() => {
+    if (!open && startupRef.current === "shown") startupDone();
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     /* 시작 직후의 트리·검색 준비와 겹치지 않게 조금 뒤에 확인한다 */
     const timer = window.setTimeout(() => {
       void updateCheck().then((value) => {
-        if (!value) return;
+        if (!value) { startupDone(); return; }
         setInfo(value);
         setPhase((current) => (current === "down" || current === "restart" ? current : "ask"));
+        startupRef.current = "shown";
         setOpen(true);
       });
     }, 2500);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* 렌치 버튼 — 받는 중·다시 시작 중이면 그 화면을 그대로 다시 보여 주기만 한다 */
   useEffect(() => {
@@ -161,7 +178,9 @@ export function UpdateDialog({ onBeforeRestart, onOpenChange, openToken = 0 }: {
   const pct = progress.total > 0 ? Math.min(100, (progress.done / progress.total) * 100) : 0;
   return (
     <div className="scrim">
-      <div className="modal update" role="dialog" aria-modal="true">
+      {/* 받는 중·다시 시작 중은 진행 막대뿐이라 작은 창 (사용자 지시 2026-10-16) */}
+      <div className={"modal update" + (phase === "down" || phase === "restart" ? " compact" : "")}
+           role="dialog" aria-modal="true">
         <div className="modal-head"><span className="modal-title">{dev ? t("업데이트 (개발자 배포)") : t("업데이트")}</span></div>
         <div className="modal-body">
           {phase === "checking" && (

@@ -1,8 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { fmtSize, type Row } from "../data";
-import { IcoCheck, IcoSortTri, IcoX } from "../icons";
+import { IcoCheck, IcoLink, IcoSortTri, IcoX } from "../icons";
+import { t } from "../i18n";
 import { watchRowDrag } from "../drag";
 import { makeRowDragImage } from "../dragImage";
+import { useDevChannel } from "../version";
 
 type ColumnKey =
   | "duration" | "file_name" | "file_path" | "sample_rate" | "channels" | "bit_depth" | "codec"
@@ -242,6 +244,8 @@ export function ResultsTable({
   }, []);
   const [height, setHeight] = useState(300);
   const [selected, setSelected] = useState<Set<number>>(() => new Set(initialView?.selectedIds ?? []));
+  /* 동의어로 걸린 결과 표시(파일 이름 앞 고리) — 개발자 배포를 받는 PC 에서만 (사용자 결정 2026-10-15·16) */
+  const showSynHit = useDevChannel();
   const [headerMenu, setHeaderMenu] = useState<{ x: number; y: number } | null>(null);
   const [draggingKey, setDraggingKey] = useState<ColumnKey | null>(null);
 
@@ -788,7 +792,8 @@ export function ResultsTable({
                          (results_table._item_for_value: file_name → full_path).
                          나머지 셀은 셀 텍스트가 잘릴 때만 의미가 있다. */
                       onMouseMove={(event) => scheduleTip(event,
-                        col.key === "file_name" ? (row.fullPath || content) : content)}
+                        (event.target as HTMLElement).closest?.(".syn-ico") ? t("동의어로 찾음")
+                          : col.key === "file_name" ? (row.fullPath || content) : content)}
                       onMouseLeave={cancelTip}
                       onMouseDown={cancelTip}
                     >
@@ -796,6 +801,9 @@ export function ResultsTable({
                         <>
                           <span className="dot" />
                           {row.fmt && <span className={`fmt ${row.fmt.toLowerCase()}`}>{row.fmt}</span>}
+                          {showSynHit && (
+                            <span className="syn-ico">{row.synHit && <IcoLink size={11} />}</span>
+                          )}
                           <span>{content}</span>
                         </>
                       ) : content}

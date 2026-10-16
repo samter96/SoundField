@@ -243,7 +243,10 @@ fn fetch_to(src: &str, name: &str, dest: &Path, on_bytes: &mut dyn FnMut(u64)) -
     if is_url(src) {
         let url = format!("{}/{}", src.trim_end_matches('/'), name);
         let mut cmd = std::process::Command::new("curl.exe");
-        cmd.args(["-L", "-f", "-s", "-S", "--connect-timeout", "15", "-o"])
+        // 30초 동안 1바이트도 안 오면 끊는다 — 시작 정비·인덱싱이 업데이트 확인을 기다리므로
+        // 확인이 멈춰 있으면 안 된다 (2026-10-16).
+        cmd.args(["-L", "-f", "-s", "-S", "--connect-timeout", "15",
+                  "--speed-limit", "1", "--speed-time", "30", "-o"])
             .arg(dest).arg(&url)
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::piped());

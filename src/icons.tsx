@@ -231,6 +231,19 @@ export function YsgMark({ size = 26 }: P) {
 
 /* 결과표 정렬 표시 — 원본 paintSection 은 7x4 채운 삼각형을 그린다.
    내림차순은 아래쪽, 오름차순은 위쪽 (CSS 로 회전). */
+/* 동의어로 찾은 결과 표시 — 사슬 고리 두 개 (결과표 파일 이름 앞) */
+export function IcoLink({ size = 12, className }: P) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" className={className}
+         aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6"
+         strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6.6 9.4l2.8-2.8" />
+      <path d="M7.3 4.4l1.2-1.2a2.8 2.8 0 0 1 4 4l-1.2 1.2" />
+      <path d="M8.7 11.6l-1.2 1.2a2.8 2.8 0 0 1-4-4l1.2-1.2" />
+    </svg>
+  );
+}
+
 export function IcoSortTri({ size = 8, className }: P) {
   return (
     <svg width={size} height={(size * 4) / 7} viewBox="0 0 7 4" className={className}

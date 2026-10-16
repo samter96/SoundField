@@ -21,6 +21,8 @@ export type Row = {
   genre: string;
   comments: string;
   bitrate: number;
+  /** 원래 친 단어만으로는 안 걸리고 동의어로 걸린 결과 (개발자 배포에서만 표시, 2026-10-15) */
+  synHit?: boolean;
 };
 
 const WORDS_A = ["Digital Futuristic Display", "User Interface Metal", "Zoom Screen Switch",

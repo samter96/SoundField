@@ -34,6 +34,7 @@ const CURATED_EN: Record<string, string> = {
   "이 검색 탭 닫기": "Close this search tab",
   "검색 탭 추가": "Add search tab",
   "검색 탭 추가 (최대 3개)": "Add search tab (up to 3)",
+  "동의어로 찾음": "Found via synonym",
   "업데이트 확인·내역 보기": "Check for updates · release notes",
   "업데이트 (개발자 배포)": "Update (developer build)",
   "개발자 배포를 받고 있습니다 — 이 PC 의 dev.cfg 를 지우면 정식 배포로 돌아갑니다":

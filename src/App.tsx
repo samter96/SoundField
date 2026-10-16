@@ -721,7 +721,13 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
   /* 원본 시작 순서: 메타 파서 버전이 바뀌었으면 과거 실패분을 한 번만 대기열로
      되돌린 뒤 Phase2를 시작한다. 정확검색 단어색인은 2.5초 후 조용히 확인하고,
      다른 writer가 사용 중이면 10초 뒤 다시 시도한다. */
+  /* 시작 정비·인덱싱은 업데이트 확인이 끝난 뒤에 (사용자 결정 2026-10-16).
+     업데이트가 있으면 안내 창이 먼저 뜨고, '나중에'를 누르거나 업데이트가 없을 때 시작한다.
+     '업데이트'를 누르면 앱이 다시 켜지고 새 버전이 정비한다 — 예전엔 둘이 함께 떠
+     정비 화면(z 80)이 업데이트 창(z 50)을 가렸고, 정비 뒤 업데이트를 누르면 메타 분석이 끊겼다. */
+  const [updateChecked, setUpdateChecked] = useState(false);
   useEffect(() => {
+    if (!updateChecked) return;
     let alive = true;
     let termTimer = 0;
     let upgradeTimer = 0;
@@ -795,7 +801,7 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
       window.clearTimeout(termTimer);
       window.clearTimeout(upgradeTimer);
     };
-  }, []);
+  }, [updateChecked]);
 
   const addLibrary = (picked: string) => {
     const target = normPath(picked);
@@ -2645,6 +2651,7 @@ ${what} 을(를) 하려면 분석을 잠시 중단해야 합니다.
       <CenterLoader tasks={loaderTasks} />
       {/* 자동 업데이트 — update.cfg 가 비어 있으면 아무것도 안 그린다 */}
       <UpdateDialog onBeforeRestart={flushConfigSave} onOpenChange={setUpdateOpen}
+                    onStartupDone={() => setUpdateChecked(true)}
                     openToken={updateToken} />
     </div>
   );

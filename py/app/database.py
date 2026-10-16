@@ -2778,6 +2778,9 @@ class Database:
     _TOKEN_DELIMS = (" ", "_", "-", ".", ",", "(", ")")
 
     _SYNONYM_RANK_FACTOR = 0.3   # 동의어 매칭은 원문 가중치의 30% 만 — 항상 원문 정확매칭 아래로.
+    # 결과 행 표시 (2026-10-15): 원래 친 단어만으로는 안 걸리고 동의어가 있어야 걸린 행에 1.
+    # 여러 단어 중 하나라도 동의어로 걸렸으면 동의어로 친다. 폴더 이름에만 원래 단어가 있으면 원래 단어.
+    SYN_HIT_KEY = "syn_hit"
 
     def _rank_score(self, row: Dict, tokens: List[str],
                     synonym_tokens: Optional[List[str]] = None) -> float:
@@ -3222,17 +3225,18 @@ class Database:
         # 시험했으나 드문 필터와 겹치면 더 느렸다 ('door -ui' + 5.1: 0.06초 → 7초).
         return any(self._needs_scan(e, precise) for e in long_ + expr.negs)
 
-    def _pred_sql(self, expr, precise: bool = False) -> Tuple[str, List]:
+    def _pred_sql(self, expr, precise: bool = False, with_syns: bool = True) -> Tuple[str, List]:
         """식 → audio_files 한 행(a)에 대한 WHERE 조건. 짧은 단어는 LIKE 그대로(넓게 찾기),
-        나머지 단위는 rowid 집합 소속 여부(sf_rowid(a.id) IN ...)로 본다."""
+        나머지 단위는 rowid 집합 소속 여부(sf_rowid(a.id) IN ...)로 본다.
+        with_syns=False: 동의어 없이 원래 단어만 (동의어로 걸린 행 가려내기용)."""
         if isinstance(expr, sq.Term):
             like = None if precise else self._like_only(expr)
             if like is not None:
                 return like
-            set_sql, set_params = self._set_sql(expr, precise)
+            set_sql, set_params = self._set_sql(expr, precise, with_syns)
             return f"sf_rowid(a.id) IN ({set_sql})", set_params
         joiner = " OR " if expr.kind == "or" else " AND "
-        parts = [self._pred_sql(e, precise) for e in expr.items]
+        parts = [self._pred_sql(e, precise, with_syns) for e in expr.items]
         sql = joiner.join(f"({s})" for s, _ in parts) if parts else "1"
         params = [p for _, ps in parts for p in ps]
         for neg in expr.negs:
@@ -3679,6 +3683,8 @@ class Database:
                         have = {r.get('file_path') for r in rows_out}
                         more = precise_fetch(fts, want + len(rows_out))
                         rows_out += [r for r in more if r.get('file_path') not in have][:want - len(rows_out)]
+                        for r in rows_out[precise_orig_n:]:
+                            r[self.SYN_HIT_KEY] = 1
                     results[:] = rows_out
                     seen_paths.clear()
                     seen_paths.update(r.get('file_path') for r in rows_out)
@@ -3689,6 +3695,15 @@ class Database:
                     pred, pred_params = self._pred_sql(expr, precise)
                     run(f"{with_sql}SELECT a.* FROM audio_files a WHERE ({pred}) AND {where}",
                         pred_params + cond_params, int(limit))
+                    if legacy_syn_words and results and (cancel_check is None or not cancel_check()):
+                        # 이 길은 동의어가 한 식에 섞여 단계로 못 나눈다 — 찾은 행만 원래 단어 조건에 다시 댄다
+                        opred, opred_params = self._pred_sql(expr, precise, with_syns=False)
+                        orig_ids = {r[0] for r in conn.execute(
+                            "SELECT a.id FROM json_each(?) j CROSS JOIN audio_files a ON a.id = j.value "
+                            f"WHERE ({opred})", [json.dumps([r.get("id") for r in results])] + opred_params)}
+                        for r in results:
+                            if r.get("id") not in orig_ids:
+                                r[self.SYN_HIT_KEY] = 1
                 else:
                     # 원래 친 단어 먼저 (2026-10-12): 1단계는 동의어 없이 모으고, 상한을 못 채우면
                     # 그때만 동의어 포함 식으로 남은 자리를 채운다. 원래 단어만으로 상한이 차는
@@ -3755,7 +3770,10 @@ class Database:
                                      + " SELECT a.* FROM hit "
                                      f"CROSS JOIN {table} f ON f.rowid = hit.r "
                                      f"CROSS JOIN audio_files a ON a.id = f.file_id WHERE {where}")
+                            n_orig = len(results)
                             run(base2, syn_params + cond_params, remaining + len(results))
+                            for r in results[n_orig:]:
+                                r[self.SYN_HIT_KEY] = 1
             if expr is not None and not results and info is not None:
                 info["suggestions"] = self._suggestions(conn, terms)
         finally:
