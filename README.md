@@ -12,7 +12,7 @@
 설치본은 독립 실행입니다 — 다른 프로그램을 따로 깔 필요가 없습니다.
 화면을 그리는 데 Microsoft Edge WebView2 런타임이 필요하고, 없으면 설치 중에 함께 깝니다.
 
-소개 페이지: <https://samter96.github.io/YSGAudioTools/soundfield/>
+소개 페이지: <https://samter96.github.io/YSGAudioLabs/soundfield/>
 
 ## 저작권
 
